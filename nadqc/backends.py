@@ -9,9 +9,6 @@ import pandas as pd
 
 class QiskitBackendImporter:
     def __init__(self, token, instance, proxies):
-        print(token)
-        print(instance)
-        print(proxies)
         QiskitRuntimeService.save_account(token, instance=instance, overwrite=True, proxies=proxies)
         self.service = QiskitRuntimeService()
         return
@@ -38,7 +35,7 @@ class QiskitBackendImporter:
             print('Device properties saved for date:', date.strftime("%Y-%m-%d"))
 
             # 将properties写入xlsx文件
-            self.to_xlsx(properties.to_dict(), os.path.join(folder, f'{backend.name}_{date.strftime("%Y-%m-%d")}.xlsx'))
+            self._to_xlsx(properties.to_dict(), os.path.join(folder, f'{backend.name}_{date.strftime("%Y-%m-%d")}.xlsx'))
 
             date += datetime.timedelta(days=1)
         return
@@ -61,7 +58,7 @@ class QiskitBackendImporter:
             return dt.isoformat()
         return dt
 
-    def build_basic_info(self, data: dict):
+    def _build_basic_info(self, data: dict):
         row = {
             'backend_name': data.get('backend_name'),
             'backend_version': data.get('backend_version'),
@@ -70,7 +67,7 @@ class QiskitBackendImporter:
         }
         return pd.DataFrame([row])
 
-    def build_gate_info(self, data: dict):
+    def _build_gate_info(self, data: dict):
         gates = data.get('gates', [])
         rows = []
         for g in gates:
@@ -94,7 +91,7 @@ class QiskitBackendImporter:
             rows.append(row)
         return pd.DataFrame(rows)
 
-    def build_qubit_info(self, data: dict):
+    def _build_qubit_info(self, data: dict):
         qubits = data.get('qubits', [])
         rows = []
         for qid, qlist in enumerate(qubits):
@@ -110,7 +107,7 @@ class QiskitBackendImporter:
             rows.append(row)
         return pd.DataFrame(rows)
 
-    def build_general_info(self, data: dict):
+    def _build_general_info(self, data: dict):
         gens = data.get('general', [])
         rows = []
         for item in gens:
@@ -129,18 +126,18 @@ class QiskitBackendImporter:
             rows.append(row)
         return pd.DataFrame(rows)
 
-    def save_to_excel(self, basic_df, gate_df, qubit_df, general_df, out_path: str):
+    def _save_to_excel(self, basic_df, gate_df, qubit_df, general_df, out_path: str):
         with pd.ExcelWriter(out_path, engine='openpyxl') as writer:
             basic_df.to_excel(writer, index=False, sheet_name='basic_info')
             gate_df.to_excel(writer, index=False, sheet_name='gate_info')
             qubit_df.to_excel(writer, index=False, sheet_name='qubit_info')
             general_df.to_excel(writer, index=False, sheet_name='general_info')
 
-    def to_xlsx(self, data: dict, output_path: str = 'noise_parsed.xlsx'):
-        basic_df = self.build_basic_info(data)
-        gate_df = self.build_gate_info(data)
-        qubit_df = self.build_qubit_info(data)
-        general_df = self.build_general_info(data)
+    def _to_xlsx(self, data: dict, output_path: str = 'noise_parsed.xlsx'):
+        basic_df = self._build_basic_info(data)
+        gate_df = self._build_gate_info(data)
+        qubit_df = self._build_qubit_info(data)
+        general_df = self._build_general_info(data)
 
         # 可选：按列名排序，让 *_value, *_unit, *_date 更整齐
         def sort_cols(df):
@@ -158,14 +155,15 @@ class QiskitBackendImporter:
         except Exception:
             pass
 
-        self.save_to_excel(basic_df, gate_df, qubit_df, general_df, output_path)
+        self._save_to_excel(basic_df, gate_df, qubit_df, general_df, output_path)
         print(f'已生成 Excel：{output_path}')
 
 class Backend:
     def __init__(self):
         # 初始化QPU上的噪声信息
         return
-    def load_noise_data(self, filepath):
+
+    def load_properties(self, filepath: str):
         # 从文件加载噪声数据
         # 读取basic_info, gate_info, qubit_info, general_info表
         basic_df = pd.read_excel(filepath, sheet_name='basic_info')
@@ -175,15 +173,52 @@ class Backend:
 
         # 初始化basic_info
         self.basic_info = basic_df.to_dict(orient='records')[0]
+        self.name = self.basic_info.get('backend_name', 'unknown')
         # 初始化gate_info
         self.gate_info = gate_df.to_dict(orient='records')
         # 初始化qubit_info
         self.qubit_info = qubit_df.to_dict(orient='records')
+        self.num_qubits = len(self.qubit_info)
         # 初始化general_info
         self.general_info = general_df.to_dict(orient='records')
         return
+    
+    def print(self):
+        print(f"Backend Name: {self.name}, #Qubits: {self.num_qubits}")
+        # pprint(self.basic_info)
+        # pprint(self.gate_info)
+        # pprint(self.qubit_info)
+        # pprint(self.general_info)
+        return
 
 class Network:
-    def __init__(self):
-        self.backends = {}
+    def __init__(self, network_config: dict, backend_config: list):
+        self.num_backends = len(backend_config)
+        self.connectivity = self._build_network(network_config)
+        self.backends = backend_config
+        return
 
+    def _build_network(self, network_config: dict):
+        net_type = network_config.get('type', 'all_to_all')
+        size = network_config.get('size', (self.num_backends, 1))
+
+        if net_type == 'all_to_all':
+            self.network_coupling = [
+                [i, j]
+                for i in range(self.num_backends)
+                for j in range(self.num_backends)
+                if i != j
+            ]
+        elif net_type == 'mesh_grid':
+            n_rows, n_cols = size
+            assert self.num_backends == n_rows * n_cols, "Size does not match number of backends"
+            self.network_coupling = []
+            for row in range(n_rows):
+                for col in range(n_cols - 1):
+                    self.network_coupling.append([row * n_cols + col, row * n_cols + col + 1])
+            for row in range(n_rows - 1):
+                for col in range(n_cols):
+                    self.network_coupling.append([row * n_cols + col, (row + 1) * n_cols + col])
+        else:
+            raise ValueError(f"Unsupported network type: {net_type}")
+        return

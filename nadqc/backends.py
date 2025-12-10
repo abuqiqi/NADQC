@@ -118,11 +118,6 @@ class QiskitBackendImporter:
                 'unit': item.get('unit'),
                 'date': self._to_iso(item.get('date')),
             }
-            # 额外按 name 展开
-            if name:
-                row[f'{name}_value'] = item.get('value')
-                row[f'{name}_unit'] = item.get('unit')
-                row[f'{name}_date'] = self._to_iso(item.get('date'))
             rows.append(row)
         return pd.DataFrame(rows)
 

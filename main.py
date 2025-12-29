@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from src.tests import test_network_initialization, test_optimal_path
+import src.tests as my_tests
 
 # 注册 src 为模块根目录
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -39,8 +39,8 @@ def main():
     
     # 定义要运行的测试
     tests = [
-        (test_network_initialization, "Network Initialization"),
-        (test_optimal_path, "Optimal Path Calculation"),
+        (my_tests.test_network_initialization, "Network Initialization"),
+        (my_tests.test_optimal_path, "Optimal Path Calculation"),
     ]
     
     # 运行所有测试

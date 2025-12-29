@@ -13,8 +13,6 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from collections import deque
 
-from utils import get_config
-
 class QiskitBackendImporter:
     def __init__(self, token, instance, proxies):
         QiskitRuntimeService.save_account(token, instance=instance, overwrite=True, proxies=proxies)
@@ -214,50 +212,61 @@ class Network:
         self.num_backends = len(backend_config)
         self.network_coupling = self._build_network_coupling(network_config)
         self.network_graph = self._build_weighted_network_graph(self.network_coupling)
+        self.Weff, self.Hops, self.optimal_paths = self._compute_effective_fidelity()
         self.backends = backend_config
         return
 
-    def _build_network_coupling(self, network_config: dict) -> list[list[float]]:
-        net_type = network_config.get('type', 'all_to_all')
-        size = network_config.get('size', (self.num_backends, 1))
-        fidelity_range = network_config.get('fidelity_range', (0.95, 0.98))
+    def _build_network_coupling(self, network_config: dict) -> dict:
+        self.net_type = network_config.get('type', 'all_to_all')
+        self.size = network_config.get('size', (self.num_backends, 1))
+        self.fidelity_range = network_config.get('fidelity_range', (0.96, 0.99))
 
         # 验证保真度范围
-        if not (0 < fidelity_range[0] <= fidelity_range[1] < 1):
-            raise ValueError(f"Invalid fidelity range: {fidelity_range}. Must be in (0,1).")
-        
-        network_coupling = []
+        if not (0 < self.fidelity_range[0] <= self.fidelity_range[1] < 1):
+            raise ValueError(f"Invalid fidelity range: {self.fidelity_range}. Must be in (0, 1).")
 
-        if net_type == 'all_to_all':
-            network_coupling = [
-                [i, j, random.uniform(fidelity_range[0], fidelity_range[1])]
+        network_coupling = {}
+
+        if self.net_type == 'all_to_all':
+            network_coupling = {
+                (i, j): random.uniform(self.fidelity_range[0], self.fidelity_range[1])
                 for i in range(self.num_backends)
                 for j in range(i+1, self.num_backends)
-            ]
-        elif net_type == 'mesh_grid':
-            n_rows, n_cols = size
+            }
+        elif self.net_type == 'mesh_grid':
+            n_rows, n_cols = self.size
             assert self.num_backends == n_rows * n_cols, "Size does not match number of backends"
             
             for row in range(n_rows):
                 for col in range(n_cols - 1):
-                    network_coupling.append([row * n_cols + col, row * n_cols + col + 1, random.uniform(fidelity_range[0], fidelity_range[1])])
+                    network_coupling[(row * n_cols + col, row * n_cols + col + 1)] = random.uniform(self.fidelity_range[0], self.fidelity_range[1])
             for row in range(n_rows - 1):
                 for col in range(n_cols):
-                    network_coupling.append([row * n_cols + col, (row + 1) * n_cols + col, random.uniform(fidelity_range[0], fidelity_range[1])])
+                    network_coupling[(row * n_cols + col, (row + 1) * n_cols + col)] = random.uniform(self.fidelity_range[0], self.fidelity_range[1])
+        elif self.net_type == 'self_defined':
+            network_coupling = network_config.get('network_coupling', {})
+            self.fidelity_range = (
+                min(network_coupling.values()),
+                max(network_coupling.values())
+            )
         else:
-            raise ValueError(f"Unsupported network type: {net_type}")
+            raise ValueError(f"Unsupported network type: {self.net_type}")
         return network_coupling
 
-    def _build_network_graph(self, network_coupling: list) -> nx.Graph:
+    def _build_network_graph(self, network_coupling: dict) -> nx.Graph:
         G = nx.Graph()
-        for u, v, _ in network_coupling:
+        for (u, v), _ in network_coupling.items():
             G.add_edge(u, v)
         return G
     
-    def _build_weighted_network_graph(self, network_coupling: list) -> nx.Graph:
+    def _build_weighted_network_graph(self, network_coupling: dict) -> nx.Graph:
         G = nx.Graph()
-        for u, v, link_fidelity in network_coupling:
-            G.add_edge(u, v, weight=(1, -math.log(link_fidelity)))
+        # hop_weight 必须 > (max possible -log(fidelity)) * (max hops)
+        self.hop_weight = -math.log(self.fidelity_range[0]) * self.num_backends
+        for (u, v), link_fidelity in network_coupling.items():
+            # G.add_edge(u, v, weight=(1, -math.log(link_fidelity)))
+            # 边权重 = 1 * LARGE + (-log(fidelity))
+            G.add_edge(u, v, weight=self.hop_weight + (-math.log(link_fidelity)), fidelity=link_fidelity)
         return G
 
     def _count_shortest_communication_paths(self):
@@ -268,7 +277,7 @@ class Network:
         # 邻接表
         n = self.num_backends
         adj = [[] for _ in range(n)]
-        for u, v, _ in self.network_coupling:
+        for (u, v), _ in self.network_coupling.items():
             adj[u].append(v)
             adj[v].append(u)  # 假设为无向图；若为有向图，移除此行
 
@@ -305,13 +314,13 @@ class Network:
         W_eff = np.zeros((m, m))
         Hops = np.zeros((m, m), dtype=int)
         optimal_paths = [[[] for _ in range(m)] for __ in range(m)]  # m x m 空列表
-
+        
         # 自环设置
         for i in range(m):
             W_eff[i][i] = 1.0
             Hops[i][i] = 0
             optimal_paths[i][i] = [i]  # 自环路径
-        
+
         # 计算所有点对的最短路径 (带路径记录)
         for source in range(m):
             try:
@@ -319,7 +328,7 @@ class Network:
                 lengths, paths = nx.single_source_dijkstra(
                     self.network_graph,
                     source,
-                    weight=lambda u, v, d: d['weight']
+                    weight='weight'
                 )
             except nx.NetworkXNoPath:
                 lengths, paths = {}, {}
@@ -334,29 +343,19 @@ class Network:
                     optimal_paths[source][target] = path
                     
                     # 计算跳数（边数 = 节点数 - 1）
-                    hop_count = len(path) - 1
-                    Hops[source][target] = hop_count
+                    Hops[source][target] = len(path) - 1
 
                     # 计算总保真度成本
-                    total_cost = 0.0
+                    total_fidelity_cost = 1.0
                     # 遍历路径上的每条边
                     for k in range(len(path) - 1):
                         u, v = path[k], path[k+1]
                         edge_data = self.network_graph.get_edge_data(u, v)
                         if edge_data:
                             # 元组权重 (hop, fidelity_cost)
-                            fidelity_cost = edge_data['weight'][1]
-                            total_cost += fidelity_cost
-                    
-                    # 计算有效保真度
-                    if total_cost > 700:
-                        fidelity = 0.0
-                    else:
-                        fidelity = math.exp(-total_cost)
-                    
-                    # 验证范围
-                    fidelity = max(0.0, min(1.0, fidelity))
-                    W_eff[source][target] = fidelity
+                            fidelity_cost = edge_data['fidelity']
+                            total_fidelity_cost *= fidelity_cost
+                    W_eff[source][target] = total_fidelity_cost
                 else:
                     # 不可达
                     W_eff[source][target] = 0.0
@@ -365,17 +364,17 @@ class Network:
         
         return W_eff, Hops, optimal_paths
 
-    def get_effective_fidelity(self, W_eff: list[list[float]], src: int, dst: int) -> float:
+    def get_effective_fidelity(self, src: int, dst: int) -> float:
         """获取两点间有效保真度 (安全访问)"""
         if not (0 <= src < self.num_backends and 0 <= dst < self.num_backends):
             raise IndexError(f"Backend index out of range: ({src}, {dst})")
-        return W_eff[src][dst]
+        return self.W_eff[src][dst]
     
-    def get_hop_count(self, Hops: list[list[int]], src: int, dst: int) -> int:
+    def get_hop_count(self, src: int, dst: int) -> int:
         """获取两点间最优跳数 (安全访问)"""
         if not (0 <= src < self.num_backends and 0 <= dst < self.num_backends):
             raise IndexError(f"Backend index out of range: ({src}, {dst})")
-        return Hops[src][dst]
+        return self.Hops[src][dst]
     
     def get_optimal_path(self, src: int, dst: int) -> list[int]:
         """
@@ -394,23 +393,42 @@ class Network:
             return []  # 明确返回空列表表示不可达
         return path.copy()  # 返回副本防止外部修改
 
-    def draw_weighted_graph(self, G, seed=42):
+    def draw_network_graph(self, filename="network_graph", seed=42):
         """
         可视化带权重的 NetworkX 图，在边上显示权重（保留两位小数）。
         """
-        pos = nx.spring_layout(G, seed=seed)
-        
-        # 绘制节点和边（固定样式）
-        nx.draw(G, pos, with_labels=True)
-        
-        # 生成边标签（自动格式化浮点数为两位小数）
-        edge_labels = {
-            (u, v): f"{math.exp(-d['weight'][1]):.2f}" # d['weight']
-            for u, v, d in G.edges(data=True) 
-            if 'weight' in d
-        }
+        plt.figure(figsize=(8, 6))
+        pos = nx.spring_layout(self.network_graph, seed=seed, weight=None)
 
-        # 绘制边权重
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+        # 绘制节点
+        nx.draw_networkx_nodes(self.network_graph, pos)
+
+        # 绘制边
+        nx.draw_networkx_edges(self.network_graph, pos)
+
+        # 提取fidelity值用于显示，不修改原图
+        edge_labels = {}
+        for u, v, d in self.network_graph.edges(data=True):
+            weight_val = d.get('weight', 0.0)
+            fidelity_val = d.get('fidelity', 0.0)  # 默认值防止无权重的情况
+            # 保留小数
+            edge_labels[(u, v)] = f"{weight_val:.4f} ({fidelity_val:.4f})"
+
+        # 绘制边标签（显示第二个值）
+        nx.draw_networkx_edge_labels(self.network_graph, pos, edge_labels=edge_labels)
+
+        # 绘制节点标签
+        nx.draw_networkx_labels(self.network_graph, pos)
+
+        plt.savefig(f"./outputs/{filename}.png")
         plt.show()
+        return
+
+    def print_info(self):
+        print(f"Network with {self.num_backends} backends")
+        print("Network Coupling (edges with fidelities):")
+        for (u, v), fidelity in self.network_coupling.items():
+            print(f"  Backend {u} <-> Backend {v}: Fidelity = {fidelity:.4f}")
+        print(f"Hop weight: {self.hop_weight}")
+        print(f"Fidelity range: {self.fidelity_range}")
         return

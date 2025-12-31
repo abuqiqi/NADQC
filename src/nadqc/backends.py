@@ -160,8 +160,14 @@ class QiskitBackendImporter:
         print(f'已生成 Excel：{output_path}')
 
 class Backend:
-    def __init__(self):
+    def __init__(self, config: dict = None):
         # 初始化QPU上的噪声信息
+        if config is not None:
+            self._init_backend(config)
+        return
+    
+    def _init_backend(self, config: dict):
+        self.num_qubits = config.get('num_qubits', 0)
         return
 
     def load_properties(self, config: dict, backend_name: str, date: datetime.datetime):
@@ -212,7 +218,7 @@ class Network:
         self.num_backends = len(backend_config)
         self.network_coupling = self._build_network_coupling(network_config)
         self.network_graph = self._build_weighted_network_graph(self.network_coupling)
-        self.Weff, self.Hops, self.optimal_paths = self._compute_effective_fidelity()
+        self.W_eff, self.Hops, self.optimal_paths = self._compute_effective_fidelity()
         self.backends = backend_config
         return
 
@@ -393,35 +399,78 @@ class Network:
             return []  # 明确返回空列表表示不可达
         return path.copy()  # 返回副本防止外部修改
 
-    def draw_network_graph(self, filename="network_graph", seed=42):
+    def get_backend_qubit_counts(self) -> list[int]:
+        """获取每个后端的qubit容量，从大到小排序"""
+        return sorted([backend.num_qubits for backend in self.backends], reverse=True)
+
+    def draw_network_graph(self, filename="network_graph", seed=42, highlight_path=None):
         """
-        可视化带权重的 NetworkX 图，在边上显示权重（保留两位小数）。
+        可视化带权重的 NetworkX 图，在边上显示权重（保留四位小数）。
+        
+        Parameters
+        ----------
+        filename : str
+            保存图片的文件名（不含扩展名）
+        seed : int
+            布局随机种子
+        highlight_path : list of int, optional
+            要高亮显示的节点路径，例如 [0, 2, 5]
+            函数会将路径中连续节点之间的边设为红色
         """
         plt.figure(figsize=(8, 6))
         pos = nx.spring_layout(self.network_graph, seed=seed, weight=None)
 
-        # 绘制节点
-        nx.draw_networkx_nodes(self.network_graph, pos)
+        # 绘制节点（默认样式）
+        nx.draw_networkx_nodes(self.network_graph, pos, node_color='lightblue', node_size=500)
 
-        # 绘制边
-        nx.draw_networkx_edges(self.network_graph, pos)
+        # 默认边（非高亮）
+        all_edges = list(self.network_graph.edges())
+        
+        if highlight_path is not None and len(highlight_path) > 1:
+            # 构建高亮边集合（使用 frozenset 保证无向图兼容）
+            highlight_edges = set()
+            for i in range(len(highlight_path) - 1):
+                u, v = highlight_path[i], highlight_path[i + 1]
+                # 无向图：(u,v) 和 (v,u) 是同一条边
+                if self.network_graph.has_edge(u, v):
+                    highlight_edges.add((u, v))
+                elif self.network_graph.has_edge(v, u):
+                    highlight_edges.add((v, u))
+                else:
+                    print(f"Warning: Edge ({u}, {v}) not in graph! Skipping in highlight.")
 
-        # 提取fidelity值用于显示，不修改原图
+            # 非高亮边
+            normal_edges = [e for e in all_edges if e not in highlight_edges and (e[1], e[0]) not in highlight_edges]
+            
+            # 先画普通边（灰色）
+            nx.draw_networkx_edges(self.network_graph, pos, edgelist=normal_edges, edge_color='gray', width=1.0)
+            # 再画高亮边（红色，更粗）
+            nx.draw_networkx_edges(self.network_graph, pos, edgelist=list(highlight_edges), edge_color='red', width=2.5)
+        else:
+            # 无高亮路径：画所有边为默认颜色
+            nx.draw_networkx_edges(self.network_graph, pos, edge_color='gray', width=1.0)
+
+        # 边标签
         edge_labels = {}
         for u, v, d in self.network_graph.edges(data=True):
             weight_val = d.get('weight', 0.0)
-            fidelity_val = d.get('fidelity', 0.0)  # 默认值防止无权重的情况
-            # 保留小数
-            edge_labels[(u, v)] = f"{weight_val:.4f} ({fidelity_val:.4f})"
+            fidelity_val = d.get('fidelity', 0.0)
+            edge_labels[(u, v)] = f"w:{weight_val:.4f}\nfid:{fidelity_val:.4f}"
 
-        # 绘制边标签（显示第二个值）
         nx.draw_networkx_edge_labels(self.network_graph, pos, edge_labels=edge_labels)
 
-        # 绘制节点标签
-        nx.draw_networkx_labels(self.network_graph, pos)
+        # 节点标签
+        nx.draw_networkx_labels(self.network_graph, pos, font_size=10)
 
-        plt.savefig(f"./outputs/{filename}.png")
+        plt.axis('off')
+        plt.tight_layout()
+
+        # 确保输出目录存在
+        os.makedirs("./outputs", exist_ok=True)
+        
+        plt.savefig(f"./outputs/{filename}.png", dpi=300, bbox_inches='tight')
         plt.show()
+        plt.close()
         return
 
     def print_info(self):

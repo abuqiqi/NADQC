@@ -6,8 +6,8 @@ import numpy as np
 from collections import defaultdict
 from qiskit.converters import circuit_to_dag, dag_to_circuit
 
-from src.nadqc.backends import Network
-from src.nadqc.partitioner import KWayPartitioner
+from .backends import Network
+from .partitioner import KWayPartitioner
 
 class NADQC:
     def __init__(self, 

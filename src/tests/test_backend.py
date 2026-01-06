@@ -7,13 +7,14 @@ def test_backend_sample():
         from utils import get_config
         from nadqc import Backend
 
-        config = get_config()
+        global_config = get_config()
+        backend_config = {
+            'backend_name': 'ibm_torino_sampled_10q',
+            'date': datetime.datetime(2025, 11, 9)
+        }
 
-        backend = Backend()
-        date = datetime.datetime(2025, 11, 9)
-        backend.load_properties(config, "ibm_torino", date)
-
-        backend.sample_and_export(10, config["output_folder"])
+        backend = Backend(global_config, backend_config)
+        backend.print()
 
         return True, "Backend initialization passed"
     except Exception as e:

@@ -2,7 +2,6 @@ from qiskit_ibm_runtime import QiskitRuntimeService
 from pprint import pprint
 import pickle as pkl
 import datetime
-from datetime import datetime
 import os
 
 import pandas as pd
@@ -62,7 +61,7 @@ class QiskitBackendImporter:
         return
 
     def _to_iso(self, dt):
-        if isinstance(dt, datetime):
+        if isinstance(dt, datetime.datetime):
             return dt.isoformat()
         return dt
 
@@ -134,7 +133,7 @@ class QiskitBackendImporter:
             basic_df.to_excel(writer, index=False, sheet_name='basic_info')
             gate_df.to_excel(writer, index=False, sheet_name='gate_info')
             qubit_df.to_excel(writer, index=False, sheet_name='qubit_info')
-            general_df.to_excel(writer, index=False, sheet_name='general_info')
+            # general_df.to_excel(writer, index=False, sheet_name='general_info')
 
     def _to_xlsx(self, data: dict, output_path: str = 'noise_parsed.xlsx'):
         basic_df = self._build_basic_info(data)
@@ -162,37 +161,53 @@ class QiskitBackendImporter:
         print(f'已生成 Excel：{output_path}')
 
 class Backend:
-    def __init__(self, config: dict = None):
+    def __init__(self, global_config: dict = None, backend_config: dict = None):
         # 初始化QPU上的噪声信息
-        if config is not None:
-            self._init_backend(config)
+        if backend_config is not None:
+            self._init_backend(global_config, backend_config)
         return
     
-    def _init_backend(self, config: dict):
-        self.num_qubits = config.get('num_qubits', 0)
+    def _init_backend(self, global_config: dict = None, backend_config: dict = None):
+        pprint(backend_config)
+        if 'backend_name' in backend_config:
+            self.name = backend_config['backend_name']
+            self.load_properties(global_config, self.name, backend_config.get('date', datetime.datetime.today()))
+        elif 'num_qubits' in backend_config:
+            self.num_qubits = backend_config.get('num_qubits', 0)
         return
 
-    def load_properties(self, config: dict, backend_name: str, date: datetime):
-        filepath = f"{config['device_properties_folder']}{backend_name}/{backend_name}_{date.strftime('%Y-%m-%d')}.xlsx"
-
-        if not os.path.exists(filepath):
+    def load_properties(self, global_config: dict, backend_name: str, date: datetime.datetime):
+        filepath = f"{global_config['device_properties_folder']}{backend_name}/{backend_name}_{date.strftime('%Y-%m-%d')}.xlsx"
+        
+        # 下载数据（如果文件不存在）
+        if 'sampled' in backend_name and not os.path.exists(filepath):
+            original_backend_name = backend_name.split('_sampled_')[0]
+            original_filepath = f"{global_config['device_properties_folder']}{original_backend_name}/{original_backend_name}_{date.strftime('%Y-%m-%d')}.xlsx"
+            if not os.path.exists(original_filepath):
+                # 调用QiskitBackendImporter下载数据
+                self._download_backend_data(global_config, original_backend_name, date)
+            print(f"Sampling backend from {original_backend_name} for {backend_name} ...")
+            # 读取原始backend
+            original_backend = Backend()
+            original_backend.load_properties(global_config, original_backend_name, date)
+            # 解析采样数量
+            try:
+                sampled_part = backend_name.split('_sampled_')[1]
+                num_qubits = int(sampled_part[:-1])  # 去掉最后的 'q'
+            except Exception as e:
+                raise ValueError(f"Invalid sampled backend name: {backend_name}") from e
+            # 采样并保存
+            original_backend.sample_and_export(num_qubits, global_config['device_properties_folder'])
+        elif not os.path.exists(filepath):
             print(f"Downloading the device properties for {backend_name} on {date.strftime('%Y-%m-%d')} ...")
-            backend_importer = QiskitBackendImporter(token=config["ibm_quantum_token"],
-                                                    instance=config["ibm_quantum_instance"],
-                                                    proxies=config.get("proxies", None)
-                                                    )
-            
-            backend_importer.download_backend_info(backend_name=backend_name,
-                                                start_date=date,
-                                                end_date=date,
-                                                folder=config["device_properties_folder"])
+            self._download_backend_data(global_config, backend_name, date)
 
         # 从文件加载噪声数据
         # 读取basic_info, gate_info, qubit_info, general_info表
         basic_df = pd.read_excel(filepath, sheet_name='basic_info')
         gate_df = pd.read_excel(filepath, sheet_name='gate_info')
         qubit_df = pd.read_excel(filepath, sheet_name='qubit_info')
-        general_df = pd.read_excel(filepath, sheet_name='general_info')
+        # general_df = pd.read_excel(filepath, sheet_name='general_info')
 
         # 初始化basic_info
         self.basic_info = basic_df.to_dict(orient='records')[0]
@@ -204,7 +219,18 @@ class Backend:
         self.qubit_info = qubit_df.to_dict(orient='records')
         self.num_qubits = len(self.qubit_info)
         # 初始化general_info
-        self.general_info = general_df.to_dict(orient='records')
+        # self.general_info = general_df.to_dict(orient='records')
+        return
+
+    def _download_backend_data(self, config: dict, backend_name: str, date: datetime.datetime):
+        backend_importer = QiskitBackendImporter(token=config["ibm_quantum_token"],
+                                                instance=config["ibm_quantum_instance"],
+                                                proxies=config.get("proxies", None)
+                                                )
+        backend_importer.download_backend_info(backend_name=backend_name,
+                                              start_date=date,
+                                              end_date=date,
+                                              folder=config["device_properties_folder"])
         return
 
     def print(self):
@@ -232,7 +258,7 @@ class Backend:
         """
 
         # Step 1: 采样子系统（保留原始 qubit 编号）
-        sampled = self._sample_subsystem_raw(num_qubits)
+        sampled = self._sample_subsystem(num_qubits)
 
         selected_qubits = sampled['selected_qubits']  # e.g., [32, 33, 37, ...]
         new_qubit_info = sampled['qubit_info']
@@ -271,27 +297,33 @@ class Backend:
             # 更新 basic_info 中的 num_qubits
             sampled['basic_info']['general_qlists'] = new_general_qlists
 
-        # Step 3: 构造 DataFrames
+        # Step 3: 更新数据并构造 DataFrames
+        self.basic_info = sampled['basic_info']
+        self.name = f"{self.name}_sampled_{num_qubits}q"
+        self.gate_info = new_gate_info
+        self.qubit_info = new_qubit_info
+        self.num_qubits = num_qubits
+
         basic_df = pd.DataFrame([sampled['basic_info']])
         gate_df = pd.DataFrame(new_gate_info)
         qubit_df = pd.DataFrame(new_qubit_info)
-        general_df = pd.DataFrame(sampled['general_info'])  # 可选：也可过滤或留空
+        # general_df = pd.DataFrame(sampled['general_info'])  # 可选：也可过滤或留空
 
         # Step 4: 保存到 Excel
-        os.makedirs(output_folder, exist_ok=True)
-        filename = f"{self.name}_{self.date.strftime('%Y-%m-%d')}_sampled_{num_qubits}q.xlsx"
-        filepath = os.path.join(output_folder, filename)
+        os.makedirs(f"{output_folder}{self.name}/", exist_ok=True)
+        filename = f"{self.name}_{self.date.strftime('%Y-%m-%d')}.xlsx"
+        filepath = os.path.join(f"{output_folder}{self.name}/", filename)
 
         with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
             basic_df.to_excel(writer, sheet_name='basic_info', index=False)
             gate_df.to_excel(writer, sheet_name='gate_info', index=False)
             qubit_df.to_excel(writer, sheet_name='qubit_info', index=False)
-            general_df.to_excel(writer, sheet_name='general_info', index=False)
+            # general_df.to_excel(writer, sheet_name='general_info', index=False)
 
         print(f"Sampled subsystem saved to: {filepath}")
         return filepath
 
-    def _sample_subsystem_raw(self, num_qubits: int) -> dict[str, Any]:
+    def _sample_subsystem(self, num_qubits: int) -> dict[str, Any]:
         """内部方法：采样子系统，不重映射，返回原始 qubit 编号的数据。
         优先从 general_qlists 中按长度降序提取连通分量，直到满足 n 个 qubits。
         """
@@ -362,7 +394,7 @@ class Backend:
             },
             'gate_info': new_gate_info,
             'qubit_info': new_qubit_info,
-            'general_info': self.general_info
+            # 'general_info': self.general_info
         }
 
 class Network:

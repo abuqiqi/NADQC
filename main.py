@@ -15,22 +15,30 @@ network_config = {
 
 # backend = Backend(config={"num_qubits": 10})
 
-config = get_config()
+# config = get_config()
 
-backend = Backend()
-date = datetime.datetime(2025, 10, 20)
-backend.load_properties(config, "ibm_torino", date)
+# backend = Backend()
+# date = datetime.datetime(2025, 10, 20)
+# backend.load_properties(config, "ibm_torino", date)
 
-backend.sample_and_export(10, config["output_folder"])
+# backend.sample_and_export(10, config["output_folder"])
 
-backend_config = [backend for _ in range(3)]
+global_config = get_config()
+backend_config = {
+    'backend_name': 'ibm_torino_sampled_3q',
+    'date': datetime.datetime(2025, 11, 9)
+}
+
+backend = Backend(global_config, backend_config)
+
+backend_config = [backend for _ in range(2)]
 
 net = Network(network_config, backend_config)
 
 # 创建一个简单的量子电路
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit.library import QuantumVolume, QFT
-qc = QuantumVolume(30, seed=26).decompose()
+qc = QuantumVolume(6, seed=26).decompose()
 # qc = QFT(15).decompose()
 qc = transpile(qc, basis_gates=["cu1", "u3"], optimization_level=0)
 # print(qc)

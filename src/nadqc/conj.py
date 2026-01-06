@@ -320,7 +320,7 @@ class Network:
         """可视化网络拥塞状态"""
         import matplotlib.pyplot as plt
         import seaborn as sns
-        
+
         if not hasattr(self, 'current_load'):
             print("No congestion data available. Run compute_load_aware_mapping first.")
             return

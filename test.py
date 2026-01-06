@@ -42,7 +42,8 @@ def main():
         # (my_tests.test_network_initialization, "Network Initialization"),
         # (my_tests.test_optimal_path, "Optimal Path Calculation"),
         # (my_tests.test_partition, "Circuit Partitioning"),
-        (my_tests.test_backend_sample, "Backend Sample Test"),
+        # (my_tests.test_backend_sample, "Backend Sample Test"),
+        (my_tests.test_mapper, "Mapper Test"),
     ]
     
     # 运行所有测试

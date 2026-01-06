@@ -1,20 +1,24 @@
 ==================================================
 Running all tests...
 ==================================================
-=== Running Backend Sample Test... ===
-selected_qubits: [46, 55, 63, 64, 65, 73, 80, 81, 82, 92]
-Filtered general_qlists:
-[{'name': 'lf_10', 'qubits': [46, 55, 63, 64, 65, 73, 80, 81, 82, 92]}]
-Qubit mapping: {46: 0, 55: 1, 63: 2, 64: 3, 65: 4, 73: 5, 80: 6, 81: 7, 82: 8, 92: 9}
-Remapped general_qlists:
-[{'name': 'lf_10', 'qubits': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}]
-Sampled subsystem saved to: ./outputs/ibm_torino_2025-10-20_sampled_10q.xlsx
-[92mPASS[0m (12.2781s) - Backend initialization passed
+=== Running Mapper Test... ===
+{'backend_name': 'ibm_torino_sampled_5q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+Backend Name: ibm_torino, #Qubits: 5, Date: 2025-11-09
+[build_partition_table] Partition calculation times: 2993.
+[build_partition_table] Time: 0.09465193748474121 seconds
+[build_slicing_table] Time: 0.009052515029907227 seconds
+Total Communication Cost: 416.0
+Total Communication Cost (Max Match): 470.0
+Total Communication Cost (Global Max Match): 377.0
+Total Communication Cost (Baseline): 7.740000000000009
+Total Communication Cost (Dynamic): 5.920000000000006
+[92mPASS[0m (2.5615s) - Mapper test passed
 
 ==================================================
 TEST SUMMARY
 ==================================================
-Backend Sample Test: [92mPASSED[0m
+Mapper Test: [92mPASSED[0m
 
 Total: 1, Passed: 1, Failed: 0
 

@@ -51,8 +51,8 @@ def test_mapper():
         # print("Partition Plan (Global Max Match):")
         # pprint(partition_plan_global_max_match)
 
-        bm  = BaselineMapper(net)
-        lom = LinkOrientedMapper(net)
+        bm  = BaselineMapper()
+        lom = LinkOrientedMapper()
 
         total_comm_cost, total_comm_cost_mm, total_comm_cost_gmm = 0, 0, 0
 
@@ -91,8 +91,10 @@ def test_mapper():
         print(f"Total Communication Cost (Global Max Match): {total_comm_cost_gmm}")
 
         # 测试calculate_comm_cost_baseline和calculate_comm_cost_dynamic
-        total_comm_cost_baseline, mapping_sequence_baseline = bm.calculate_comm_cost_baseline(partition_plan)
-        total_comm_cost_dynamic, mapping_sequence_dynamic = lom.calculate_comm_cost_dynamic(partition_plan)
+        result_baseline = bm.map_circuit(partition_plan, net)
+        total_comm_cost_baseline = result_baseline['metrics']['total_comm_cost']
+        result_dynamic = lom.map_circuit(partition_plan, net)
+        total_comm_cost_dynamic = result_dynamic['metrics']['total_comm_cost']
 
         print(f"Total Communication Cost (Baseline): {total_comm_cost_baseline}")
         print(f"Total Communication Cost (Dynamic): {total_comm_cost_dynamic}")

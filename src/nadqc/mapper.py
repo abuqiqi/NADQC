@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import time
 import numpy as np
+import math
 from typing import Dict, Any, List, Tuple
 
 class Mapper(ABC):
@@ -39,12 +40,11 @@ class BaselineMapper(Mapper):
     作为比较基准，不进行任何优化
     """
     
-    def __init__(self, network):
+    def __init__(self):
         """
         初始化BaselineMapper
         """
         super().__init__()
-        self.network = network
         self.metrics = {}
         self.mapping_sequence = None  # 保存映射序列用于后续使用
 
@@ -106,6 +106,7 @@ class BaselineMapper(Mapper):
         W_eff = self.network.W_eff
         
         total_cost = 0.0
+        total_fidelity = 1.0
         
         # 基于量子比特移动计算
         for qubit, (from_logical, to_logical) in qubit_movements.items():
@@ -114,10 +115,11 @@ class BaselineMapper(Mapper):
             # 移动成本 = 1 - 保真度
             cost = 1 - W_eff[from_physical][to_physical]
             total_cost += cost
+            total_fidelity *= W_eff[from_physical][to_physical]
         
-        return total_cost
+        return total_cost, total_fidelity
 
-    def calculate_comm_cost_baseline(self, partition_plan: List[List[List[int]]]) -> Tuple[float, List[List[int]]]:
+    def calculate_comm_cost(self, partition_plan: List[List[List[int]]]) -> List[List[int]]:
         """
         基线映射：使用identity映射（逻辑QPU i -> 物理QPU i）
         :param partition_plan: list of partitions for each time slice
@@ -125,10 +127,10 @@ class BaselineMapper(Mapper):
         """
         start_time = time.time()
         k = len(partition_plan)  # 时间片数量
-        m_physical = self.network.num_backends  # 物理QPU数量
         
         # 结果存储
         total_comm_cost = 0.0
+        total_fidelity = 1.0
         mapping_sequence = []  # mapping_sequence[t][i] = time slice t 中逻辑QPU i 映射到的物理QPU
         
         # 1. 为每个时间片创建identity映射
@@ -151,7 +153,7 @@ class BaselineMapper(Mapper):
             )
             
             # 计算本次切换的成本
-            switch_cost = self._evaluate_switch_cost(
+            switch_cost, fidelity = self._evaluate_switch_cost(
                 D_switch,
                 current_mapping,
                 next_mapping,
@@ -159,43 +161,40 @@ class BaselineMapper(Mapper):
             )
             
             total_comm_cost += switch_cost
+            total_fidelity *= fidelity
         
         end_time = time.time()
         self.metrics = {
             "total_comm_cost": total_comm_cost,
+            "total_fidelity": total_fidelity,
             "mapping_sequence_length": len(mapping_sequence),
             "time": end_time - start_time
         }
         
-        return total_comm_cost, mapping_sequence
+        return mapping_sequence
 
-    def map_circuit(self, circuit: Any, backend: Any) -> Dict[str, Any]:
+    def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
         """
         将量子线路映射到特定量子硬件（基线实现）
-        :param circuit: 原始量子线路
+        :param partition_plan: 量子比特划分
         :param backend: 目标量子硬件
         :return: 映射结果，包含线路、深度、门数、错误率等指标
         """
         # 保存关键对象用于内部计算
-        self.circ = circuit
-        self.network = backend
+        self.network = network
         
-        # 确保backend有必要的属性
-        if not hasattr(backend, 'num_backends') or not hasattr(backend, 'W_eff'):
-            raise AttributeError("Backend must have 'num_backends' and 'W_eff' attributes")
-        
-        # 确保circuit有partition_plan
-        if not hasattr(circuit, 'partition_plan'):
-            raise ValueError("circuit must have 'partition_plan' attribute")
+        # 确保network有必要的属性
+        if not hasattr(network, 'num_backends') or not hasattr(network, 'W_eff'):
+            raise AttributeError("Network must have 'num_backends' and 'W_eff' attributes")
         
         # 计算基线通信成本和映射序列
-        total_comm_cost, mapping_sequence = self.calculate_comm_cost_baseline(circuit.partition_plan)
+        mapping_sequence = self.calculate_comm_cost(partition_plan)
         
         # 保存映射序列
         self.mapping_sequence = mapping_sequence
         
         return {
-            "mapped_circuit": circuit,  # 实际映射操作在编译器后续步骤中完成
+            "mapping_sequence": self.mapping_sequence,  # 实际映射操作在编译器后续步骤中完成
             "metrics": self.metrics
         }
 
@@ -203,18 +202,16 @@ class BaselineMapper(Mapper):
         """获取映射性能指标"""
         return self.metrics
 
-
 class LinkOrientedMapper(Mapper):
     """
     实现基于连接的映射算法，通过动态计算通信成本优化量子比特映射
     """
     
-    def __init__(self, network):
+    def __init__(self):
         """
         初始化LinkOrientedMapper
         """
         super().__init__()
-        self.network = network
         self.metrics = {}
         self.mapping_sequence = None  # 保存映射序列用于后续使用
 
@@ -361,6 +358,7 @@ class LinkOrientedMapper(Mapper):
         W_eff = self.network.W_eff
         
         total_cost = 0.0
+        total_fidelity = 1.0
         
         # 基于量子比特移动计算
         for qubit, (from_logical, to_logical) in qubit_movements.items():
@@ -369,8 +367,9 @@ class LinkOrientedMapper(Mapper):
             # 移动成本 = 1 - 保真度
             cost = 1 - W_eff[from_physical][to_physical]
             total_cost += cost
+            total_fidelity *= W_eff[from_physical][to_physical]
         
-        return total_cost
+        return total_cost, total_fidelity
 
     def calculate_comm_cost_dynamic(self, partition_plan: List[List[List[int]]]) -> Tuple[float, List[List[int]]]:
         """
@@ -385,6 +384,7 @@ class LinkOrientedMapper(Mapper):
         
         # 结果存储
         total_comm_cost = 0.0
+        total_fidelity = 1.0
         mapping_sequence = []  # mapping_sequence[t][i] = time slice t 中逻辑QPU i 映射到的物理QPU
         
         # 1. 设置初始映射：时间片0的逻辑QPU到物理QPU的映射
@@ -416,7 +416,7 @@ class LinkOrientedMapper(Mapper):
             )
             
             # 2.4 计算本次切换的实际成本
-            switch_cost = self._evaluate_switch_cost(
+            switch_cost, switch_fidelity = self._evaluate_switch_cost(
                 D_switch,
                 mapping_sequence[t],
                 next_mapping,
@@ -424,44 +424,41 @@ class LinkOrientedMapper(Mapper):
             )
             
             total_comm_cost += switch_cost
+            total_fidelity *= switch_fidelity
             mapping_sequence.append(next_mapping)
         
         end_time = time.time()
         self.metrics = {
             "total_comm_cost": total_comm_cost,
+            "total_fidelity": total_fidelity,
             "mapping_sequence_length": len(mapping_sequence),
             "time": end_time - start_time
         }
         
-        return total_comm_cost, mapping_sequence
+        return mapping_sequence
 
-    def map_circuit(self, circuit: Any, backend: Any) -> Dict[str, Any]:
+    def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
         """
         将量子线路映射到特定量子硬件
-        :param circuit: 原始量子线路
-        :param backend: 目标量子硬件
+        :param partition_plan: 量子比特划分
+        :param network: 目标量子硬件
         :return: 映射结果，包含线路、深度、门数、错误率等指标
         """
         # 保存关键对象用于内部计算
-        self.circ = circuit
-        self.network = backend
+        self.network = network
         
-        # 确保backend有必要的属性
-        if not hasattr(backend, 'num_backends') or not hasattr(backend, 'W_eff'):
-            raise AttributeError("Backend must have 'num_backends' and 'W_eff' attributes")
-        
-        # 假设partition_plan已由编译器生成并设置在circuit中
-        if not hasattr(circuit, 'partition_plan'):
-            raise ValueError("circuit must have 'partition_plan' attribute")
-        
+        # 确保network有必要的属性
+        if not hasattr(network, 'num_backends') or not hasattr(network, 'W_eff'):
+            raise AttributeError("Network must have 'num_backends' and 'W_eff' attributes")
+
         # 计算通信成本和映射序列
-        total_comm_cost, mapping_sequence = self.calculate_comm_cost_dynamic(circuit.partition_plan)
+        mapping_sequence = self.calculate_comm_cost_dynamic(partition_plan)
         
         # 保存映射序列用于后续使用
         self.mapping_sequence = mapping_sequence
         
         return {
-            "mapped_circuit": circuit,  # 实际映射操作在编译器后续步骤中完成
+            "mapping_sequence": self.mapping_sequence,  # 实际映射操作在编译器后续步骤中完成
             "metrics": self.metrics
         }
 

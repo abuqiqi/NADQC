@@ -1,11 +1,57 @@
 import datetime
 from pprint import pprint
 
+def test_mock_network():
+    try:
+        import numpy as np
+        from nadqc import SimpleMapper, LinkOrientedMapper
+
+        # 创建一个模拟网络对象
+        class MockNetwork:
+            def __init__(self, num_backends=4):
+                self.num_backends = num_backends
+                # 模拟保真度矩阵
+                self.W_eff = np.random.rand(num_backends, num_backends)
+                # 对角线设为1（自我传输保真度最高）
+                np.fill_diagonal(self.W_eff, 1.0)
+
+        # 创建一个模拟划分计划
+        partition_plan = [
+            [[0, 1], [2, 3]],  # 时间片0：逻辑QPU 0管理qubits [0,1]，逻辑QPU 1管理qubits [2,3]
+            [[0, 2], [1, 3]],  # 时间片1：重新分配
+            [[0, 3], [1, 2]]   # 时间片2：再次重新分配
+        ]
+
+        network = MockNetwork(num_backends=2)
+        # pprint(network.W_eff)
+        
+        # 测试基线映射器
+        simple_mapper = SimpleMapper()
+        result_baseline = simple_mapper.map_circuit(partition_plan, network)
+
+        # 测试链路导向映射器
+        link_oriented_mapper = LinkOrientedMapper()
+        result_link_oriented = link_oriented_mapper.map_circuit(partition_plan, network)
+
+        # 输出比较结果
+        print(f"Simple Mapper: {simple_mapper.get_name()}")
+        print(f"Metrics: {result_baseline['metrics']}")
+        print(f"Mapping Seq: {result_baseline['mapping_sequence']}")
+
+        print(f"\nLink Oriented Mapper: {link_oriented_mapper.get_name()}")
+        print(f"Metrics: {result_link_oriented['metrics']}")
+        print(f"Mapping Seq: {result_link_oriented['mapping_sequence']}")
+
+        return True, "Mapper test passed"
+    except Exception as e:
+        return False, f"Mapper test failed: {str(e)}"
+
+
 def test_mapper():
     """测试 Mapper 类"""
     try:
         from utils import get_config
-        from nadqc import Backend, Network, NADQC, BaselineMapper, LinkOrientedMapper
+        from nadqc import Backend, Network, NADQC, SimpleMapper, LinkOrientedMapper
 
         global_config = get_config()
         backend_config = {
@@ -51,7 +97,7 @@ def test_mapper():
         # print("Partition Plan (Global Max Match):")
         # pprint(partition_plan_global_max_match)
 
-        bm  = BaselineMapper()
+        bm  = SimpleMapper()
         lom = LinkOrientedMapper()
 
         total_comm_cost, total_comm_cost_mm, total_comm_cost_gmm = 0, 0, 0
@@ -90,15 +136,15 @@ def test_mapper():
         print(f"Total Communication Cost (Max Match): {total_comm_cost_mm}")
         print(f"Total Communication Cost (Global Max Match): {total_comm_cost_gmm}")
 
-        # 测试calculate_comm_cost_baseline和calculate_comm_cost_dynamic
         result_baseline = bm.map_circuit(partition_plan, net)
         total_comm_cost_baseline = result_baseline['metrics']['total_comm_cost']
         result_dynamic = lom.map_circuit(partition_plan, net)
         total_comm_cost_dynamic = result_dynamic['metrics']['total_comm_cost']
 
-        print(f"Total Communication Cost (Baseline): {total_comm_cost_baseline}")
+        print(f"Total Communication Cost (Simple): {total_comm_cost_baseline}")
         print(f"Total Communication Cost (Dynamic): {total_comm_cost_dynamic}")
 
         return True, "Mapper test passed"
     except Exception as e:
         return False, f"Mapper test failed: {str(e)}"
+

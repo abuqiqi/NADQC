@@ -1,25 +1,12 @@
-==================================================
-Running all tests...
-==================================================
-=== Running Mapper Test... ===
-{'backend_name': 'ibm_torino_sampled_5q',
+{'backend_name': 'ibm_torino_sampled_3q',
  'date': datetime.datetime(2025, 11, 9, 0, 0)}
-Backend Name: ibm_torino, #Qubits: 5, Date: 2025-11-09
-[build_partition_table] Partition calculation times: 2993.
-[build_partition_table] Time: 0.16026067733764648 seconds
-[build_slicing_table] Time: 0.015599250793457031 seconds
-Total Communication Cost: 416.0
-Total Communication Cost (Max Match): 470.0
-Total Communication Cost (Global Max Match): 377.0
-Total Communication Cost (Baseline): -7.824652025054109
-Total Communication Cost (Dynamic): -5.991638663629071
-[92mPASS[0m (2.5755s) - Mapper test passed
+[build_partition_table] Partition calculation times: 188.
+[build_partition_table] Time: 0.006021976470947266 seconds
+[build_slicing_table] Time: 0.0007429122924804688 seconds
+Simple Mapper: Simple Mapper
+Metrics: {'total_comm_cost': np.float64(0.7000000000000006), 'total_fidelity': np.float64(0.49483865960020695), 'mapping_sequence_length': 32, 'time': 0.00026416778564453125}
+Mapping Seq: [[0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1]]
 
-==================================================
-TEST SUMMARY
-==================================================
-Mapper Test: [92mPASSED[0m
-
-Total: 1, Passed: 1, Failed: 0
-
-[92m✓ All tests passed![0m
+Link Oriented Mapper: Link-Oriented Mapper
+Metrics: {'total_comm_cost': np.float64(0.6200000000000006), 'total_fidelity': np.float64(0.536268225207185), 'mapping_sequence_length': 32, 'time': 0.0008397102355957031}
+Mapping Seq: [[0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [0, 1], [0, 1], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [0, 1], [0, 1], [0, 1], [0, 1]]

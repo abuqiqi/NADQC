@@ -9,9 +9,7 @@ from pprint import pprint
 from scipy.optimize import linear_sum_assignment
 import itertools
 
-from .backends import Network
-from .partitioner import KWayPartitioner
-from .mapper import Mapper
+from . import Network, KWayPartitioner, Mapper
 
 class NADQC:
     def __init__(self, 
@@ -272,134 +270,23 @@ class NADQC:
         self._get_sliced_subc(self.S[i][j] + 1, j)
         return
 
-    def get_partition_plan(self):
+    def get_partition_candidates(self):
         self.subc_ranges = []
         self._get_sliced_subc(0, len(self.P) - 1)
-        partition_plan = []
-        # mapping_sequence = []
+        partition_candidates = []
         for (i, j) in self.subc_ranges:
             # 通过P[i][j][0]，获取每个qubit被映射到哪个逻辑QPU
-            partition_plan.append(self.P[i][j][0]) # 仅选择第一个划分方案
-        return partition_plan
-    
-    def get_partition_plan_max_match(self):
-        self.subc_ranges = []
-        self._get_sliced_subc(0, len(self.P) - 1)
-        partition_plan = []
-        for (i, j) in self.subc_ranges:
-            # 通过P[i][j][0]，获取每个qubit被映射到哪个逻辑QPU
-            partition_plan.append(self.P[i][j][0]) # 仅选择第一个划分方案
+            partition_candidates.append(self.P[i][j]) # 返回所有划分方案
+        return partition_candidates
 
-        # 从第二个时间步开始，为每个时间步调整逻辑QPU的标签顺序
-        for t in range(1, len(partition_plan)):
-            # 获取当前时间步和前一个时间步的分区方案
-            prev_assign = partition_plan[t-1]
-            curr_assign = partition_plan[t]
-            
-            # 确保逻辑QPU数量匹配
-            num_qpus = len(prev_assign)
-            assert num_qpus == len(curr_assign), f"QPU count mismatch: {num_qpus} != {len(curr_assign)}"
-            
-            # 将分区方案转换为集合列表（每个集合代表一个逻辑QPU包含的量子比特）
-            prev_scheme = [set(p) for p in prev_assign]
-            curr_scheme = [set(p) for p in curr_assign]
-            
-            # 构建权重矩阵：权重 = 两个逻辑QPU之间的交集大小
-            weights = [[len(prev_scheme[i] & curr_scheme[j]) for j in range(num_qpus)] for i in range(num_qpus)]
-            
-            # 使用匈牙利算法找到最大权匹配（最大化交集大小）
-            prev_idx, curr_idx = linear_sum_assignment(weights, maximize=True)
-            
-            # 创建新的当前时间步分区方案，按匹配结果重新排序
-            new_curr_assign = [None] * num_qpus
-            for i in range(num_qpus):
-                # 将当前时间步的逻辑QPU j 映射到新的逻辑QPU位置 curr_idx[i]
-                new_curr_assign[curr_idx[i]] = curr_assign[prev_idx[i]]
-            
-            # 更新当前时间步的分区方案
-            partition_plan[t] = new_curr_assign
-        
-        return partition_plan
-
-    def get_partition_plan_global_max_match(self):
-        """
-        使用动态规划计算全局最优的逻辑QPU顺序（每个时间步的顺序）
-        """
-        self.subc_ranges = []
-        self._get_sliced_subc(0, len(self.P) - 1)
-        partition_plan = []
-        for (i, j) in self.subc_ranges:
-            # 通过P[i][j][0]，获取每个qubit被映射到哪个逻辑QPU
-            partition_plan.append(self.P[i][j][0]) # 仅选择第一个划分方案
-
-        k = len(partition_plan)
-        if k < 2:
-            return [list(range(len(partition_plan[0])))] * k
-        
-        m = len(partition_plan[0])
-        
-        # 生成所有可能的排列 (m!)
-        all_perms = list(itertools.permutations(range(m)))
-        num_perms = len(all_perms)
-        
-        # 将排列映射为索引
-        perm_to_index = {perm: idx for idx, perm in enumerate(all_perms)}
-        
-        # dp[t][perm_idx] = 从时间步0到时间步t-1的最小总通信开销
-        # 但实际我们存储的是最大交集和（因为最小化移动 = 最大化交集）
-        dp = [[-float('inf')] * num_perms for _ in range(k)]
-        # 路径记录: path[t][perm_idx] = 前一个时间步的排列索引
-        path = [[-1] * num_perms for _ in range(k)]
-        
-        # 初始化第一个时间步（没有前驱，交集和为0）
-        for idx in range(num_perms):
-            dp[0][idx] = 0
-        
-        # 动态规划：从时间步1开始
-        for t in range(1, k):
-            for curr_idx in range(num_perms):
-                curr_perm = all_perms[curr_idx]
-                for prev_idx in range(num_perms):
-                    prev_perm = all_perms[prev_idx]
-                    
-                    # 计算从时间步t-1（顺序prev_perm）到时间步t（顺序curr_perm）的交集和
-                    total_intersection = 0
-                    for i in range(m):
-                        set1 = set(partition_plan[t-1][prev_perm[i]])
-                        set2 = set(partition_plan[t][curr_perm[i]])
-                        total_intersection += len(set1 & set2)
-                    
-                    # 更新dp[t][curr_idx]
-                    if dp[t-1][prev_idx] + total_intersection > dp[t][curr_idx]:
-                        dp[t][curr_idx] = dp[t-1][prev_idx] + total_intersection
-                        path[t][curr_idx] = prev_idx
-        
-        # 找到最后一个时间步的最优排列
-        best_last_idx = np.argmax(dp[k-1])
-        
-        # 回溯路径
-        orders = [None] * k
-        orders[k-1] = all_perms[best_last_idx]
-        
-        curr_idx = best_last_idx
-        for t in range(k-1, 0, -1):
-            prev_idx = path[t][curr_idx]
-            orders[t-1] = all_perms[prev_idx]
-            curr_idx = prev_idx
-        
-        # 确保第一个时间步的顺序为[0,1,...,m-1]（因为第一个时间步没有前驱，任意顺序都行）
-        orders[0] = list(range(m))
-        
-        # 创建调整后的分区计划
-        adjusted_plan = []
-        for t in range(len(partition_plan)):
-            curr_assign = partition_plan[t]
-            order = orders[t]
-            # 按照最优顺序重新排列逻辑QPU
-            adjusted_time_step = [curr_assign[i] for i in order]
-            adjusted_plan.append(adjusted_time_step)
-        
-        return adjusted_plan
+    # def get_partition_plan(self):
+    #     self.subc_ranges = []
+    #     self._get_sliced_subc(0, len(self.P) - 1)
+    #     partition_plan = []
+    #     for (i, j) in self.subc_ranges:
+    #         # 通过P[i][j][0]，获取每个qubit被映射到哪个逻辑QPU
+    #         partition_plan.append(self.P[i][j][0]) # 仅选择第一个划分方案
+    #     return partition_plan
 
     # def calculate_comm_cost_dynamic(self, partition_plan):
     #     """
@@ -469,44 +356,6 @@ class NADQC:
         
     #     return total_comm_cost, mapping_sequence
 
-    # def _compute_switch_demand(self, current_partition, next_partition):
-    #     """
-    #     计算单次切换的通信需求
-    #     :param current_partition: 当前时间片的分区 [[qubits_in_logical_0], [qubits_in_logical_1], ...]
-    #     :param next_partition: 下一时间片的分区 [[qubits_in_logical_0], [qubits_in_logical_1], ...]
-    #     :return: (D_switch, qubit_movements)
-    #         - D_switch: m_logical x m_logical 矩阵，D_switch[i][j] = 从逻辑QPU i 移动到 j 的量子比特数
-    #         - qubit_movements: dict {qubit: (from_logical, to_logical)}
-    #     """
-    #     # 创建量子比特到逻辑QPU的映射
-    #     current_qubit_to_logical = {}
-    #     for logical_idx, group in enumerate(current_partition):
-    #         for qubit in group:
-    #             current_qubit_to_logical[qubit] = logical_idx
-        
-    #     next_qubit_to_logical = {}
-    #     for logical_idx, group in enumerate(next_partition):
-    #         for qubit in group:
-    #             next_qubit_to_logical[qubit] = logical_idx
-        
-    #     # 初始化需求矩阵
-    #     m_logical_current = len(current_partition)
-    #     m_logical_next = len(next_partition)
-    #     D_switch = np.zeros((m_logical_current, m_logical_next))
-        
-    #     # 记录每个量子比特的移动
-    #     qubit_movements = {}
-        
-    #     # 计算需求
-    #     for qubit in range(self.circ.num_qubits):
-    #         curr_logical = current_qubit_to_logical[qubit]
-    #         next_logical = next_qubit_to_logical[qubit]
-            
-    #         if curr_logical != next_logical:
-    #             D_switch[curr_logical][next_logical] += 1
-    #             qubit_movements[qubit] = (curr_logical, next_logical)
-        
-    #     return D_switch, qubit_movements
 
     # def _find_optimal_mapping_for_switch(self, D_switch, current_mapping, num_logical_next, qubit_movements):
     #     """
@@ -593,39 +442,3 @@ class NADQC:
     #         next_mapping[logical] = physical
         
     #     return next_mapping
-
-    # def _evaluate_switch_cost(self, D_switch, mapping_current, mapping_next, qubit_movements):
-    #     """
-    #     计算切换成本
-    #     :param D_switch: 通信需求矩阵
-    #     :param mapping_current: 当前映射 [logical_current -> physical]
-    #     :param mapping_next: 下一映射 [logical_next -> physical]
-    #     :param qubit_movements: 量子比特移动详情 {qubit: (from_logical, to_logical)}
-    #     :return: 切换成本
-    #     """
-    #     if not hasattr(self.network, 'W_eff'):
-    #         self.network.W_eff, _ = self.network.compute_effective_fidelity()
-    #     W_eff = self.network.W_eff
-        
-    #     total_cost = 0.0
-        
-    #     # 方法1: 基于量子比特移动计算
-    #     for qubit, (from_logical, to_logical) in qubit_movements.items():
-    #         from_physical = mapping_current[from_logical]
-    #         to_physical = mapping_next[to_logical]
-    #         # 移动成本 = 1 - 保真度
-    #         cost = 1 - W_eff[from_physical][to_physical]
-    #         total_cost += cost
-        
-    #     # 方法2: 基于需求矩阵计算（作为验证）
-    #     # validation_cost = 0.0
-    #     # for i in range(D_switch.shape[0]):
-    #     #     for j in range(D_switch.shape[1]):
-    #     #         if D_switch[i][j] > 0:
-    #     #             from_physical = mapping_current[i]
-    #     #             to_physical = mapping_next[j]
-    #     #             cost = (1 - W_eff[from_physical][to_physical]) * D_switch[i][j]
-    #     #             validation_cost += cost
-        
-    #     return total_cost
-    

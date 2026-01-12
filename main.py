@@ -2,6 +2,7 @@ import datetime
 from pprint import pprint
 from src.nadqc import Backend, Network, NADQC
 from src.utils import get_config
+from src.nadqc import SimpleMapper, LinkOrientedMapper
 
 # 自定义网络配置
 network_config = {
@@ -33,7 +34,7 @@ backend = Backend(global_config, backend_config)
 
 backend_config = [backend for _ in range(2)]
 
-net = Network(network_config, backend_config)
+network = Network(network_config, backend_config)
 
 # 创建一个简单的量子电路
 from qiskit import QuantumCircuit, transpile
@@ -44,12 +45,24 @@ qc = transpile(qc, basis_gates=["cu1", "u3"], optimization_level=0)
 # print(qc)
 
 # 分配
-nadqc = NADQC(circ=qc, network=net)
+nadqc = NADQC(circ=qc, network=network)
 nadqc.distribute()
 partition_plan = nadqc.get_partition_plan()
-total_comm_cost, mapping_sequence = nadqc.calculate_comm_cost_dynamic(partition_plan)
-print("Partition Plan:")
-pprint(partition_plan)
-print(f"Total Communication Cost: {total_comm_cost:.4f}")
-print("Mapping Sequence:")
-pprint(mapping_sequence)
+
+# 测试基线映射器
+simple_mapper = SimpleMapper()
+result_baseline = simple_mapper.map_circuit(partition_plan, network)
+
+# 测试链路导向映射器
+link_oriented_mapper = LinkOrientedMapper()
+result_link_oriented = link_oriented_mapper.map_circuit(partition_plan, network)
+
+
+# 输出比较结果
+print(f"Simple Mapper: {simple_mapper.get_name()}")
+print(f"Metrics: {result_baseline['metrics']}")
+print(f"Mapping Seq: {result_baseline['mapping_sequence']}")
+
+print(f"\nLink Oriented Mapper: {link_oriented_mapper.get_name()}")
+print(f"Metrics: {result_link_oriented['metrics']}")
+print(f"Mapping Seq: {result_link_oriented['mapping_sequence']}")

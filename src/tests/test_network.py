@@ -43,7 +43,7 @@ def test_network_initialization():
 def test_optimal_path():
     """测试最优路径计算"""
     try:
-        from nadqc.backends import Network
+        from nadqc import Network
         
         # 自定义网络配置
         network_config = {

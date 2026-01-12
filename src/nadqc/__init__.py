@@ -1,7 +1,9 @@
-from .backends import QiskitBackendImporter, Backend, Network
-from .compiler import NADQC
+from .backend import QiskitBackendImporter, Backend
+from .network import Network
 from .partitioner import KWayPartitioner
-from .mapper import Mapper, BaselineMapper, LinkOrientedMapper
+from .partition_assigner import PartitionAssigner, BasePartitionAssigner, DirectPartitionAssigner, MaxMatchPartitionAssigner, GlobalMaxMatchPartitionAssigner
+from .mapper import Mapper, SimpleMapper, LinkOrientedMapper
+from .compiler import NADQC
 
 # 可选：定义__all__，支持from my_package import *
 __all__ = ["QiskitBackendImporter", 
@@ -9,6 +11,10 @@ __all__ = ["QiskitBackendImporter",
            "Network",
            "NADQC",
            "KWayPartitioner",
+           "PartitionAssigner",
+           "BasePartitionAssigner",
+           "DirectPartitionAssigner",
+           "MaxMatchPartitionAssigner",
            "Mapper",
-           "BaselineMapper",
+           "SimpleMapper",
            "LinkOrientedMapper"]

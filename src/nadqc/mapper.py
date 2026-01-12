@@ -3,6 +3,7 @@ import time
 import numpy as np
 import math
 from typing import Dict, Any, List, Tuple
+from pprint import pprint
 
 class Mapper(ABC):
     """
@@ -10,10 +11,10 @@ class Mapper(ABC):
     """
 
     @abstractmethod
-    def map_circuit(self, circuit: Any, network: Any) -> Dict[str, Any]:
+    def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
         """
         将量子线路映射到特定量子硬件
-        :param circuit: 原始量子线路
+        :param partition_plan: 量子比特划分
         :param network: 目标量子硬件
         :return: 映射结果，包含线路、深度、门数、错误率等指标
         """
@@ -34,28 +35,26 @@ class Mapper(ABC):
         """
         pass
 
-class BaselineMapper(Mapper):
+
+class BaseMapper(Mapper):
     """
-    基线映射器：直接使用输入的逻辑QPU顺序（逻辑QPU i -> 物理QPU i）
-    作为比较基准，不进行任何优化
+    基础映射器类，提取公共方法和属性
     """
     
     def __init__(self):
-        """
-        初始化BaselineMapper
-        """
         super().__init__()
         self.metrics = {}
+        self.network = None
         self.mapping_sequence = None  # 保存映射序列用于后续使用
 
-    def get_name(self) -> str:
-        """获取映射器名称"""
-        return "Baseline Mapper"
+    def get_metrics(self) -> Dict[str, float]:
+        """获取映射性能指标"""
+        return self.metrics
 
     def _compute_switch_demand(self, current_partition: List[List[int]], 
                              next_partition: List[List[int]]) -> Tuple[np.ndarray, Dict]:
         """
-        计算单次切换的通信需求（与LinkOrientedMapper相同）
+        计算单次切换的通信需求
         :param current_partition: 当前时间片的分区
         :param next_partition: 下一时间片的分区
         :return: (D_switch, qubit_movements)
@@ -84,11 +83,9 @@ class BaselineMapper(Mapper):
         for qubit in range(num_qubits):
             curr_logical = current_qubit_to_logical[qubit]
             next_logical = next_qubit_to_logical[qubit]
-            
-            if curr_logical != next_logical:
-                D_switch[curr_logical][next_logical] += 1
-                qubit_movements[qubit] = (curr_logical, next_logical)
-        
+            qubit_movements[qubit] = (curr_logical, next_logical)
+            D_switch[curr_logical][next_logical] += 1
+
         return D_switch, qubit_movements
 
     def _evaluate_switch_cost(self, D_switch: np.ndarray, 
@@ -96,34 +93,61 @@ class BaselineMapper(Mapper):
                             mapping_next: List[int], 
                             qubit_movements: Dict) -> float:
         """
-        计算切换成本（与LinkOrientedMapper相同）
+        计算切换成本
         :param D_switch: 通信需求矩阵
         :param mapping_current: 当前映射
         :param mapping_next: 下一映射
         :param qubit_movements: 量子比特移动详情
-        :return: 切换成本
+        :return: (switch_cost, switch_fidelity)
         """
         W_eff = self.network.W_eff
         
         total_cost = 0.0
         total_fidelity = 1.0
-        
-        # 基于量子比特移动计算
-        for qubit, (from_logical, to_logical) in qubit_movements.items():
-            from_physical = mapping_current[from_logical]
-            to_physical = mapping_next[to_logical]
-            # 移动成本 = 1 - 保真度
-            cost = 1 - W_eff[from_physical][to_physical]
-            total_cost += cost
-            total_fidelity *= W_eff[from_physical][to_physical]
-        
+
+        # # 基于量子比特移动计算
+        # for qubit, (from_logical, to_logical) in qubit_movements.items():
+        #     from_physical = mapping_current[from_logical]
+        #     to_physical = mapping_next[to_logical]
+        #     # 移动成本 = 1 - 保真度
+        #     cost = 1 - W_eff[from_physical][to_physical]
+        #     total_cost += cost
+        #     total_fidelity *= W_eff[from_physical][to_physical]
+
+        # 基于需求矩阵计算（可选）
+        for i in range(D_switch.shape[0]):
+            for j in range(D_switch.shape[1]):
+                demand = D_switch[i][j]
+                if demand > 0:
+                    from_physical = mapping_current[i]
+                    to_physical = mapping_next[j]
+                    cost = (1 - W_eff[from_physical][to_physical]) * demand
+                    total_cost += cost
+                    total_fidelity *= W_eff[from_physical][to_physical] ** demand
+
         return total_cost, total_fidelity
+
+    def _validate_network_attributes(self):
+        """验证网络对象是否具有必要属性"""
+        if not hasattr(self.network, 'num_backends') or not hasattr(self.network, 'W_eff'):
+            raise AttributeError("Network must have 'num_backends' and 'W_eff' attributes")
+
+
+class SimpleMapper(BaseMapper):
+    """
+    基线映射器：直接使用输入的逻辑QPU顺序（逻辑QPU i -> 物理QPU i）
+    作为比较基准，不进行任何优化
+    """
+
+    def get_name(self) -> str:
+        """获取映射器名称"""
+        return "Simple Mapper"
 
     def calculate_comm_cost(self, partition_plan: List[List[List[int]]]) -> List[List[int]]:
         """
         基线映射：使用identity映射（逻辑QPU i -> 物理QPU i）
         :param partition_plan: list of partitions for each time slice
-        :return: (total_comm_cost, mapping_sequence)
+        :return: mapping_sequence
         """
         start_time = time.time()
         k = len(partition_plan)  # 时间片数量
@@ -177,15 +201,14 @@ class BaselineMapper(Mapper):
         """
         将量子线路映射到特定量子硬件（基线实现）
         :param partition_plan: 量子比特划分
-        :param backend: 目标量子硬件
+        :param network: 目标量子硬件
         :return: 映射结果，包含线路、深度、门数、错误率等指标
         """
         # 保存关键对象用于内部计算
         self.network = network
         
-        # 确保network有必要的属性
-        if not hasattr(network, 'num_backends') or not hasattr(network, 'W_eff'):
-            raise AttributeError("Network must have 'num_backends' and 'W_eff' attributes")
+        # 验证网络属性
+        self._validate_network_attributes()
         
         # 计算基线通信成本和映射序列
         mapping_sequence = self.calculate_comm_cost(partition_plan)
@@ -198,65 +221,15 @@ class BaselineMapper(Mapper):
             "metrics": self.metrics
         }
 
-    def get_metrics(self) -> Dict[str, float]:
-        """获取映射性能指标"""
-        return self.metrics
 
-class LinkOrientedMapper(Mapper):
+class LinkOrientedMapper(BaseMapper):
     """
     实现基于连接的映射算法，通过动态计算通信成本优化量子比特映射
     """
     
-    def __init__(self):
-        """
-        初始化LinkOrientedMapper
-        """
-        super().__init__()
-        self.metrics = {}
-        self.mapping_sequence = None  # 保存映射序列用于后续使用
-
     def get_name(self) -> str:
         """获取映射器名称"""
         return "Link-Oriented Mapper"
-
-    def _compute_switch_demand(self, current_partition: List[List[int]], 
-                             next_partition: List[List[int]]) -> Tuple[np.ndarray, Dict]:
-        """
-        计算单次切换的通信需求
-        :param current_partition: 当前时间片的分区
-        :param next_partition: 下一时间片的分区
-        :return: (D_switch, qubit_movements)
-        """
-        # 创建量子比特到逻辑QPU的映射
-        current_qubit_to_logical = {}
-        for logical_idx, group in enumerate(current_partition):
-            for qubit in group:
-                current_qubit_to_logical[qubit] = logical_idx
-        
-        next_qubit_to_logical = {}
-        for logical_idx, group in enumerate(next_partition):
-            for qubit in group:
-                next_qubit_to_logical[qubit] = logical_idx
-        
-        # 初始化需求矩阵
-        m_logical_current = len(current_partition)
-        m_logical_next = len(next_partition)
-        D_switch = np.zeros((m_logical_current, m_logical_next))
-        
-        # 记录每个量子比特的移动
-        qubit_movements = {}
-        
-        # 计算需求
-        num_qubits = len(current_qubit_to_logical)
-        for qubit in range(num_qubits):
-            curr_logical = current_qubit_to_logical[qubit]
-            next_logical = next_qubit_to_logical[qubit]
-            
-            if curr_logical != next_logical:
-                D_switch[curr_logical][next_logical] += 1
-                qubit_movements[qubit] = (curr_logical, next_logical)
-        
-        return D_switch, qubit_movements
 
     def _find_optimal_mapping_for_switch(self, D_switch: np.ndarray, 
                                         current_mapping: List[int], 
@@ -343,35 +316,7 @@ class LinkOrientedMapper(Mapper):
         
         return next_mapping
 
-    def _evaluate_switch_cost(self, D_switch: np.ndarray, 
-                            mapping_current: List[int], 
-                            mapping_next: List[int], 
-                            qubit_movements: Dict) -> float:
-        """
-        计算切换成本
-        :param D_switch: 通信需求矩阵
-        :param mapping_current: 当前映射
-        :param mapping_next: 下一映射
-        :param qubit_movements: 量子比特移动详情
-        :return: 切换成本
-        """
-        W_eff = self.network.W_eff
-        
-        total_cost = 0.0
-        total_fidelity = 1.0
-        
-        # 基于量子比特移动计算
-        for qubit, (from_logical, to_logical) in qubit_movements.items():
-            from_physical = mapping_current[from_logical]
-            to_physical = mapping_next[to_logical]
-            # 移动成本 = 1 - 保真度
-            cost = 1 - W_eff[from_physical][to_physical]
-            total_cost += cost
-            total_fidelity *= W_eff[from_physical][to_physical]
-        
-        return total_cost, total_fidelity
-
-    def calculate_comm_cost_dynamic(self, partition_plan: List[List[List[int]]]) -> Tuple[float, List[List[int]]]:
+    def _calculate_comm_cost_dynamic(self, partition_plan: List[List[List[int]]]) -> Tuple[float, List[List[int]]]:
         """
         动态映射：为每个partition切换计算通信成本和最优映射序列
         :param partition_plan: list of partitions for each time slice
@@ -380,7 +325,6 @@ class LinkOrientedMapper(Mapper):
         start_time = time.time()
         k = len(partition_plan)  # 时间片数量
         m_physical = self.network.num_backends  # 物理QPU数量
-        # n = self.circ.num_qubits  # 量子比特数
         
         # 结果存储
         total_comm_cost = 0.0
@@ -402,6 +346,10 @@ class LinkOrientedMapper(Mapper):
                 partition_plan[t], 
                 partition_plan[t+1]
             )
+            # print("D_switch:")
+            # pprint(D_switch)
+            # print("Qubit Movements:")
+            # pprint(qubit_movements)
             
             # 2.2 获取下一时间片的逻辑QPU数量
             num_logical_next = len(partition_plan[t+1])
@@ -414,6 +362,8 @@ class LinkOrientedMapper(Mapper):
                 num_logical_next,    # 下一时间片的逻辑QPU数量
                 qubit_movements      # 量子比特移动详情
             )
+
+            # pprint(f"Mapping at time slice {t+1}: {next_mapping}")
             
             # 2.4 计算本次切换的实际成本
             switch_cost, switch_fidelity = self._evaluate_switch_cost(
@@ -422,6 +372,8 @@ class LinkOrientedMapper(Mapper):
                 next_mapping,
                 qubit_movements
             )
+
+            # print(f"Switch Cost from time slice {t} to {t+1}: {switch_cost}, Fidelity: {switch_fidelity}")
             
             total_comm_cost += switch_cost
             total_fidelity *= switch_fidelity
@@ -447,12 +399,11 @@ class LinkOrientedMapper(Mapper):
         # 保存关键对象用于内部计算
         self.network = network
         
-        # 确保network有必要的属性
-        if not hasattr(network, 'num_backends') or not hasattr(network, 'W_eff'):
-            raise AttributeError("Network must have 'num_backends' and 'W_eff' attributes")
+        # 验证网络属性
+        self._validate_network_attributes()
 
         # 计算通信成本和映射序列
-        mapping_sequence = self.calculate_comm_cost_dynamic(partition_plan)
+        mapping_sequence = self._calculate_comm_cost_dynamic(partition_plan)
         
         # 保存映射序列用于后续使用
         self.mapping_sequence = mapping_sequence
@@ -461,7 +412,3 @@ class LinkOrientedMapper(Mapper):
             "mapping_sequence": self.mapping_sequence,  # 实际映射操作在编译器后续步骤中完成
             "metrics": self.metrics
         }
-
-    def get_metrics(self) -> Dict[str, float]:
-        """获取映射性能指标"""
-        return self.metrics

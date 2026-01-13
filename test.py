@@ -43,9 +43,10 @@ def main():
         # (my_tests.test_optimal_path, "Optimal Path Calculation"),
         # (my_tests.test_partition, "Circuit Partitioning"),
         # (my_tests.test_backend_sample, "Backend Sample Test"),
-        # (my_tests.test_mapper, "Mapper Test"),
-        # (my_tests.test_mock_network, "Mock Network Test")
-        (my_tests.test_mock_partition_assigner, "Mock Partition Assigner Test"),
+        # (my_tests.test_mock_component_partitioner, "Mock Component Partitioner Test"),
+        # (my_tests.test_mock_partition_assigner, "Mock Partition Assigner Test"),
+        (my_tests.test_mapper, "Mapper Test"),
+        # (my_tests.test_mock_network, "Mock Network Test"),
     ]
     
     # 运行所有测试

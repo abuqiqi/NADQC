@@ -9,17 +9,16 @@ from pprint import pprint
 from scipy.optimize import linear_sum_assignment
 import itertools
 
-from . import Network, KWayPartitioner, Mapper
+from . import Network, PartitionerFactory
 
 class NADQC:
     def __init__(self, 
                  circ: QuantumCircuit, 
                  network: Network,
-                 partition_method: str = "recursive"):
+                 partition_method: str = "recursive_dp"):
         self.circ = circ
         self.network = network
-        self.partitioner = KWayPartitioner(network, max_options=1)
-        self.partition_method = partition_method
+        self.partitioner = PartitionerFactory.create_partitioner(partition_method, network, max_options=1)
         # self.mapper = Mapper()
         return
     
@@ -219,7 +218,7 @@ class NADQC:
 
     def _get_qig_partitions(self, qig):
         components = [list(comp) for comp in nx.connected_components(qig)]
-        legal_partitions = self.partitioner.partition(components, self.partition_method)
+        legal_partitions = self.partitioner.partition(components)
         return legal_partitions
 
     # 

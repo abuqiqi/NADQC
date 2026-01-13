@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Tuple
 from scipy.optimize import linear_sum_assignment
 import itertools
 
+
 class PartitionAssigner(ABC):
     """
     量子线路划分分配器接口，定义所有划分分配算法必须实现的方法
@@ -35,6 +36,62 @@ class PartitionAssigner(ABC):
         pass
 
 
+class PartitionAssignerFactory:
+    """划分分配器工厂类"""
+    _registry = {
+        "direct": "DirectPartitionAssigner",
+        "max_match": "MaxMatchPartitionAssigner",
+        "global_max_match": "GlobalMaxMatchPartitionAssigner"
+    }
+    
+    @classmethod
+    def create_assigner(cls, assigner_type: str) -> PartitionAssigner:
+        """
+        创建指定类型的划分分配器
+        
+        :param assigner_type: 分配器类型字符串
+        :return: 对应的划分分配器实例
+        """
+        assigner_type = assigner_type.lower()
+        if assigner_type not in cls._registry:
+            available = ", ".join(cls._registry.keys())
+            raise ValueError(f"Unknown partition assigner: '{assigner_type}', available: {available}")
+        
+        # 从注册表获取类名，然后创建实例
+        assigner_class_name = cls._registry[assigner_type]
+        assigner_class = globals()[assigner_class_name]
+        return assigner_class()
+    
+    @classmethod
+    def register_assigner(cls, name: str, class_name: str):
+        """
+        动态注册新的划分分配器类型
+        
+        :param name: 分配器类型名称
+        :param class_name: 对应的类名字符串
+        """
+        cls._registry[name] = class_name
+    
+    @classmethod
+    def unregister_assigner(cls, name: str):
+        """
+        移除注册的划分分配器类型
+        
+        :param name: 要移除的分配器类型名称
+        """
+        if name in cls._registry:
+            del cls._registry[name]
+    
+    @classmethod
+    def get_available_assigners(cls):
+        """
+        获取所有可用的划分分配器类型
+        
+        :return: 可用分配器类型列表
+        """
+        return list(cls._registry.keys())
+
+
 class BasePartitionAssigner(PartitionAssigner):
     """
     基础划分分配器类，提取公共方法和属性
@@ -63,6 +120,40 @@ class BasePartitionAssigner(PartitionAssigner):
         for i in range(len(self.partition_candidates)):
             partition_plan.append(self.partition_candidates[i][0])  # 仅选择第一个划分方案
         return partition_plan
+    
+    def _evaluate_partition_plan(self, partition_plan: List[List[List[int]]]) -> Dict[str, float]:
+        """
+        评估划分计划的性能指标
+        :param partition_plan: 划分计划
+        :return: 性能指标字典
+        """
+        num_moves = 0
+        qubit_movements = []
+        for t in range(len(partition_plan) - 1):
+            current_partition = partition_plan[t]
+            next_partition = partition_plan[t + 1]
+
+            # 创建量子比特到逻辑QPU的映射
+            current_qubit_to_logical = {}
+            for logical_idx, group in enumerate(current_partition):
+                for qubit in group:
+                    current_qubit_to_logical[qubit] = logical_idx
+            
+            next_qubit_to_logical = {}
+            for logical_idx, group in enumerate(next_partition):
+                for qubit in group:
+                    next_qubit_to_logical[qubit] = logical_idx
+            
+            # 计算需要移动的量子比特数量
+            movements = {}
+            all_qubits = set(current_qubit_to_logical.keys()).union(set(next_qubit_to_logical.keys()))
+            for qubit in all_qubits:
+                if current_qubit_to_logical.get(qubit) != next_qubit_to_logical.get(qubit):
+                    num_moves += 1
+                    movements[qubit] = (current_qubit_to_logical.get(qubit), next_qubit_to_logical.get(qubit))
+            qubit_movements.append(movements)
+
+        return {"num_moves": num_moves, "qubit_movements": qubit_movements}
 
 
 class DirectPartitionAssigner(BasePartitionAssigner):
@@ -92,10 +183,13 @@ class DirectPartitionAssigner(BasePartitionAssigner):
         # 提取初始划分计划
         partition_plan = self._extract_initial_partition_plan()
 
-        # TODO: 计算通信开销
+        # 计算通信开销
+        result = self._evaluate_partition_plan(partition_plan)
         
         end_time = time.time()
         self.metrics = {
+            "num_moves": result["num_moves"],
+            "qubit_movements": result["qubit_movements"],
             "processing_time": end_time - start_time,
         }
         
@@ -160,12 +254,13 @@ class MaxMatchPartitionAssigner(BasePartitionAssigner):
             # 更新当前时间步的分区方案
             partition_plan[t] = new_curr_assign
         
+        result = self._evaluate_partition_plan(partition_plan)
+
         end_time = time.time()
         self.metrics = {
-            "processing_time": end_time - start_time,
-            "partition_plan_length": len(partition_plan),
-            "num_qpus_per_time_slice": [len(time_slice) for time_slice in partition_plan] if partition_plan else [],
-            "algorithm_used": "Hungarian Algorithm for Maximum Weight Matching"
+            "num_moves": result["num_moves"],
+            "qubit_movements": result["qubit_movements"],
+            "processing_time": end_time - start_time
         }
         
         return {
@@ -273,15 +368,14 @@ class GlobalMaxMatchPartitionAssigner(BasePartitionAssigner):
             # 按照最优顺序重新排列逻辑QPU
             adjusted_time_step = [curr_assign[i] for i in order]
             adjusted_plan.append(adjusted_time_step)
+
+        result = self._evaluate_partition_plan(adjusted_plan)
         
         end_time = time.time()
         self.metrics = {
-            "processing_time": end_time - start_time,
-            "partition_plan_length": len(adjusted_plan),
-            "num_qpus_per_time_slice": [len(time_slice) for time_slice in adjusted_plan] if adjusted_plan else [],
-            "algorithm_used": "Dynamic Programming for Global Maximum Weight Matching",
-            "num_permutations_considered": num_perms,
-            "number_of_time_slices": k
+            "num_moves": result["num_moves"],
+            "qubit_movements": result["qubit_movements"],
+            "processing_time": end_time - start_time
         }
         
         return {
@@ -289,34 +383,3 @@ class GlobalMaxMatchPartitionAssigner(BasePartitionAssigner):
             "metrics": self.metrics
         }
 
-
-# 示例使用
-if __name__ == "__main__":
-    # 创建示例数据（模拟P和subc_ranges）
-    class MockDataStructure:
-        def __init__(self):
-            # 模拟P数据结构
-            # P[i][j][0]表示时间片i到j的划分方案
-            self.partition_candidates = [
-                [[[0, 1], [2, 3]]],  # 时间片0-0的划分方案
-                [[[0, 2], [1, 3]]],  # 时间片1-1的划分方案
-                [[[0, 3], [1, 2]]]   # 时间片2-2的划分方案
-            ] * 3  # 扩展为3个时间段
-    
-    mock_data = MockDataStructure()
-    
-    # 创建不同的分配器实例
-    assigners = [
-        DirectPartitionAssigner(),
-        MaxMatchPartitionAssigner(),
-        GlobalMaxMatchPartitionAssigner()
-    ]
-    
-    print("Testing different partition assigners:\n")
-    
-    for assigner in assigners:
-        print(f"Processing with {assigner.get_name()}:")
-        result = assigner.assign_partitions(mock_data.partition_candidates)
-        print(f"Partition Plan: {result['partition_plan']}")
-        print(f"Metrics: {result['metrics']}")
-        print("-" * 50)

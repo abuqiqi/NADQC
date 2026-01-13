@@ -36,6 +36,61 @@ class Mapper(ABC):
         pass
 
 
+class MapperFactory:
+    """映射器工厂类"""
+    _registry = {
+        "simple": "SimpleMapper",
+        "link_oriented": "LinkOrientedMapper"
+    }
+    
+    @classmethod
+    def create_mapper(cls, mapper_type: str) -> Mapper:
+        """
+        创建指定类型的映射器
+        
+        :param mapper_type: 映射器类型字符串
+        :return: 对应的映射器实例
+        """
+        mapper_type = mapper_type.lower()
+        if mapper_type not in cls._registry:
+            available = ", ".join(cls._registry.keys())
+            raise ValueError(f"Unknown mapper: '{mapper_type}', available: {available}")
+        
+        # 从注册表获取类名，然后创建实例
+        mapper_class_name = cls._registry[mapper_type]
+        mapper_class = globals()[mapper_class_name]
+        return mapper_class()
+    
+    @classmethod
+    def register_mapper(cls, name: str, class_name: str):
+        """
+        动态注册新的映射器类型
+        
+        :param name: 映射器类型名称
+        :param class_name: 对应的类名字符串
+        """
+        cls._registry[name] = class_name
+    
+    @classmethod
+    def unregister_mapper(cls, name: str):
+        """
+        移除注册的映射器类型
+        
+        :param name: 要移除的映射器类型名称
+        """
+        if name in cls._registry:
+            del cls._registry[name]
+    
+    @classmethod
+    def get_available_mappers(cls):
+        """
+        获取所有可用的映射器类型
+        
+        :return: 可用映射器类型列表
+        """
+        return list(cls._registry.keys())
+
+
 class BaseMapper(Mapper):
     """
     基础映射器类，提取公共方法和属性
@@ -143,7 +198,7 @@ class SimpleMapper(BaseMapper):
         """获取映射器名称"""
         return "Simple Mapper"
 
-    def calculate_comm_cost(self, partition_plan: List[List[List[int]]]) -> List[List[int]]:
+    def _calculate_comm_cost(self, partition_plan: List[List[List[int]]]) -> List[List[int]]:
         """
         基线映射：使用identity映射（逻辑QPU i -> 物理QPU i）
         :param partition_plan: list of partitions for each time slice
@@ -211,8 +266,8 @@ class SimpleMapper(BaseMapper):
         self._validate_network_attributes()
         
         # 计算基线通信成本和映射序列
-        mapping_sequence = self.calculate_comm_cost(partition_plan)
-        
+        mapping_sequence = self._calculate_comm_cost(partition_plan)
+
         # 保存映射序列
         self.mapping_sequence = mapping_sequence
         

@@ -68,9 +68,9 @@ def test_mapper():
         network_config = {
             'type': 'self_defined',
             'network_coupling': {
-                (0, 1): 0.99,
+                (0, 1): 0.979,
                 (1, 2): 0.98,
-                (0, 2): 0.97
+                (0, 2): 0.981
             }
         }
 
@@ -79,9 +79,9 @@ def test_mapper():
         # 创建一个简单的量子电路
         from qiskit import QuantumCircuit, transpile
         from qiskit.circuit.library import QuantumVolume, QFT
-        qc = QuantumVolume(30, seed=42).decompose()
-        # qc = QFT(15).decompose()
-        qc = transpile(qc, basis_gates=["cu1", "u3"], optimization_level=0)
+        # qc = QuantumVolume(30, seed=42).decompose()
+        qc = QFT(30).decompose()
+        # qc = transpile(qc, basis_gates=["cu1", "u3"], optimization_level=0)
         # print(qc)
 
         # 分配
@@ -89,17 +89,16 @@ def test_mapper():
         nadqc.distribute()
 
         # partitioner = PartitionAssignerFactory.create_assigner("global_max_match")
-        # partition_candidates = nadqc.get_partition_candidates()
-        # partition_plan = partitioner.assign_partitions(partition_candidates)["partition_plan"]
-        # print("Partition Plan:")
-        # pprint(partition_plan)
-
         partitioner = PartitionAssignerFactory.create_assigner("max_match")
         partition_candidates = nadqc.get_partition_candidates()
         partition_plan = partitioner.assign_partitions(partition_candidates)["partition_plan"]
+        # print("Partition Plan:")
+        # pprint(partition_plan)
 
         simple_mapper  = MapperFactory.create_mapper("simple")
         link_oriented_mapper = MapperFactory.create_mapper("link_oriented")
+        exact_mapper = MapperFactory.create_mapper("exact")
+        greedy_mapper = MapperFactory.create_mapper("greedy")
 
         # total_comm_cost, total_comm_cost_mm, total_comm_cost_gmm = 0, 0, 0
 
@@ -142,14 +141,24 @@ def test_mapper():
         total_comm_cost_baseline = result_baseline['metrics']['total_comm_cost']
         result_dynamic = link_oriented_mapper.map_circuit(partition_plan, net)
         total_comm_cost_dynamic = result_dynamic['metrics']['total_comm_cost']
+        result_exact = exact_mapper.map_circuit(partition_plan, net)
+        total_comm_cost_exact = result_exact['metrics']['total_comm_cost']
+        result_greedy = greedy_mapper.map_circuit(partition_plan, net)
+        total_comm_cost_greedy = result_greedy['metrics']['total_fidelity_loss']
 
         print(f"Total Communication Cost (Simple): {total_comm_cost_baseline}")
         print(f"Total Communication Cost (Dynamic): {total_comm_cost_dynamic}")
+        print(f"Total Communication Cost (Exact): {total_comm_cost_exact}")
+        print(f"Total Communication Cost (Greedy): {total_comm_cost_greedy}")
 
         print("Simple Mapper:")
         pprint(result_baseline['metrics'])
         print("Link-Oriented Mapper:")
         pprint(result_dynamic['metrics'])
+        print("Exact Optimization Mapper:")
+        pprint(result_exact['metrics'])
+        print("Greedy Mapper:")
+        pprint(result_greedy['metrics'])
 
         return True, "Mapper test passed"
     except Exception as e:

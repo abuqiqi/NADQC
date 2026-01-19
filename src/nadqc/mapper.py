@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import time
 import numpy as np
 import math
+import itertools
 from typing import Dict, Any, List, Tuple
 from pprint import pprint
 
@@ -40,7 +41,9 @@ class MapperFactory:
     """映射器工厂类"""
     _registry = {
         "simple": "SimpleMapper",
-        "link_oriented": "LinkOrientedMapper"
+        "link_oriented": "LinkOrientedMapper",
+        "exact": "ExactOptimizationMapper",
+        "greedy": "GreedyMapper"
     }
     
     @classmethod
@@ -146,7 +149,7 @@ class BaseMapper(Mapper):
     def _evaluate_switch_cost(self, D_switch: np.ndarray, 
                             mapping_current: List[int], 
                             mapping_next: List[int], 
-                            qubit_movements: Dict) -> float:
+                            qubit_movements: Dict) -> Tuple[float, float]:
         """
         计算切换成本
         :param D_switch: 通信需求矩阵
@@ -157,7 +160,7 @@ class BaseMapper(Mapper):
         """
         W_eff = self.network.W_eff
         
-        total_cost = 0.0
+        total_fidelity_loss = 0.0
         total_fidelity = 1.0
 
         # # 基于量子比特移动计算
@@ -176,11 +179,11 @@ class BaseMapper(Mapper):
                 if demand > 0:
                     from_physical = mapping_current[i]
                     to_physical = mapping_next[j]
-                    cost = (1 - W_eff[from_physical][to_physical]) * demand
-                    total_cost += cost
+                    loss = (1 - W_eff[from_physical][to_physical]) * demand
+                    total_fidelity_loss += loss
                     total_fidelity *= W_eff[from_physical][to_physical] ** demand
 
-        return total_cost, total_fidelity
+        return total_fidelity_loss, total_fidelity
 
     def _validate_network_attributes(self):
         """验证网络对象是否具有必要属性"""
@@ -467,3 +470,368 @@ class LinkOrientedMapper(BaseMapper):
             "mapping_sequence": self.mapping_sequence,  # 实际映射操作在编译器后续步骤中完成
             "metrics": self.metrics
         }
+
+
+class GreedyMapper(BaseMapper):
+    """
+    每一步使用贪心算法求得与上一时间步相比保真度最高的映射
+    """
+    def get_name(self) -> str:
+        """获取映射器名称"""
+        return "Exact Optimization Mapper"
+
+    def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
+        """
+        将量子线路映射到特定量子硬件
+        :param partition_plan: 量子比特划分
+        :param network: 目标量子硬件
+        :return: 映射结果，包含线路、深度、门数、错误率等指标
+        """
+        # 保存关键对象用于内部计算
+        self.network = network
+        
+        # 验证网络属性
+        self._validate_network_attributes()
+
+        # 计算通信成本和映射序列
+        mapping_sequence = self._calculate_comm_cost_greedy(partition_plan)
+        
+        # 保存映射序列用于后续使用
+        self.mapping_sequence = mapping_sequence
+        
+        return {
+            "mapping_sequence": self.mapping_sequence,  # 实际映射操作在编译器后续步骤中完成
+            "metrics": self.metrics
+        }
+    
+    def _calculate_comm_cost_greedy(self, partition_plan: List[List[List[int]]]) -> List[List[int]]:
+        """
+        使用贪心算法计算最优映射序列
+        :param partition_plan: list of partitions for each time slice
+        :return: mapping_sequence
+        """
+        start_time = time.time()
+        k = len(partition_plan)  # 时间片数量
+        m_physical = self.network.num_backends  # 物理QPU数量
+        
+        # 结果存储
+        total_fidelity = 1.0
+        total_fidelity_loss = 0.0
+        mapping_sequence = []  # mapping_sequence[t][i] = time slice t 中逻辑QPU i 映射到的物理QPU
+        
+        # 1. 设置初始映射：时间片0的逻辑QPU到物理QPU的映射
+        num_logical_qpus_t0 = len(partition_plan[0])
+        assert num_logical_qpus_t0 <= m_physical, f"Time slice 0 has {num_logical_qpus_t0} logical QPUs but only {m_physical} physical QPUs available"
+        
+        # 简单策略：identity mapping (逻辑QPU i -> 物理QPU i)
+        initial_mapping = list(range(num_logical_qpus_t0))
+        mapping_sequence.append(initial_mapping)
+        
+        # 2. 为每个时间片边界计算切换成本
+        for t in range(k-1):
+            # 2.1 计算当前边界(t -> t+1)的通信需求
+            D_switch, qubit_movements = self._compute_switch_demand(
+                partition_plan[t], 
+                partition_plan[t+1]
+            )
+            
+            # 2.2 获取下一时间片的逻辑QPU数量
+            num_logical_next = len(partition_plan[t+1])
+            assert num_logical_next <= m_physical, f"Time slice {t+1} has {num_logical_next} logical QPUs but only {m_physical} physical QPUs available"
+            
+            # 2.3 使用贪心算法为下一时间片找到映射
+            next_mapping, fidelity, fidelity_loss = self._find_optimal_mapping_for_switch(
+                D_switch,
+                mapping_sequence[t],  # 当前时间片的映射
+                num_logical_next,    # 下一时间片的逻辑QPU数量
+                qubit_movements      # 量子比特移动详情
+            )
+
+            total_fidelity *= fidelity
+            total_fidelity_loss += fidelity_loss
+            mapping_sequence.append(next_mapping)
+        
+        end_time = time.time()
+
+        self.metrics = {
+            "total_fidelity_loss": total_fidelity_loss,
+            "total_fidelity": total_fidelity,
+            "mapping_sequence_length": len(mapping_sequence),
+            "time": end_time - start_time
+        }
+
+        return mapping_sequence
+    
+    def _find_optimal_mapping_for_switch(self, D_switch: np.ndarray, 
+                                   current_mapping: List[int], 
+                                   num_logical_next: int, 
+                                   qubit_movements: Dict) -> List[int]:
+        """
+        使用贪心算法为切换找到下一映射
+        :param D_switch: 通信需求矩阵
+        :param current_mapping: 当前时间片的物理映射
+        :param num_logical_next: 下一时间片的逻辑QPU数量
+        :param qubit_movements: 量子比特移动详情
+        :return: 下一时间片的物理映射
+        """
+        m_physical = self.network.num_backends
+
+        # 枚举所有排列
+        best_mapping = None
+        best_fidelity = 0.0
+        best_fidelity_loss = float('inf')
+        for perm in itertools.permutations(range(m_physical), num_logical_next):
+            candidate_mapping = list(perm)
+            fidelity_loss, fidelity = self._evaluate_switch_cost(
+                D_switch,
+                current_mapping,
+                candidate_mapping,
+                qubit_movements
+            )
+            if fidelity > best_fidelity:
+                best_fidelity = fidelity
+                best_fidelity_loss = fidelity_loss
+                best_mapping = candidate_mapping[:]
+        
+        return best_mapping, best_fidelity, best_fidelity_loss
+
+
+class ExactOptimizationMapper(BaseMapper):
+    """
+    精确优化映射器：使用QAP算法精确求解最优映射问题
+    """
+    
+    def get_name(self) -> str:
+        """获取映射器名称"""
+        return "Exact Optimization Mapper"
+
+    def _evaluate_mapping(self, pi: List[int], D: np.ndarray, W: np.ndarray, m: int) -> float:
+        """
+        计算目标函数 R(pi) = sum_{i<j} D_{i,j} * W_{pi(i), pi(j)}
+        """
+        total = 0.0
+        for i in range(m):
+            for j in range(i + 1, m):
+                p = pi[i]  # pi(i) 是物理索引
+                q = pi[j]  # pi(j) 是物理索引
+                total += D[i][j] * W[p][q]
+        return total
+
+    def _exact_algorithm(self, m: int, D: np.ndarray, W: np.ndarray) -> List[int]:
+        """
+        精确算法：枚举所有排列，选择 R(pi) 最大的
+        """
+        best_pi = None
+        best_score = -float('inf')
+        
+        # 生成所有排列 (0-based 索引: 逻辑 0..m-1 映射到物理 0..m-1)
+        for perm in itertools.permutations(range(m)):
+            # perm 是元组，索引 0..m-1 对应逻辑 0..m-1
+            pi = list(perm)  # 0-based: pi[i] for i in 0..m-1
+            
+            score = self._evaluate_mapping(pi, D, W, m)
+            if score > best_score:
+                best_score = score
+                best_pi = pi[:]
+        
+        return best_pi  # 列表，索引 0 对应逻辑 0, 索引 m-1 对应逻辑 m-1
+
+    def _compute_total_communication_demand(self, partition_plan: List[List[List[int]]]) -> np.ndarray:
+        """
+        计算整个partition plan的总通信需求矩阵
+        :param partition_plan: list of partitions for each time slice
+        :return: D_total: 总通信需求矩阵
+        """
+        k = len(partition_plan)
+        
+        # 找出最大逻辑QPU数量
+        max_logical = 0
+        for partition in partition_plan:
+            max_logical = max(max_logical, len(partition))
+        
+        # 初始化总需求矩阵
+        D_total = np.zeros((max_logical, max_logical))
+        
+        # 遍历每个时间片边界
+        for t in range(k - 1):
+            current_partition = partition_plan[t]
+            next_partition = partition_plan[t + 1]
+            
+            # 计算当前边界的需求矩阵
+            D_switch, _ = self._compute_switch_demand(current_partition, next_partition)
+            
+            # 累加到总需求矩阵
+            for i in range(D_switch.shape[0]):
+                for j in range(D_switch.shape[1]):
+                    D_total[i][j] += D_switch[i][j]
+        
+        # 对称化矩阵 (D_{i,j} = D_{j,i})
+        for i in range(max_logical):
+            for j in range(i + 1, max_logical):
+                D_total[i][j] += D_total[j][i]
+                D_total[j][i] = D_total[i][j]
+        
+        return D_total
+
+    def _calculate_comm_cost_exact(self, partition_plan: List[List[List[int]]]) -> List[List[int]]:
+        """
+        使用精确算法计算最优映射序列
+        :param partition_plan: list of partitions for each time slice
+        :return: mapping_sequence
+        """
+        start_time = time.time()
+        k = len(partition_plan)  # 时间片数量
+        m_physical = self.network.num_backends  # 物理QPU数量
+        
+        # 结果存储
+        total_comm_cost = 0.0
+        total_fidelity = 1.0
+        mapping_sequence = []  # mapping_sequence[t][i] = time slice t 中逻辑QPU i 映射到的物理QPU
+        
+        # 1. 计算总通信需求矩阵
+        D_total = self._compute_total_communication_demand(partition_plan)
+        
+        # 2. 为每个时间片边界计算切换成本
+        for t in range(k):
+            if t == 0:
+                # 为第一个时间片找到最优映射
+                num_logical_current = len(partition_plan[t])
+                if num_logical_current <= 10:  # 使用精确算法
+                    # 提取当前时间片对应的子矩阵
+                    D_sub = D_total[:num_logical_current, :num_logical_current]
+                    W_sub = self.network.W_eff[:m_physical, :m_physical]
+                    
+                    # 如果逻辑QPU数量小于物理QPU数量，需要扩展W矩阵
+                    if num_logical_current <= m_physical:
+                        # 创建映射：逻辑QPU i 映射到物理QPU 0..num_logical_current-1
+                        optimal_mapping = self._exact_algorithm(num_logical_current, D_sub, W_sub)
+                    else:
+                        # 如果逻辑QPU数量大于物理QPU数量，报错
+                        raise ValueError(f"Time slice {t} has {num_logical_current} logical QPUs but only {m_physical} physical QPUs available")
+                else:
+                    # 如果逻辑QPU数量太多，使用简单的映射
+                    optimal_mapping = list(range(num_logical_current))
+                
+                mapping_sequence.append(optimal_mapping)
+            else:
+                # 为后续时间片找到最优映射
+                num_logical_current = len(partition_plan[t])
+                num_logical_prev = len(partition_plan[t-1])
+                
+                if num_logical_current <= 10 and num_logical_prev <= 10:  # 使用精确算法
+                    # 计算当前边界的需求矩阵
+                    D_switch, qubit_movements = self._compute_switch_demand(
+                        partition_plan[t-1], 
+                        partition_plan[t]
+                    )
+                    
+                    # 使用前一个映射作为参考，寻找最优的当前映射
+                    prev_mapping = mapping_sequence[t-1]
+                    
+                    # 创建当前时间片的子矩阵
+                    D_sub = np.zeros((num_logical_current, num_logical_current))
+                    W_sub = self.network.W_eff[:m_physical, :m_physical]
+                    
+                    # 通过枚举所有可能的映射来找到最优映射
+                    best_mapping = None
+                    best_score = -float('inf')
+                    
+                    # 生成所有可能的物理QPU分配
+                    available_physical = list(range(m_physical))
+                    for perm in itertools.permutations(available_physical, num_logical_current):
+                        current_mapping = list(perm)
+                        
+                        # 计算当前映射的得分
+                        score = self._evaluate_mapping_for_switch(
+                            D_switch, prev_mapping, current_mapping, qubit_movements
+                        )
+                        
+                        if score > best_score:
+                            best_score = score
+                            best_mapping = current_mapping[:]
+                    
+                    if best_mapping is None:
+                        # 如果找不到合适的映射，使用简单映射
+                        best_mapping = list(range(min(num_logical_current, m_physical)))
+                    
+                    mapping_sequence.append(best_mapping)
+                else:
+                    # 如果逻辑QPU数量太多，使用简单的映射
+                    simple_mapping = list(range(min(num_logical_current, m_physical)))
+                    mapping_sequence.append(simple_mapping)
+        
+        # 3. 计算总通信成本和保真度
+        for t in range(k - 1):
+            current_mapping = mapping_sequence[t]
+            next_mapping = mapping_sequence[t + 1]
+            
+            D_switch, qubit_movements = self._compute_switch_demand(
+                partition_plan[t], 
+                partition_plan[t + 1]
+            )
+            
+            switch_cost, switch_fidelity = self._evaluate_switch_cost(
+                D_switch,
+                current_mapping,
+                next_mapping,
+                qubit_movements
+            )
+            
+            total_comm_cost += switch_cost
+            total_fidelity *= switch_fidelity
+        
+        end_time = time.time()
+        self.metrics = {
+            "total_comm_cost": total_comm_cost,
+            "total_fidelity": total_fidelity,
+            "mapping_sequence_length": len(mapping_sequence),
+            "time": end_time - start_time
+        }
+        
+        return mapping_sequence
+
+    def _evaluate_mapping_for_switch(self, D_switch: np.ndarray, 
+                                   prev_mapping: List[int], 
+                                   current_mapping: List[int], 
+                                   qubit_movements: Dict) -> float:
+        """
+        评估特定映射的切换得分
+        """
+        W_eff = self.network.W_eff
+        total_score = 0.0
+        
+        for i in range(D_switch.shape[0]):
+            for j in range(D_switch.shape[1]):
+                demand = D_switch[i][j]
+                if demand > 0:
+                    from_physical = prev_mapping[i]
+                    to_physical = current_mapping[j]
+                    score = W_eff[from_physical][to_physical] * demand
+                    total_score += score
+        
+        return total_score
+
+    def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
+        """
+        将量子线路映射到特定量子硬件
+        :param partition_plan: 量子比特划分
+        :param network: 目标量子硬件
+        :return: 映射结果，包含线路、深度、门数、错误率等指标
+        """
+        # 保存关键对象用于内部计算
+        self.network = network
+        
+        # 验证网络属性
+        self._validate_network_attributes()
+
+        # 计算通信成本和映射序列
+        mapping_sequence = self._calculate_comm_cost_exact(partition_plan)
+        
+        # 保存映射序列用于后续使用
+        self.mapping_sequence = mapping_sequence
+        
+        return {
+            "mapping_sequence": self.mapping_sequence,  # 实际映射操作在编译器后续步骤中完成
+            "metrics": self.metrics
+        }
+    

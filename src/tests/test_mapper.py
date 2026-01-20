@@ -79,8 +79,8 @@ def test_mapper():
         # 创建一个简单的量子电路
         from qiskit import QuantumCircuit, transpile
         from qiskit.circuit.library import QuantumVolume, QFT
-        # qc = QuantumVolume(30, seed=42).decompose()
-        qc = QFT(30).decompose()
+        qc = QuantumVolume(30, seed=42).decompose()
+        # qc = QFT(30).decompose()
         # qc = transpile(qc, basis_gates=["cu1", "u3"], optimization_level=0)
         # print(qc)
 
@@ -95,70 +95,17 @@ def test_mapper():
         # print("Partition Plan:")
         # pprint(partition_plan)
 
-        simple_mapper  = MapperFactory.create_mapper("simple")
-        link_oriented_mapper = MapperFactory.create_mapper("link_oriented")
-        exact_mapper = MapperFactory.create_mapper("exact")
-        greedy_mapper = MapperFactory.create_mapper("greedy")
+        mapper_names = ["simple", "link_oriented", "exact", "greedy"]
+        mappers = []
 
-        # total_comm_cost, total_comm_cost_mm, total_comm_cost_gmm = 0, 0, 0
+        for name in mapper_names:
+            mappers.append(MapperFactory.create_mapper(name))
 
-        # for t in range(len(partition_plan) - 1):
-        #     current_partition = partition_plan[t]
-        #     next_partition = partition_plan[t + 1]
-        #     switch_demand, switch_mapping = link_oriented_mapper._compute_switch_demand(current_partition, next_partition)
-        #     # print(f"Time Step {t} to {t+1}:")
-        #     # print("Switch Demand Matrix:")
-        #     # print(switch_demand)
-        #     # print("Switch Mapping:")
-        #     # pprint(switch_mapping)
-
-        #     current_partition_max_match = partition_plan_max_match[t]
-        #     next_partition_max_match = partition_plan_max_match[t + 1]
-        #     switch_demand_mm, switch_mapping_mm = link_oriented_mapper._compute_switch_demand(current_partition_max_match, next_partition_max_match)
-        #     # print(f"Time Step {t} to {t+1} (Max Match):")
-        #     # print("Switch Demand Matrix (Max Match):")
-        #     # print(switch_demand_mm)
-
-        #     current_partition_global_max_match = partition_plan_global_max_match[t]
-        #     next_partition_global_max_match = partition_plan_global_max_match[t + 1]
-        #     switch_demand_gmm, switch_mapping_gmm = link_oriented_mapper._compute_switch_demand(current_partition_global_max_match, next_partition_global_max_match)
-        #     # print(f"Time Step {t} to {t+1} (Global Max Match):")
-        #     # print("Switch Demand Matrix (Global Max Match):")
-        #     # print(switch_demand_gmm)
-
-        #     # 计算总通信开销，即switch_demand、switch_demand_mm的总和
-        #     # print(f"Total Communication Cost Calculation:{switch_demand.sum()} VS {switch_demand_mm.sum()}")
-        #     total_comm_cost += switch_demand.sum()
-        #     total_comm_cost_mm += switch_demand_mm.sum()
-        #     total_comm_cost_gmm += switch_demand_gmm.sum()
-
-        # print(f"Total Communication Cost: {total_comm_cost}")
-        # print(f"Total Communication Cost (Max Match): {total_comm_cost_mm}")
-        # print(f"Total Communication Cost (Global Max Match): {total_comm_cost_gmm}")
-
-
-        result_baseline = simple_mapper.map_circuit(partition_plan, net)
-        total_comm_cost_baseline = result_baseline['metrics']['total_comm_cost']
-        result_dynamic = link_oriented_mapper.map_circuit(partition_plan, net)
-        total_comm_cost_dynamic = result_dynamic['metrics']['total_comm_cost']
-        result_exact = exact_mapper.map_circuit(partition_plan, net)
-        total_comm_cost_exact = result_exact['metrics']['total_comm_cost']
-        result_greedy = greedy_mapper.map_circuit(partition_plan, net)
-        total_comm_cost_greedy = result_greedy['metrics']['total_fidelity_loss']
-
-        print(f"Total Communication Cost (Simple): {total_comm_cost_baseline}")
-        print(f"Total Communication Cost (Dynamic): {total_comm_cost_dynamic}")
-        print(f"Total Communication Cost (Exact): {total_comm_cost_exact}")
-        print(f"Total Communication Cost (Greedy): {total_comm_cost_greedy}")
-
-        print("Simple Mapper:")
-        pprint(result_baseline['metrics'])
-        print("Link-Oriented Mapper:")
-        pprint(result_dynamic['metrics'])
-        print("Exact Optimization Mapper:")
-        pprint(result_exact['metrics'])
-        print("Greedy Mapper:")
-        pprint(result_greedy['metrics'])
+        for mapper in mappers:
+            result = mapper.map_circuit(partition_plan, net)
+            print(f"\nMapper: {mapper.get_name()}")
+            print(f"Metrics: {result['metrics']}")
+            print(f"Mapping Seq: {result['mapping_sequence']}")
 
         return True, "Mapper test passed"
     except Exception as e:

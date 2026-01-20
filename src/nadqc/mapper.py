@@ -148,29 +148,19 @@ class BaseMapper(Mapper):
 
     def _evaluate_switch_cost(self, D_switch: np.ndarray, 
                             mapping_current: List[int], 
-                            mapping_next: List[int], 
-                            qubit_movements: Dict) -> Tuple[float, float]:
+                            mapping_next: List[int]) -> Dict[str, float]:
         """
         计算切换成本
         :param D_switch: 通信需求矩阵
         :param mapping_current: 当前映射
         :param mapping_next: 下一映射
-        :param qubit_movements: 量子比特移动详情
         :return: (switch_cost, switch_fidelity)
         """
         W_eff = self.network.W_eff
         
-        total_fidelity_loss = 0.0
-        total_fidelity = 1.0
-
-        # # 基于量子比特移动计算
-        # for qubit, (from_logical, to_logical) in qubit_movements.items():
-        #     from_physical = mapping_current[from_logical]
-        #     to_physical = mapping_next[to_logical]
-        #     # 移动成本 = 1 - 保真度
-        #     cost = 1 - W_eff[from_physical][to_physical]
-        #     total_cost += cost
-        #     total_fidelity *= W_eff[from_physical][to_physical]
+        mapping_score = 0.0
+        fidelity_loss = 0.0
+        fidelity = 1.0
 
         # 基于需求矩阵计算（可选）
         for i in range(D_switch.shape[0]):
@@ -179,11 +169,32 @@ class BaseMapper(Mapper):
                 if demand > 0:
                     from_physical = mapping_current[i]
                     to_physical = mapping_next[j]
-                    loss = (1 - W_eff[from_physical][to_physical]) * demand
-                    total_fidelity_loss += loss
-                    total_fidelity *= W_eff[from_physical][to_physical] ** demand
+                    mapping_score += W_eff[from_physical][to_physical] * demand
+                    fidelity_loss += (1 - W_eff[from_physical][to_physical]) * demand
+                    fidelity *= W_eff[from_physical][to_physical] ** demand
 
-        return total_fidelity_loss, total_fidelity
+        return {
+            "mapping_score": mapping_score,
+            "fidelity_loss": fidelity_loss,
+            "fidelity": fidelity
+        }
+    
+    def _evaluate_initial_mapping(self, mapping: List[int], D_total: np.ndarray) -> float:
+        """
+        评估初始映射的质量
+        :param mapping: 映射
+        :param D_total: 总通信需求矩阵
+        :return: 映射得分
+        """
+        W_eff = self.network.W_eff
+        # pprint(W_eff)
+        mapping_score = 0.0
+        for i in range(D_total.shape[0]):
+            for j in range(D_total.shape[1]):
+                from_physical = mapping[i]
+                to_physical = mapping[j]
+                mapping_score += W_eff[from_physical][to_physical] * D_total[i][j]
+        return mapping_score
 
     def _validate_network_attributes(self):
         """验证网络对象是否具有必要属性"""
@@ -211,7 +222,7 @@ class SimpleMapper(BaseMapper):
         k = len(partition_plan)  # 时间片数量
         
         # 结果存储
-        total_comm_cost = 0.0
+        total_fidelity_loss = 0.0
         total_fidelity = 1.0
         mapping_sequence = []  # mapping_sequence[t][i] = time slice t 中逻辑QPU i 映射到的物理QPU
         
@@ -235,19 +246,18 @@ class SimpleMapper(BaseMapper):
             )
             
             # 计算本次切换的成本
-            switch_cost, fidelity = self._evaluate_switch_cost(
+            result = self._evaluate_switch_cost(
                 D_switch,
                 current_mapping,
-                next_mapping,
-                qubit_movements
+                next_mapping
             )
             
-            total_comm_cost += switch_cost
-            total_fidelity *= fidelity
+            total_fidelity_loss += result["fidelity_loss"]
+            total_fidelity *= result["fidelity"]
         
         end_time = time.time()
         self.metrics = {
-            "total_comm_cost": total_comm_cost,
+            "total_fidelity_loss": total_fidelity_loss,
             "total_fidelity": total_fidelity,
             "mapping_sequence_length": len(mapping_sequence),
             "time": end_time - start_time
@@ -378,14 +388,14 @@ class LinkOrientedMapper(BaseMapper):
         """
         动态映射：为每个partition切换计算通信成本和最优映射序列
         :param partition_plan: list of partitions for each time slice
-        :return: (total_comm_cost, mapping_sequence)
+        :return: (total_fidelity_loss, mapping_sequence)
         """
         start_time = time.time()
         k = len(partition_plan)  # 时间片数量
         m_physical = self.network.num_backends  # 物理QPU数量
         
         # 结果存储
-        total_comm_cost = 0.0
+        total_fidelity_loss = 0.0
         total_fidelity = 1.0
         mapping_sequence = []  # mapping_sequence[t][i] = time slice t 中逻辑QPU i 映射到的物理QPU
         
@@ -424,22 +434,21 @@ class LinkOrientedMapper(BaseMapper):
             # pprint(f"Mapping at time slice {t+1}: {next_mapping}")
             
             # 2.4 计算本次切换的实际成本
-            switch_cost, switch_fidelity = self._evaluate_switch_cost(
+            result = self._evaluate_switch_cost(
                 D_switch,
                 mapping_sequence[t],
-                next_mapping,
-                qubit_movements
+                next_mapping
             )
 
             # print(f"Switch Cost from time slice {t} to {t+1}: {switch_cost}, Fidelity: {switch_fidelity}")
             
-            total_comm_cost += switch_cost
-            total_fidelity *= switch_fidelity
+            total_fidelity_loss += result["fidelity_loss"]
+            total_fidelity *= result["fidelity"]
             mapping_sequence.append(next_mapping)
         
         end_time = time.time()
         self.metrics = {
-            "total_comm_cost": total_comm_cost,
+            "total_fidelity_loss": total_fidelity_loss,
             "total_fidelity": total_fidelity,
             "mapping_sequence_length": len(mapping_sequence),
             "time": end_time - start_time
@@ -478,7 +487,7 @@ class GreedyMapper(BaseMapper):
     """
     def get_name(self) -> str:
         """获取映射器名称"""
-        return "Exact Optimization Mapper"
+        return "Greedy Mapper"
 
     def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
         """
@@ -524,9 +533,11 @@ class GreedyMapper(BaseMapper):
         assert num_logical_qpus_t0 <= m_physical, f"Time slice 0 has {num_logical_qpus_t0} logical QPUs but only {m_physical} physical QPUs available"
         
         # 简单策略：identity mapping (逻辑QPU i -> 物理QPU i)
-        initial_mapping = list(range(num_logical_qpus_t0))
+        # initial_mapping = list(range(num_logical_qpus_t0))
+        # mapping_sequence.append(initial_mapping)
+        initial_mapping = self._compute_initial_mapping(partition_plan)
         mapping_sequence.append(initial_mapping)
-        
+
         # 2. 为每个时间片边界计算切换成本
         for t in range(k-1):
             # 2.1 计算当前边界(t -> t+1)的通信需求
@@ -543,8 +554,7 @@ class GreedyMapper(BaseMapper):
             next_mapping, fidelity, fidelity_loss = self._find_optimal_mapping_for_switch(
                 D_switch,
                 mapping_sequence[t],  # 当前时间片的映射
-                num_logical_next,    # 下一时间片的逻辑QPU数量
-                qubit_movements      # 量子比特移动详情
+                num_logical_next      # 下一时间片的逻辑QPU数量
             )
 
             total_fidelity *= fidelity
@@ -561,11 +571,52 @@ class GreedyMapper(BaseMapper):
         }
 
         return mapping_sequence
-    
+
+    def _compute_initial_mapping(self, partition_plan: List[List[List[int]]]):
+        best_mapping = None
+        best_score = -float('inf')
+        
+        D_total = self._compute_total_communication_demand(partition_plan)
+        
+        for perm in itertools.permutations(range(self.network.num_backends), len(partition_plan[0])):
+            candidate_mapping = list(perm)
+            score = self._evaluate_initial_mapping(candidate_mapping, D_total)
+            if score > best_score:
+                best_score = score
+                best_mapping = candidate_mapping[:]
+
+        return best_mapping
+
+    def _compute_total_communication_demand(self, partition_plan: List[List[List[int]]]) -> np.ndarray:
+        """
+        计算整个partition plan的总通信需求矩阵
+        :param partition_plan: list of partitions for each time slice
+        :return: D_total: 总通信需求矩阵
+        """
+        k = len(partition_plan)
+
+        # 初始化总需求矩阵
+        num_logical_initial = len(partition_plan[0])
+        D_total = np.zeros((num_logical_initial, num_logical_initial))
+        
+        # 遍历每个时间片边界
+        for t in range(k - 1):
+            current_partition = partition_plan[t]
+            next_partition = partition_plan[t + 1]
+            
+            # 计算当前边界的需求矩阵
+            D_switch, _ = self._compute_switch_demand(current_partition, next_partition)
+            
+            # 累加到总需求矩阵
+            for i in range(D_switch.shape[0]):
+                for j in range(D_switch.shape[1]):
+                    D_total[i][j] += D_switch[i][j]
+        
+        return D_total
+
     def _find_optimal_mapping_for_switch(self, D_switch: np.ndarray, 
                                    current_mapping: List[int], 
-                                   num_logical_next: int, 
-                                   qubit_movements: Dict) -> List[int]:
+                                   num_logical_next: int) -> List[int]:
         """
         使用贪心算法为切换找到下一映射
         :param D_switch: 通信需求矩阵
@@ -578,19 +629,21 @@ class GreedyMapper(BaseMapper):
 
         # 枚举所有排列
         best_mapping = None
-        best_fidelity = 0.0
+        best_mapping_score = 0.0
         best_fidelity_loss = float('inf')
+        best_fidelity = 0.0
         for perm in itertools.permutations(range(m_physical), num_logical_next):
             candidate_mapping = list(perm)
-            fidelity_loss, fidelity = self._evaluate_switch_cost(
+
+            result = self._evaluate_switch_cost(
                 D_switch,
                 current_mapping,
-                candidate_mapping,
-                qubit_movements
+                candidate_mapping
             )
-            if fidelity > best_fidelity:
-                best_fidelity = fidelity
-                best_fidelity_loss = fidelity_loss
+            if result["mapping_score"] > best_mapping_score:
+                best_mapping_score = result["mapping_score"]
+                best_fidelity_loss = result["fidelity_loss"]
+                best_fidelity = result["fidelity"]
                 best_mapping = candidate_mapping[:]
         
         return best_mapping, best_fidelity, best_fidelity_loss
@@ -605,18 +658,6 @@ class ExactOptimizationMapper(BaseMapper):
         """获取映射器名称"""
         return "Exact Optimization Mapper"
 
-    def _evaluate_mapping(self, pi: List[int], D: np.ndarray, W: np.ndarray, m: int) -> float:
-        """
-        计算目标函数 R(pi) = sum_{i<j} D_{i,j} * W_{pi(i), pi(j)}
-        """
-        total = 0.0
-        for i in range(m):
-            for j in range(i + 1, m):
-                p = pi[i]  # pi(i) 是物理索引
-                q = pi[j]  # pi(j) 是物理索引
-                total += D[i][j] * W[p][q]
-        return total
-
     def _exact_algorithm(self, m: int, D: np.ndarray, W: np.ndarray) -> List[int]:
         """
         精确算法：枚举所有排列，选择 R(pi) 最大的
@@ -629,12 +670,24 @@ class ExactOptimizationMapper(BaseMapper):
             # perm 是元组，索引 0..m-1 对应逻辑 0..m-1
             pi = list(perm)  # 0-based: pi[i] for i in 0..m-1
             
-            score = self._evaluate_mapping(pi, D, W, m)
+            score = self._evaluate_mapping(pi, D, W, m)["mapping_score"]
             if score > best_score:
                 best_score = score
                 best_pi = pi[:]
         
         return best_pi  # 列表，索引 0 对应逻辑 0, 索引 m-1 对应逻辑 m-1
+
+    def _evaluate_mapping(self, pi: List[int], D: np.ndarray, W: np.ndarray, m: int) -> float:
+        """
+        计算目标函数 R(pi) = sum_{i<j} D_{i,j} * W_{pi(i), pi(j)}
+        """
+        mapping_score = 0.0
+        for i in range(m):
+            for j in range(m):
+                p = pi[i]  # pi(i) 是物理索引
+                q = pi[j]  # pi(j) 是物理索引
+                mapping_score += D[i][j] * W[p][q]
+        return mapping_score
 
     def _compute_total_communication_demand(self, partition_plan: List[List[List[int]]]) -> np.ndarray:
         """
@@ -665,12 +718,6 @@ class ExactOptimizationMapper(BaseMapper):
                 for j in range(D_switch.shape[1]):
                     D_total[i][j] += D_switch[i][j]
         
-        # 对称化矩阵 (D_{i,j} = D_{j,i})
-        for i in range(max_logical):
-            for j in range(i + 1, max_logical):
-                D_total[i][j] += D_total[j][i]
-                D_total[j][i] = D_total[i][j]
-        
         return D_total
 
     def _calculate_comm_cost_exact(self, partition_plan: List[List[List[int]]]) -> List[List[int]]:
@@ -684,7 +731,7 @@ class ExactOptimizationMapper(BaseMapper):
         m_physical = self.network.num_backends  # 物理QPU数量
         
         # 结果存储
-        total_comm_cost = 0.0
+        total_fidelity_loss = 0.0
         total_fidelity = 1.0
         mapping_sequence = []  # mapping_sequence[t][i] = time slice t 中逻辑QPU i 映射到的物理QPU
         
@@ -770,19 +817,18 @@ class ExactOptimizationMapper(BaseMapper):
                 partition_plan[t + 1]
             )
             
-            switch_cost, switch_fidelity = self._evaluate_switch_cost(
+            result = self._evaluate_switch_cost(
                 D_switch,
                 current_mapping,
-                next_mapping,
-                qubit_movements
+                next_mapping
             )
             
-            total_comm_cost += switch_cost
-            total_fidelity *= switch_fidelity
+            total_fidelity_loss += result["fidelity_loss"]
+            total_fidelity *= result["fidelity"]
         
         end_time = time.time()
         self.metrics = {
-            "total_comm_cost": total_comm_cost,
+            "total_fidelity_loss": total_fidelity_loss,
             "total_fidelity": total_fidelity,
             "mapping_sequence_length": len(mapping_sequence),
             "time": end_time - start_time

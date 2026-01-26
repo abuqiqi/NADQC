@@ -670,7 +670,7 @@ class ExactOptimizationMapper(BaseMapper):
             # perm 是元组，索引 0..m-1 对应逻辑 0..m-1
             pi = list(perm)  # 0-based: pi[i] for i in 0..m-1
             
-            score = self._evaluate_mapping(pi, D, W, m)["mapping_score"]
+            score = self._evaluate_mapping(pi, D, W, m) # ["mapping_score"]
             if score > best_score:
                 best_score = score
                 best_pi = pi[:]

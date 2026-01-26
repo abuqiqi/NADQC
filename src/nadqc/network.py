@@ -13,6 +13,7 @@ class Network:
         self.network_graph = self._build_weighted_network_graph(self.network_coupling)
         self.W_eff, self.Hops, self.optimal_paths = self._compute_effective_fidelity()
         self.backends = backend_config
+        self.backend_sizes = [backend.num_qubits for backend in self.backends]
         return
 
     def _build_network_coupling(self, network_config: dict) -> dict:

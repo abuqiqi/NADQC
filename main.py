@@ -66,7 +66,7 @@ from src.utils import get_config
 # # print(f"Metrics: {result_link_oriented['metrics']}")
 # # print(f"Mapping Seq: {result_link_oriented['mapping_sequence']}")
 from src.utils import get_config
-from src.nadqc import Backend, Network, NADQC, MapperFactory, PartitionAssignerFactory
+from src.nadqc import Backend, Network, NADQC, OEE, MapperFactory, PartitionAssignerFactory
 
 global_config = get_config()
 backend_config = {
@@ -94,7 +94,7 @@ net = Network(network_config, backend_config)
 # 创建一个简单的量子电路
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit.library import QuantumVolume, QFT
-qc = QuantumVolume(30, seed=42).decompose()
+qc = QuantumVolume(30, seed=26).decompose()
 # qc = QFT(30).decompose()
 # qc = transpile(qc, basis_gates=["cu1", "u3"], optimization_level=0)
 # print(qc)
@@ -109,6 +109,9 @@ partition_candidates = nadqc.get_partition_candidates()
 partition_plan = partitioner.assign_partitions(partition_candidates)["partition_plan"]
 # print("Partition Plan:")
 # pprint(partition_plan)
+
+oee = OEE(circ=qc, network=net)
+oee.distribute()
 
 mapper_names = ["simple", "link_oriented", "exact", "greedy"]
 mappers = []

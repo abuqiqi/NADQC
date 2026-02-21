@@ -1,7 +1,5 @@
 import datetime
 from pprint import pprint
-from src.nadqc import Backend, Network, NADQC
-from src.utils import get_config
 
 # # 自定义网络配置
 # network_config = {
@@ -65,63 +63,71 @@ from src.utils import get_config
 # # print(f"\nLink Oriented Mapper: {link_oriented_mapper.get_name()}")
 # # print(f"Metrics: {result_link_oriented['metrics']}")
 # # print(f"Mapping Seq: {result_link_oriented['mapping_sequence']}")
-from src.utils import get_config
-from src.nadqc import Backend, Network, NADQC, OEE, MapperFactory, PartitionAssignerFactory
+from src.utils import get_config, Backend, Network
+from src.nadqc import NADQC, MapperFactory, PartitionAssignerFactory
+from src.baselines import OEE
 
-global_config = get_config()
-backend_config = {
-    'backend_name': 'ibm_torino_sampled_10q',
-    'date': datetime.datetime(2025, 11, 9)
-}
+for num_qpus in range(5, 11):
+    print(f"\n=== Number of QPUs: {num_qpus} ===")
 
-backend = Backend(global_config, backend_config)
-backend.print()
-
-backend_config = [backend for _ in range(3)]
-
-# 自定义网络配置
-network_config = {
-    'type': 'self_defined',
-    'network_coupling': {
-        (0, 1): 0.979,
-        (1, 2): 0.98,
-        (0, 2): 0.981
+    global_config = get_config()
+    backend_config = {
+        'backend_name': 'ibm_torino_sampled_10q',
+        'date': datetime.datetime(2025, 11, 9)
     }
-}
 
-net = Network(network_config, backend_config)
+    backend = Backend(global_config, backend_config)
+    backend.print()
 
-# 创建一个简单的量子电路
-from qiskit import QuantumCircuit, transpile
-from qiskit.circuit.library import QuantumVolume, QFT
-qc = QuantumVolume(30, seed=26).decompose()
-# qc = QFT(30).decompose()
-# qc = transpile(qc, basis_gates=["cu1", "u3"], optimization_level=0)
-# print(qc)
+    backend_config = [backend for _ in range(num_qpus)]
 
-# 分配
-nadqc = NADQC(circ=qc, network=net)
-nadqc.distribute()
+    # 自定义网络配置
+    # network_config = {
+    #     'type': 'self_defined',
+    #     'network_coupling': {
+    #         (0, 1): 0.979,
+    #         (1, 2): 0.98,
+    #         (0, 2): 0.981
+    #     }
+    # }
+    network_config = {
+        'type': 'all_to_all',
+    }
 
-# partitioner = PartitionAssignerFactory.create_assigner("global_max_match")
-partitioner = PartitionAssignerFactory.create_assigner("max_match")
-partition_candidates = nadqc.get_partition_candidates()
-partition_plan = partitioner.assign_partitions(partition_candidates)["partition_plan"]
-# print("Partition Plan:")
-# pprint(partition_plan)
+    net = Network(network_config, backend_config)
 
-oee = OEE(circ=qc, network=net)
-oee.distribute()
+    # 创建一个简单的量子电路
+    from qiskit import QuantumCircuit, transpile
+    from qiskit.circuit.library import QuantumVolume, QFT
+    qc = QuantumVolume(num_qpus * 10, seed=26).decompose()
+    # qc = QFT(num_qpus * 10).decompose()
+    qc = transpile(qc, basis_gates=["cu1", "u3"], optimization_level=0)
+    # print(qc)
 
-mapper_names = ["simple", "link_oriented", "exact", "greedy"]
-mappers = []
+    # 分配
+    nadqc = NADQC(circ=qc, network=net)
+    nadqc.distribute()
 
-for name in mapper_names:
-    mappers.append(MapperFactory.create_mapper(name))
+    # partitioner = PartitionAssignerFactory.create_assigner("global_max_match")
+    partitioner = PartitionAssignerFactory.create_assigner("max_match")
+    partition_candidates = nadqc.get_partition_candidates()
+    partition_plan = partitioner.assign_partitions(partition_candidates)["partition_plan"]
+    # print("Partition Plan:")
+    # pprint(partition_plan)
 
-for mapper in mappers:
-    result = mapper.map_circuit(partition_plan, net)
-    print(f"\nMapper: {mapper.get_name()}")
-    print(f"Metrics: {result['metrics']}")
-    print(f"Mapping Seq: {result['mapping_sequence']}")
+    oee = OEE(circ=qc, network=net)
+    oee.distribute()
+
+    # mapper_names = ["simple", "link_oriented", "exact", "greedy"]
+    mapper_names = ["greedy"]
+    mappers = []
+
+    for name in mapper_names:
+        mappers.append(MapperFactory.create_mapper(name))
+
+    for mapper in mappers:
+        result = mapper.map_circuit(partition_plan, net)
+        print(f"\nMapper: {mapper.get_name()}")
+        print(f"Metrics (total_fidelity_loss): {result['metrics']['total_fidelity_loss']}")
+        # print(f"Mapping Seq: {result['mapping_sequence']}")
 

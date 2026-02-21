@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
+import dataclasses
 import time
 import numpy as np
-import math
 import itertools
-from typing import Dict, Any, List, Tuple
-from pprint import pprint
+from typing import Any, Optional
+
+from ..utils import Network
 
 class Mapper(ABC):
     """
@@ -12,7 +13,7 @@ class Mapper(ABC):
     """
 
     @abstractmethod
-    def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
+    def map_circuit(self, partition_plan: Any, network: Network) -> dict[str, Any]:
         """
         将量子线路映射到特定量子硬件
         :param partition_plan: 量子比特划分
@@ -29,7 +30,7 @@ class Mapper(ABC):
         pass
 
     @abstractmethod
-    def get_metrics(self) -> Dict[str, float]:
+    def get_metrics(self) -> dict[str, float]:
         """
         获取映射性能指标
         :return: 包含关键性能指标的字典
@@ -57,7 +58,7 @@ class MapperFactory:
         mapper_type = mapper_type.lower()
         if mapper_type not in cls._registry:
             available = ", ".join(cls._registry.keys())
-            raise ValueError(f"Unknown mapper: '{mapper_type}', available: {available}")
+            raise ValueError(f"Unknown mapper: '{mapper_type}'. Available mappers: {available}")
         
         # 从注册表获取类名，然后创建实例
         mapper_class_name = cls._registry[mapper_type]
@@ -72,7 +73,7 @@ class MapperFactory:
         :param name: 映射器类型名称
         :param class_name: 对应的类名字符串
         """
-        cls._registry[name] = class_name
+        cls._registry[name.lower()] = class_name
     
     @classmethod
     def unregister_mapper(cls, name: str):
@@ -81,8 +82,8 @@ class MapperFactory:
         
         :param name: 要移除的映射器类型名称
         """
-        if name in cls._registry:
-            del cls._registry[name]
+        if name.lower() in cls._registry:
+            del cls._registry[name.lower()]
     
     @classmethod
     def get_available_mappers(cls):
@@ -101,16 +102,15 @@ class BaseMapper(Mapper):
     
     def __init__(self):
         super().__init__()
-        self.metrics = {}
-        self.network = None
-        self.mapping_sequence = None  # 保存映射序列用于后续使用
+        self.metrics: dict[str, Any] = {}
+        self.network: Network
 
-    def get_metrics(self) -> Dict[str, float]:
+    def get_metrics(self) -> dict[str, float]:
         """获取映射性能指标"""
         return self.metrics
 
-    def _compute_switch_demand(self, current_partition: List[List[int]], 
-                             next_partition: List[List[int]]) -> Tuple[np.ndarray, Dict]:
+    def _compute_switch_demand(self, current_partition: list[list[int]], 
+                             next_partition: list[list[int]]) -> tuple[np.ndarray, dict]:
         """
         计算单次切换的通信需求
         :param current_partition: 当前时间片的分区
@@ -147,8 +147,8 @@ class BaseMapper(Mapper):
         return D_switch, qubit_movements
 
     def _evaluate_switch_cost(self, D_switch: np.ndarray, 
-                            mapping_current: List[int], 
-                            mapping_next: List[int]) -> Dict[str, float]:
+                            mapping_current: list[int], 
+                            mapping_next: list[int]) -> dict[str, float]:
         """
         计算切换成本
         :param D_switch: 通信需求矩阵
@@ -179,7 +179,7 @@ class BaseMapper(Mapper):
             "fidelity": fidelity
         }
     
-    def _evaluate_initial_mapping(self, mapping: List[int], D_total: np.ndarray) -> float:
+    def _evaluate_initial_mapping(self, mapping: list[int], D_total: np.ndarray) -> float:
         """
         评估初始映射的质量
         :param mapping: 映射
@@ -212,7 +212,7 @@ class SimpleMapper(BaseMapper):
         """获取映射器名称"""
         return "Simple Mapper"
 
-    def _calculate_comm_cost(self, partition_plan: List[List[List[int]]]) -> List[List[int]]:
+    def _calculate_comm_cost(self, partition_plan: list[list[list[int]]]) -> list[list[int]]:
         """
         基线映射：使用identity映射（逻辑QPU i -> 物理QPU i）
         :param partition_plan: list of partitions for each time slice
@@ -265,7 +265,7 @@ class SimpleMapper(BaseMapper):
         
         return mapping_sequence
 
-    def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
+    def map_circuit(self, partition_plan: Any, network: Any) -> dict[str, Any]:
         """
         将量子线路映射到特定量子硬件（基线实现）
         :param partition_plan: 量子比特划分
@@ -300,9 +300,9 @@ class LinkOrientedMapper(BaseMapper):
         return "Link-Oriented Mapper"
 
     def _find_optimal_mapping_for_switch(self, D_switch: np.ndarray, 
-                                        current_mapping: List[int], 
+                                        current_mapping: list[int], 
                                         num_logical_next: int, 
-                                        qubit_movements: Dict) -> List[int]:
+                                        qubit_movements: dict) -> list[int]:
         """
         为切换找到最优的下一映射
         :param D_switch: 通信需求矩阵
@@ -384,7 +384,7 @@ class LinkOrientedMapper(BaseMapper):
         
         return next_mapping
 
-    def _calculate_comm_cost_dynamic(self, partition_plan: List[List[List[int]]]) -> Tuple[float, List[List[int]]]:
+    def _calculate_comm_cost_dynamic(self, partition_plan: list[list[list[int]]]) -> list[list[int]]:
         """
         动态映射：为每个partition切换计算通信成本和最优映射序列
         :param partition_plan: list of partitions for each time slice
@@ -456,7 +456,7 @@ class LinkOrientedMapper(BaseMapper):
         
         return mapping_sequence
 
-    def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
+    def map_circuit(self, partition_plan: Any, network: Any) -> dict[str, Any]:
         """
         将量子线路映射到特定量子硬件
         :param partition_plan: 量子比特划分
@@ -489,7 +489,7 @@ class GreedyMapper(BaseMapper):
         """获取映射器名称"""
         return "Greedy Mapper"
 
-    def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
+    def map_circuit(self, partition_plan: Any, network: Any) -> dict[str, Any]:
         """
         将量子线路映射到特定量子硬件
         :param partition_plan: 量子比特划分
@@ -513,7 +513,7 @@ class GreedyMapper(BaseMapper):
             "metrics": self.metrics
         }
     
-    def _calculate_comm_cost_greedy(self, partition_plan: List[List[List[int]]]) -> List[List[int]]:
+    def _calculate_comm_cost_greedy(self, partition_plan: list[list[list[int]]]) -> list[list[int]]:
         """
         使用贪心算法计算最优映射序列
         :param partition_plan: list of partitions for each time slice
@@ -572,7 +572,7 @@ class GreedyMapper(BaseMapper):
 
         return mapping_sequence
 
-    def _compute_initial_mapping(self, partition_plan: List[List[List[int]]]):
+    def _compute_initial_mapping(self, partition_plan: list[list[list[int]]]):
         best_mapping = None
         best_score = -float('inf')
         
@@ -587,7 +587,7 @@ class GreedyMapper(BaseMapper):
 
         return best_mapping
 
-    def _compute_total_communication_demand(self, partition_plan: List[List[List[int]]]) -> np.ndarray:
+    def _compute_total_communication_demand(self, partition_plan: list[list[list[int]]]) -> np.ndarray:
         """
         计算整个partition plan的总通信需求矩阵
         :param partition_plan: list of partitions for each time slice
@@ -615,8 +615,8 @@ class GreedyMapper(BaseMapper):
         return D_total
 
     def _find_optimal_mapping_for_switch(self, D_switch: np.ndarray, 
-                                   current_mapping: List[int], 
-                                   num_logical_next: int) -> List[int]:
+                                   current_mapping: list[int], 
+                                   num_logical_next: int) -> Any:
         """
         使用贪心算法为切换找到下一映射
         :param D_switch: 通信需求矩阵
@@ -658,11 +658,11 @@ class ExactOptimizationMapper(BaseMapper):
         """获取映射器名称"""
         return "Exact Optimization Mapper"
 
-    def _exact_algorithm(self, m: int, D: np.ndarray, W: np.ndarray) -> List[int]:
+    def _exact_algorithm(self, m: int, D: np.ndarray, W: np.ndarray) -> list[int]:
         """
         精确算法：枚举所有排列，选择 R(pi) 最大的
         """
-        best_pi = None
+        best_pi = []
         best_score = -float('inf')
         
         # 生成所有排列 (0-based 索引: 逻辑 0..m-1 映射到物理 0..m-1)
@@ -677,7 +677,7 @@ class ExactOptimizationMapper(BaseMapper):
         
         return best_pi  # 列表，索引 0 对应逻辑 0, 索引 m-1 对应逻辑 m-1
 
-    def _evaluate_mapping(self, pi: List[int], D: np.ndarray, W: np.ndarray, m: int) -> float:
+    def _evaluate_mapping(self, pi: list[int], D: np.ndarray, W: np.ndarray, m: int) -> float:
         """
         计算目标函数 R(pi) = sum_{i<j} D_{i,j} * W_{pi(i), pi(j)}
         """
@@ -689,7 +689,7 @@ class ExactOptimizationMapper(BaseMapper):
                 mapping_score += D[i][j] * W[p][q]
         return mapping_score
 
-    def _compute_total_communication_demand(self, partition_plan: List[List[List[int]]]) -> np.ndarray:
+    def _compute_total_communication_demand(self, partition_plan: list[list[list[int]]]) -> np.ndarray:
         """
         计算整个partition plan的总通信需求矩阵
         :param partition_plan: list of partitions for each time slice
@@ -720,7 +720,7 @@ class ExactOptimizationMapper(BaseMapper):
         
         return D_total
 
-    def _calculate_comm_cost_exact(self, partition_plan: List[List[List[int]]]) -> List[List[int]]:
+    def _calculate_comm_cost_exact(self, partition_plan: list[list[list[int]]]) -> list[list[int]]:
         """
         使用精确算法计算最优映射序列
         :param partition_plan: list of partitions for each time slice
@@ -837,9 +837,9 @@ class ExactOptimizationMapper(BaseMapper):
         return mapping_sequence
 
     def _evaluate_mapping_for_switch(self, D_switch: np.ndarray, 
-                                   prev_mapping: List[int], 
-                                   current_mapping: List[int], 
-                                   qubit_movements: Dict) -> float:
+                                   prev_mapping: list[int], 
+                                   current_mapping: list[int], 
+                                   qubit_movements: dict) -> float:
         """
         评估特定映射的切换得分
         """
@@ -857,7 +857,7 @@ class ExactOptimizationMapper(BaseMapper):
         
         return total_score
 
-    def map_circuit(self, partition_plan: Any, network: Any) -> Dict[str, Any]:
+    def map_circuit(self, partition_plan: Any, network: Any) -> dict[str, Any]:
         """
         将量子线路映射到特定量子硬件
         :param partition_plan: 量子比特划分

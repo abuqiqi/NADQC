@@ -1,7 +1,5 @@
-from .oee import OEE
-from .fgp_roee import FGP_rOEE
+from .static_oee import StaticOEE
 
 __all__ = [
-    "OEE",
-    "FGP_rOEE"
+    "StaticOEE",
 ]

@@ -16,6 +16,10 @@ class Network:
         self.backend_sizes = [backend.num_qubits for backend in self.backends]
         return
 
+    @property
+    def name(self):
+        return f"net{self.backend_sizes}"
+
     def _build_network_coupling(self, network_config: dict) -> dict:
         self.net_type = network_config.get('type', 'all_to_all')
         self.size = network_config.get('size', (self.num_backends, 1))

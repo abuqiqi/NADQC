@@ -50,8 +50,8 @@ def test_mock_network():
 def test_mapper():
     """测试 Mapper 类"""
     try:
-        from utils import get_config
-        from nadqc import Backend, Network, NADQC, MapperFactory, PartitionAssignerFactory
+        from utils import get_config, Backend, Network
+        from nadqc import NADQC, MapperFactory, PartitionAssignerFactory
 
         global_config = get_config()
         backend_config = {

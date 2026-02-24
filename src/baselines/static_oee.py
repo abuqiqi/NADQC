@@ -2,20 +2,23 @@ from qiskit import QuantumCircuit
 from typing import Any, Optional
 import networkx as nx
 import numpy as np
+import time
 
-from compiler import BaseCompiler, MappingRecord, MappingRecordList
+from ..compiler import Compiler, MappingRecord, MappingRecordList
 from ..utils import Network
 
-class StaticOEE(BaseCompiler):
+class StaticOEE(Compiler):
     """
     Static OEE
     """
+    compiler_id = "staticoee"
+
     def __init__(self):
         super().__init__()
         return
 
     @property
-    def name(self):
+    def name(self) -> str:
         return "Static OEE"
 
     def compile(self, circuit: QuantumCircuit, 
@@ -25,23 +28,34 @@ class StaticOEE(BaseCompiler):
         Compile the circuit using Static OEE algorithm
         """
         print(f"Compiling with [{self.name}]...")
-        self.circuit = circuit
-        self.network = network
-        self.iteration_times = config.get("iteration", 10) if config else 10
         
+        start_time = time.time()
+        iteration_times = config.get("iteration", 10) if config else 10
+        circuit_name = config.get("circuit_name", "circ") if config else "circ"
+
         qig = self._build_qubit_interaction_graph(circuit)
-        partition = self._k_way_OEE(qig, network)
-        cost = self.evaluate_partitions(qig, partition, network)
+        partition = self._k_way_OEE(qig, network, iteration_times)
+
+        # TODO: fine-grained mapping
+
+        end_time = time.time()
+
+        costs = self.evaluate_partitions(qig, partition, network)
         
-        mapping_record_list = MappingRecordList()
         record = MappingRecord(
             layer_start = 0, 
             layer_end = circuit.depth(),
             partition = partition,
             mapping_type = "telegate",
-            cost = cost
+            costs = costs
         )
+        mapping_record_list = MappingRecordList()
         mapping_record_list.add_record(record)
+        
+        mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
+        mapping_record_list = self.evaluate_total_costs(mapping_record_list)
+        # TODO: 计算num_comms
+        mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
         return mapping_record_list
 
     def _build_qubit_interaction_graph(self, circuit: QuantumCircuit) -> nx.Graph:
@@ -66,15 +80,15 @@ class StaticOEE(BaseCompiler):
                     qig.add_edge(qubits[0], qubits[1], weight=1)
         return qig
     
-    def _k_way_OEE(self, qig: nx.Graph, network: Network) -> list[list[int]]:
+    def _k_way_OEE(self, qig: nx.Graph, network: Network, iteration_times: int) -> list[list[int]]:
         """
         Partition the qubits into k subsets using the OEE algorithm
         """
         nodes = list(qig.nodes())
         num_qubits = len(nodes)
         k = network.num_backends
-        partition = self._allocate_qubits(num_qubits, network) # initialize partition
-        for _ in range(self.iteration_times):
+        partition = self.allocate_qubits(num_qubits, network) # initialize partition
+        for _ in range(iteration_times):
             C = nodes.copy()
             D = np.zeros((num_qubits, k))
             # Step 1: Calculate the D(i, l) value corresponding to each node i and each subset l
@@ -158,25 +172,6 @@ class StaticOEE(BaseCompiler):
                 partition[col_a].append(b)
         return partition
 
-    def _allocate_qubits(self, num_qubits: int, network: Network) -> list[list[int]]:
-        """
-        Initialize the partition
-        """
-        partition = []
-        cnt_qubits = 0
-        for qpu_size in network.backend_sizes:
-            remain = num_qubits - cnt_qubits
-            if remain == 0:
-                break
-            end_index = min(cnt_qubits + qpu_size, num_qubits)
-            part = list(range(cnt_qubits, end_index))
-            partition.append(part)
-            cnt_qubits = end_index
-        assert(cnt_qubits == num_qubits)
-        for _ in range(len(partition), network.num_backends):
-            partition.append([])
-        return partition
-
     def _calculate_d(self, graph: nx.Graph, node: int, target_subset: list[int], current_subset: list[int]) -> float:
         """
         Calculate the D(i, l) value for a node and a target subset
@@ -194,3 +189,9 @@ class StaticOEE(BaseCompiler):
             if graph.has_edge(node, neighbor):
                 weight_sum += graph[node][neighbor].get('weight', 1)
         return weight_sum
+
+    def evaluate_total_costs(self, mapping_record_list: MappingRecordList) -> MappingRecordList:
+        mapping_record_list.add_cost_sum("remote_hops")
+        mapping_record_list.add_cost_sum("fidelity_loss")
+        mapping_record_list.add_cost_mul("fidelity")
+        return mapping_record_list

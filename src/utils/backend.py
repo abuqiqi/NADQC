@@ -155,13 +155,13 @@ class QiskitBackendImporter:
         print(f'已生成 Excel：{output_path}')
 
 class Backend:
-    def __init__(self, global_config: dict = None, backend_config: dict = None):
+    def __init__(self, global_config: dict = {}, backend_config: dict = {}):
         # 初始化QPU上的噪声信息
         if backend_config is not None:
             self._init_backend(global_config, backend_config)
         return
-    
-    def _init_backend(self, global_config: dict = None, backend_config: dict = None):
+
+    def _init_backend(self, global_config: dict = {}, backend_config: dict = {}):
         pprint(backend_config)
         if 'backend_name' in backend_config:
             self.name = backend_config['backend_name']
@@ -353,7 +353,7 @@ class Backend:
                                 f"Available: {len(remaining) + len(selected_qubits)}")
             selected_qubits.update(random.sample(remaining, need))
 
-        selected_qubits = sorted(selected_qubits)
+        # selected_qubits = sorted(selected_qubits)
 
         # Step 3: Filter qubit_info
         new_qubit_info = [self.qubit_info[q] for q in selected_qubits]

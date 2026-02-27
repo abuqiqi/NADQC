@@ -30,17 +30,17 @@ class StaticOEE(Compiler):
         print(f"Compiling with [{self.name}]...")
         
         start_time = time.time()
-        iteration_times = config.get("iteration", 10) if config else 10
+        iteration_count = config.get("iteration", 10) if config else 10
         circuit_name = config.get("circuit_name", "circ") if config else "circ"
 
         qig = self._build_qubit_interaction_graph(circuit)
-        partition = self._k_way_OEE(qig, network, iteration_times)
+        partition = self._k_way_OEE(qig, network, iteration_count)
 
         # TODO: fine-grained mapping
 
         end_time = time.time()
 
-        costs = self.evaluate_partitions(qig, partition, network)
+        costs = self.evaluate_partition(qig, partition, network)
         
         record = MappingRecord(
             layer_start = 0, 
@@ -54,7 +54,6 @@ class StaticOEE(Compiler):
         
         mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
         mapping_record_list = self.evaluate_total_costs(mapping_record_list)
-        # TODO: 计算num_comms
         mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
         return mapping_record_list
 
@@ -80,7 +79,7 @@ class StaticOEE(Compiler):
                     qig.add_edge(qubits[0], qubits[1], weight=1)
         return qig
     
-    def _k_way_OEE(self, qig: nx.Graph, network: Network, iteration_times: int) -> list[list[int]]:
+    def _k_way_OEE(self, qig: nx.Graph, network: Network, iteration_count: int) -> list[list[int]]:
         """
         Partition the qubits into k subsets using the OEE algorithm
         """
@@ -88,7 +87,7 @@ class StaticOEE(Compiler):
         num_qubits = len(nodes)
         k = network.num_backends
         partition = self.allocate_qubits(num_qubits, network) # initialize partition
-        for _ in range(iteration_times):
+        for _ in range(iteration_count):
             C = nodes.copy()
             D = np.zeros((num_qubits, k))
             # Step 1: Calculate the D(i, l) value corresponding to each node i and each subset l
@@ -179,7 +178,7 @@ class StaticOEE(Compiler):
         w_target = self._calculate_w(graph, node, target_subset)
         w_current = self._calculate_w(graph, node, current_subset)
         return w_target - w_current
-    
+
     def _calculate_w(self, graph: nx.Graph, node: int, subset: list[int]) -> float:
         """
         Calculate the sum of edge weights from a node to a subset of nodes
@@ -189,9 +188,3 @@ class StaticOEE(Compiler):
             if graph.has_edge(node, neighbor):
                 weight_sum += graph[node][neighbor].get('weight', 1)
         return weight_sum
-
-    def evaluate_total_costs(self, mapping_record_list: MappingRecordList) -> MappingRecordList:
-        mapping_record_list.add_cost_sum("remote_hops")
-        mapping_record_list.add_cost_sum("fidelity_loss")
-        mapping_record_list.add_cost_mul("fidelity")
-        return mapping_record_list

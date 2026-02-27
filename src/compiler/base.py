@@ -5,6 +5,8 @@ from dataclasses import dataclass
 import networkx as nx
 import json
 import numpy as np
+import copy
+from collections import defaultdict
 
 from ..utils import Network
 
@@ -23,6 +25,13 @@ class MappingRecord:
     costs: dict[str, Any]
     # 可选字段：扩展信息（如额外配置、备注）
     extra_info: Optional[dict[str, Any]] = None
+
+    def __post_init__(self):
+        # 冻结模式下修改字段需用 object.__setattr__
+        object.__setattr__(self, "partition", copy.deepcopy(self.partition))
+        object.__setattr__(self, "costs", copy.deepcopy(self.costs))
+        if self.extra_info is not None:
+            object.__setattr__(self, "extra_info", copy.deepcopy(self.extra_info))
 
 
 # 辅助类：管理多条记录
@@ -142,13 +151,13 @@ class Compiler(ABC):
         """
         pass
 
-    @abstractmethod
-    def evaluate_total_costs(self, mapping_record_list) -> MappingRecordList:
-        """
-        获取映射结果
-        :return: 包含关键性能指标的字典
-        """
-        pass
+    # @abstractmethod
+    # def evaluate_total_costs(self, mapping_record_list) -> MappingRecordList:
+    #     """
+    #     获取映射结果
+    #     :return: 包含关键性能指标的字典
+    #     """
+    #     pass
 
     def allocate_qubits(self, num_qubits: int, network: Network) -> list[list[int]]:
         """
@@ -169,7 +178,9 @@ class Compiler(ABC):
             partition.append([])
         return partition
 
-    def evaluate_partitions(self, qig: nx.Graph, partition: list[list[int]], network: Any) -> dict[str, float]:
+    def evaluate_partition(self, qig: nx.Graph, 
+                           partition: list[list[int]], 
+                           network: Any) -> dict[str, float]:
         """
         计算qubit interaction graph在partitions下的割
         """
@@ -188,11 +199,111 @@ class Compiler(ABC):
         return {
             "num_comms": remote_hops,
             "remote_hops": remote_hops,
+            "remote_swaps": 0,
             "fidelity_loss": fidelity_loss,
             "fidelity": fidelity
         }
 
-    def evaluate_partition_switch(self, prev_partition, curr_partition):
+    def evaluate_partition_switch(self, prev_record: MappingRecord, 
+                                  curr_record: MappingRecord, 
+                                  network: Network):
         """
         计算切换划分的通信开销
         """
+        # 检查remote_hops
+        assert prev_record.costs["remote_swaps"] == 0
+        assert curr_record.costs["remote_swaps"] == 0
+        assert prev_record.costs["num_comms"] == prev_record.costs["remote_hops"]
+        assert curr_record.costs["num_comms"] == curr_record.costs["remote_hops"]
+
+        prev_partition = prev_record.partition
+        curr_partition = curr_record.partition
+
+        G = nx.DiGraph() # 初始化有向图
+        G.add_nodes_from(range(len(prev_partition))) # 每个partition对应一个节点
+
+        remote_swaps = 0
+
+        # 记录每个qubit在prev和curr的分区号
+        qubit_mapping = {}
+        for pno, part in enumerate(prev_partition):
+            # print(f"{pno}: {partition}")
+            for qubit in part:
+                qubit_mapping[qubit] = [pno, -1]
+        for pno, part in enumerate(curr_partition):
+            # print(f"{pno}: {partition}")
+            for qubit in part:
+                qubit_mapping[qubit][1] = pno
+
+        for prev_part, curr_part in qubit_mapping.values():
+            assert(prev_part != -1 and curr_part != -1)
+            if prev_part != curr_part: # prev_part -> curr_part
+                # 检查是否存在curr_part -> prev_part的边
+                # 如果存在，则说明形成了环
+                # 因为每次只加一条边，所以抵消掉一条就行
+                if G.has_edge(curr_part, prev_part):
+                    remote_swaps += \
+                        2 * network.Hops[curr_part][prev_part] - 1 # RSWAP
+                    # 更新边权重
+                    if G[curr_part][prev_part]['weight'] > 1:
+                        G[curr_part][prev_part]['weight'] -= 1
+                    else:
+                        G.remove_edge(curr_part, prev_part)
+                # 否则添加一条边prev_part -> curr_part
+                else:
+                    if G.has_edge(prev_part, curr_part):
+                        G[prev_part][curr_part]['weight'] += 1
+                    else:
+                        G.add_edge(prev_part, curr_part, weight=1)
+        
+        all_cycles = nx.simple_cycles(G)
+        cycles_by_length = defaultdict(list)
+        # 收集长度大于2的环
+        for cycle in all_cycles:
+            length = len(cycle)
+            assert(3 <= length <= network.num_backends)
+            cycles_by_length[length].append(cycle)
+
+        for length in sorted(cycles_by_length.keys()):
+            assert(3 <= length <= network.num_backends)
+            for cycle in cycles_by_length[length]:
+                exist = True # 先检查是不是所有边都在
+                weight = 999999
+                for i in range(length):
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    if not G.has_edge(u, v):
+                        exist = False
+                        break
+                    weight = min(weight, G[u][v]['weight']) # 记录环的个数
+                if not exist: # 当前环不存在了
+                    continue
+                for i in range(length): # 从G中移除这些环
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    if G[u][v]['weight'] > weight:
+                        G[u][v]['weight'] -= weight
+                    else:
+                        G.remove_edge(u, v)
+                    # 对环中的每一条边，计算通信开销
+                    swap_cost = 2 * network.Hops[u][v] - 1
+                    remote_swaps += swap_cost * weight
+
+        # 获取剩余的边
+        remaining_edges = G.edges(data=True)
+        for u, v, data in remaining_edges:
+            path_len = 2 * network.Hops[u][v] - 1
+            remote_swaps += path_len * data['weight']
+
+        # 更新num_comms
+        curr_record.costs["remote_swaps"] = remote_swaps
+        curr_record.costs["num_comms"] += remote_swaps
+        return
+
+    def evaluate_total_costs(self, mapping_record_list: MappingRecordList) -> MappingRecordList:
+        mapping_record_list.add_cost_sum("num_comms")
+        mapping_record_list.add_cost_sum("remote_hops")
+        mapping_record_list.add_cost_sum("remote_swaps")
+        mapping_record_list.add_cost_sum("fidelity_loss")
+        mapping_record_list.add_cost_mul("fidelity")
+        return mapping_record_list

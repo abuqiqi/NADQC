@@ -10,6 +10,7 @@ import numpy as np
 from ..compiler import Compiler, MappingRecord, MappingRecordList
 from ..utils import Network
 from .partitioner import PartitionerFactory
+from .partition_assigner import PartitionAssignerFactory
 
 class NADQC(Compiler):
     """
@@ -36,13 +37,17 @@ class NADQC(Compiler):
         self.circuit = circuit
         self.network = network
         circuit_name = config.get("circuit_name", "circ") if config else "circ"
-        partition_method = config.get("partition_method", 
-                                      "recursive_dp") if config else "recursive_dp"
+        
+        partitioner_type = config.get("partitioner", 
+                                 "recursive_dp") if config else "recursive_dp"
         self.max_option = config.get("max_option", 1) if config else 1
         self.min_depths = config.get("min_depths", None) if config else None
-        self.partitioner = PartitionerFactory.create_partitioner(partition_method, 
+        self.partitioner = PartitionerFactory.create_partitioner(partitioner_type, 
                                                                  network, 
                                                                  max_options=self.max_option)
+        
+        partition_assigner_type = config.get("partition_assigner", "global_max_match") if config else "global_max_match"
+        self.partition_assigner = PartitionAssignerFactory.create_assigner(partition_assigner_type)
 
         start_time = time.time()
 
@@ -65,9 +70,12 @@ class NADQC(Compiler):
         for (i, j) in self.subc_ranges:
             self.legal_paths.append(self.P[i][j]) # 返回所有划分方案
 
+        # TODO: 测试匹配一致性
+        self.partition_plan = self.partition_assigner.assign_partitions(self.legal_paths)["partition_plan"]
+
         # TODO: 改成考虑噪声信息的
-        mapping_record_list = self._find_min_comms_path_greedy()
-        
+        mapping_record_list = self._construct_mapping_record_list()
+
         # TODO: try telegate
 
         end_time = time.time()
@@ -327,9 +335,9 @@ class NADQC(Compiler):
         self._get_sliced_subc(self.S[i][j] + 1, j)
         return
 
-    def _find_min_comms_path_greedy(self):
+    def _construct_mapping_record_list(self): # TODO: rename function
         """
-        基于self.legal_paths，即每个子线路合法的划分
+        基于每个子线路合法的划分
         找到最少swap次数的路径
         """
         start_time = time.time()
@@ -340,17 +348,17 @@ class NADQC(Compiler):
         # dp = {}
         self.num_comms = 0
         self.swap_only_path = [] # 记录最优路径 TODO: remove
-        self.swap_prefix_sums = [0 for _ in range(len(self.legal_paths))] # 记录最优路径上的交换次数
+        self.swap_prefix_sums = [0 for _ in range(len(self.partition_plan))] # 记录最优路径上的交换次数
 
-        for i in range(len(self.legal_paths)):
-            assert(len(self.legal_paths[i]) == 1)
-            self.swap_only_path.append(self.legal_paths[i][0])
+        for i in range(len(self.partition_plan)):
+            # assert(len(self.partition_plan[i]) == 1)
+            self.swap_only_path.append(self.partition_plan[i])
 
             (left, right) = self.subc_ranges[i]
             record = MappingRecord(
                 layer_start = self.map_to_init_layer[left],
                 layer_end = self.map_to_init_layer[right],
-                partition = self.legal_paths[i][0],
+                partition = self.partition_plan[i],
                 mapping_type = "teledata",
                 costs = {
                     "num_comms": 0,
@@ -373,3 +381,92 @@ class NADQC(Compiler):
         end_time = time.time()
         print(f"[find_min_comms_path] Time: {end_time - start_time} seconds")
         return mapping_record_list
+
+    def calculate_nonlocal_communications(self, prev_assign, curr_assign):
+        # TODO：把划分从数组改成set
+        prev_assign = [set(p) for p in prev_assign]
+        curr_assign = [set(p) for p in curr_assign]
+        num_qpus = len(prev_assign)
+        # assert num_qpus == len(self.qpus), f"[ERROR] prev_assign: {prev_assign}'s size {num_qpus} != len(self.qpus): {len(self.qpus)}"
+        # 构建权重矩阵（partition A和B集合的交集大小）
+        weights = [[len(prev_assign[i] & curr_assign[j]) for j in range(num_qpus)] for i in range(num_qpus)]
+        # 使用匈牙利算法找到最大权匹配
+        prev_assign_idx, curr_assign_idx = linear_sum_assignment(weights, maximize=True)
+
+        num_qubits = self.circ.num_qubits
+        G = nx.DiGraph() # 初始化有向图
+        G.add_nodes_from(range(len(prev_assign))) # 每个partition对应一个节点
+
+        communication_cost = 0
+
+        # 记录每个qubit在prev和curr的分区号
+        qubit_mapping = [[-1, -1] for _ in range(num_qubits)]
+        for pno, (i, j) in enumerate(zip(prev_assign_idx, curr_assign_idx)):
+            prev_partition, curr_partition = prev_assign[i], curr_assign[j]
+            for qubit in prev_partition:
+                qubit_mapping[qubit][0] = pno
+            for qubit in curr_partition:
+                qubit_mapping[qubit][1] = pno
+
+        # 遍历映射，若前后分配不同，添加边到图中
+        for prev_part, curr_part in qubit_mapping:
+            assert(prev_part != -1 and curr_part != -1)
+            if prev_part != curr_part: # prev_part -> curr_part
+                # 检查是否存在curr_part -> prev_part的边
+                # 如果存在，则说明形成了环
+                # 因为每次只加一条边，所以抵消掉一条就行
+                if G.has_edge(curr_part, prev_part):
+                    communication_cost += \
+                        self.swap_cost_matrix[curr_part][prev_part] # one RSWAP
+                    # 更新边权重
+                    if G[curr_part][prev_part]['weight'] > 1:
+                        G[curr_part][prev_part]['weight'] -= 1
+                    else:
+                        G.remove_edge(curr_part, prev_part)
+                # 否则添加一条边prev_part -> curr_part
+                else:
+                    if G.has_edge(prev_part, curr_part):
+                        G[prev_part][curr_part]['weight'] += 1
+                    else:
+                        G.add_edge(prev_part, curr_part, weight=1)
+
+        all_cycles = nx.simple_cycles(G)
+        cycles_by_length = defaultdict(list)
+        # 收集长度大于2的环
+        for cycle in all_cycles:
+            length = len(cycle)
+            assert(3 <= length <= len(self.qpus))
+            cycles_by_length[length].append(cycle)
+
+        for length in sorted(cycles_by_length.keys()):
+            assert(3 <= length <= len(self.qpus))
+            for cycle in cycles_by_length[length]:
+                exist = True # 先检查是不是所有边都在
+                weight = 999999
+                for i in range(length):
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    if not G.has_edge(u, v):
+                        exist = False
+                        break
+                    weight = min(weight, G[u][v]['weight']) # 记录环的个数
+                if not exist: # 当前环不存在了
+                    continue
+                for i in range(length): # 从G中移除这些环
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    if G[u][v]['weight'] > weight:
+                        G[u][v]['weight'] -= weight
+                    else:
+                        G.remove_edge(u, v)
+                    # 对环中的每一条边，计算通信开销
+                    swap_cost = self.swap_cost_matrix[u][v]
+                    communication_cost += swap_cost * weight
+
+        # 获取剩余的边
+        remaining_edges = G.edges(data=True)
+        for u, v, data in remaining_edges:
+            path_len = (self.swap_cost_matrix[u][v] + 1) / 2
+            communication_cost += path_len * data['weight']
+
+        return communication_cost

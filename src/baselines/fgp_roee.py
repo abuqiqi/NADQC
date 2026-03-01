@@ -4,9 +4,34 @@ from typing import Any, Optional
 import networkx as nx
 import numpy as np
 import time
+from itertools import combinations
+from collections import defaultdict
 
 from ..compiler import Compiler, MappingRecord, MappingRecordList
 from ..utils import Network
+
+# 构建一个全连接网络
+def build_fc_network(qpus):
+    server_coupling = [
+        list(combination)
+        for combination in combinations([i for i in range(len(qpus))], 2)
+    ]
+    qubits = [i for i in range(sum(qpus))]
+    server_qubits_list = [
+        qubits[sum(qpus[:i]) : sum(qpus[:i+1])]
+        for i in range(len(qpus))
+    ]
+    server_qubits = {
+        i: qubits_list
+        for i, qubits_list in enumerate(server_qubits_list)
+    }
+    # 计算每个节点到其他节点的qubit swap cost
+    swap_cost_matrix = np.zeros((len(qpus), len(qpus)), dtype=int)
+    for i in range(len(qpus)):
+        for j in range(len(qpus)):
+            swap_cost_matrix[i][j] = 1
+        swap_cost_matrix[i][i] = 0
+    return swap_cost_matrix
 
 class FGPrOEE(Compiler):
     """
@@ -29,6 +54,12 @@ class FGPrOEE(Compiler):
         Compile the circuit
         """
         print(f"Compiling with [{self.name}]...")
+        self.circ = circuit
+        self.qpus = network.backend_sizes
+        self.swap_cost_matrix = build_fc_network(network.backend_sizes)
+        
+        print(f"[DEBUG] swap_cost_matrix:\n{self.swap_cost_matrix}\n")
+        print(f"[DEBUG] network.Hops: {network.Hops}\n")
 
         start_time = time.time()
         iteration_count = config.get("iteration", 10) if config else 10
@@ -41,6 +72,10 @@ class FGPrOEE(Compiler):
         mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
         mapping_record_list = self.evaluate_total_costs(mapping_record_list)
         mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
+        
+        # print(f"[DEBUG] num_swaps: {self.num_swaps}\nnum_gates: {self.num_gates}")
+        print(f"[DEBUG] Total swaps: {sum(self.num_swaps)}, Total gates: {sum(self.num_gates)}")
+        print(f"[DEBUG] Total comms: {sum(self.num_swaps) + sum(self.num_gates)}\n")
         return mapping_record_list
 
     def _k_way_FGP_rOEE(self, circuit: QuantumCircuit, 
@@ -54,6 +89,9 @@ class FGPrOEE(Compiler):
         partition = self.allocate_qubits(circuit.num_qubits, network)
         mapping_record_list = MappingRecordList()
 
+        self.num_swaps = []
+        self.num_gates = []
+
         for lev in range(circuit_depth):
             lookahead_graph, time_slice_graph = self._build_lookahead_graphs(circuit, circuit_layers, lev)
             mapping_record = self.k_way_rOEE(partition, 
@@ -65,6 +103,11 @@ class FGPrOEE(Compiler):
             mapping_record.layer_end = lev
             mapping_record_list.add_record(mapping_record)
             if lev > 0:
+                # TODO: CHECK
+                self.num_swaps.append(self.calculate_nonlocal_communications(mapping_record_list.records[-2].partition, 
+                                                                             mapping_record_list.records[-1].partition))
+
+                # 
                 self.evaluate_partition_switch(mapping_record_list.records[-2], 
                                                mapping_record_list.records[-1],
                                                network)
@@ -205,6 +248,11 @@ class FGPrOEE(Compiler):
         
         costs = self.evaluate_partition(time_slice_graph, partition, network)
 
+        # 
+        self.num_gates.append(self.count_cut_edges(time_slice_graph, partition))
+        assert costs["remote_hops"] == self.num_gates[-1], f"costs.remote_hops: {costs['remote_hops']}, num_gates: {self.num_gates[-1]}"
+        # 
+
         record = MappingRecord(
             layer_start = 0,
             layer_end = 0,
@@ -232,3 +280,98 @@ class FGPrOEE(Compiler):
             if graph.has_edge(node, neighbor):
                 weight_sum += graph[node][neighbor].get('weight', 1)
         return weight_sum
+
+    def count_cut_edges(self, graph, partitions):
+        node_to_partition = {} # 构建节点到划分编号的映射
+        for i, partition in enumerate(partitions):
+            for node in partition:
+                node_to_partition[node] = i
+        cut_edges = 0
+        for u, v in graph.edges(): # 遍历图中的每一条边
+            qpu_u = node_to_partition[u]
+            qpu_v = node_to_partition[v]
+            if qpu_u != qpu_v:
+                path_len = (self.swap_cost_matrix[qpu_u][qpu_v] + 1) / 2
+                cut_edges += path_len * graph[u][v]['weight']
+        return cut_edges
+
+    def calculate_nonlocal_communications(self, prev_assign, curr_assign):
+        num_qubits = self.circ.num_qubits
+        G = nx.DiGraph() # 初始化有向图
+        G.add_nodes_from(range(len(prev_assign))) # 每个partition对应一个节点
+
+        communication_cost = 0
+
+        # 记录每个qubit在prev和curr的分区号
+        qubit_mapping = [[-1, -1] for _ in range(num_qubits)]
+        for pno, partition in enumerate(prev_assign):
+            # print(f"{pno}: {partition}")
+            for qubit in partition:
+                qubit_mapping[qubit][0] = pno
+        for pno, partition in enumerate(curr_assign):
+            # print(f"{pno}: {partition}")
+            for qubit in partition:
+                qubit_mapping[qubit][1] = pno
+
+        # 遍历映射，若前后分配不同，添加边到图中
+        for prev_part, curr_part in qubit_mapping:
+            assert(prev_part != -1 and curr_part != -1)
+            if prev_part != curr_part: # prev_part -> curr_part
+                # 检查是否存在curr_part -> prev_part的边
+                # 如果存在，则说明形成了环
+                # 因为每次只加一条边，所以抵消掉一条就行
+                if G.has_edge(curr_part, prev_part):
+                    communication_cost += \
+                        self.swap_cost_matrix[curr_part][prev_part] # one RSWAP
+                    # 更新边权重
+                    if G[curr_part][prev_part]['weight'] > 1:
+                        G[curr_part][prev_part]['weight'] -= 1
+                    else:
+                        G.remove_edge(curr_part, prev_part)
+                # 否则添加一条边prev_part -> curr_part
+                else:
+                    if G.has_edge(prev_part, curr_part):
+                        G[prev_part][curr_part]['weight'] += 1
+                    else:
+                        G.add_edge(prev_part, curr_part, weight=1)
+
+        all_cycles = nx.simple_cycles(G)
+        cycles_by_length = defaultdict(list)
+        # 收集长度大于2的环
+        for cycle in all_cycles:
+            length = len(cycle)
+            assert(3 <= length <= len(self.qpus))
+            cycles_by_length[length].append(cycle)
+
+        for length in sorted(cycles_by_length.keys()):
+            assert(3 <= length <= len(self.qpus))
+            for cycle in cycles_by_length[length]:
+                exist = True # 先检查是不是所有边都在
+                weight = 999999
+                for i in range(length):
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    if not G.has_edge(u, v):
+                        exist = False
+                        break
+                    weight = min(weight, G[u][v]['weight']) # 记录环的个数
+                if not exist: # 当前环不存在了
+                    continue
+                for i in range(length): # 从G中移除这些环
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    if G[u][v]['weight'] > weight:
+                        G[u][v]['weight'] -= weight
+                    else:
+                        G.remove_edge(u, v)
+                    # 对环中的每一条边，计算通信开销
+                    swap_cost = self.swap_cost_matrix[u][v]
+                    communication_cost += swap_cost * weight
+
+        # 获取剩余的边
+        remaining_edges = G.edges(data=True)
+        for u, v, data in remaining_edges:
+            path_len = (self.swap_cost_matrix[u][v] + 1) / 2
+            communication_cost += path_len * data['weight']
+
+        return communication_cost

@@ -44,7 +44,7 @@ class StaticOEE(Compiler):
         
         record = MappingRecord(
             layer_start = 0, 
-            layer_end = circuit.depth(),
+            layer_end = circuit.depth() - 1,
             partition = partition,
             mapping_type = "telegate",
             costs = costs

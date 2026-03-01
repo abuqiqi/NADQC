@@ -197,19 +197,19 @@ class NADQC:
         return
 
     def _build_qubit_interaction_graph(self, level_range):
-            G = nx.Graph()
-            for qubit in range(self.circ.num_qubits):
-                G.add_node(qubit)
-            for lev in range(level_range[0], level_range[1]+1):
-                for node in self.dag_multiq[lev]:
-                    qubits = [qubit._index for qubit in node.qargs]
-                    if qubits[0] == None:
-                        qubits = [self.circ.qubits.index(node.qargs[i]) for i in range(len(node.qargs))]
-                    if G.has_edge(qubits[0], qubits[1]):
-                        G[qubits[0]][qubits[1]]['weight'] += 1
-                    else:
-                        G.add_edge(qubits[0], qubits[1], weight=1)
-            return G
+        G = nx.Graph()
+        for qubit in range(self.circ.num_qubits):
+            G.add_node(qubit)
+        for lev in range(level_range[0], level_range[1]+1):
+            for node in self.dag_multiq[lev]:
+                qubits = [qubit._index for qubit in node.qargs]
+                if qubits[0] == None:
+                    qubits = [self.circ.qubits.index(node.qargs[i]) for i in range(len(node.qargs))]
+                if G.has_edge(qubits[0], qubits[1]):
+                    G[qubits[0]][qubits[1]]['weight'] += 1
+                else:
+                    G.add_edge(qubits[0], qubits[1], weight=1)
+        return G
 
     def _remove_qig_edge(self, qig, lev):
         """

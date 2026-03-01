@@ -94,7 +94,7 @@ class MappingRecordList:
                 indent=4,
                 sort_keys=False  # 保持字段顺序，更易读
             )
-        print(f"✅ 成功保存 {len(data_dict)} 条映射记录到 JSON 文件：{filename}")
+        print(f"✅ 成功保存 {len(data_dict['records'])} 条映射记录到 JSON 文件：{filename}")
         return
 
     @staticmethod
@@ -211,9 +211,8 @@ class Compiler(ABC):
         计算切换划分的通信开销
         """
         # 检查remote_hops
-        assert prev_record.costs["remote_swaps"] == 0
-        assert curr_record.costs["remote_swaps"] == 0
-        assert prev_record.costs["num_comms"] == prev_record.costs["remote_hops"]
+        assert curr_record.costs["remote_swaps"] == 0, f"curr_remote_swaps: {curr_record.costs['remote_swaps']}"
+        assert prev_record.costs["num_comms"] == prev_record.costs["remote_hops"] + prev_record.costs["remote_swaps"]
         assert curr_record.costs["num_comms"] == curr_record.costs["remote_hops"]
 
         prev_partition = prev_record.partition
@@ -223,6 +222,8 @@ class Compiler(ABC):
         G.add_nodes_from(range(len(prev_partition))) # 每个partition对应一个节点
 
         remote_swaps = 0
+        fidelity_loss = 0
+        fidelity = 1
 
         # 记录每个qubit在prev和curr的分区号
         qubit_mapping = {}
@@ -242,8 +243,12 @@ class Compiler(ABC):
                 # 如果存在，则说明形成了环
                 # 因为每次只加一条边，所以抵消掉一条就行
                 if G.has_edge(curr_part, prev_part):
-                    remote_swaps += \
-                        2 * network.Hops[curr_part][prev_part] - 1 # RSWAP
+                    num_rswaps = 2 * network.Hops[curr_part][prev_part] - 1
+                    
+                    remote_swaps += num_rswaps
+                    fidelity_loss += (1 - network.W_eff[prev_part][curr_part]) * num_rswaps
+                    fidelity *= network.W_eff[prev_part][curr_part] ** num_rswaps
+                    
                     # 更新边权重
                     if G[curr_part][prev_part]['weight'] > 1:
                         G[curr_part][prev_part]['weight'] -= 1
@@ -286,18 +291,26 @@ class Compiler(ABC):
                     else:
                         G.remove_edge(u, v)
                     # 对环中的每一条边，计算通信开销
-                    swap_cost = 2 * network.Hops[u][v] - 1
-                    remote_swaps += swap_cost * weight
+                    num_rswaps = (2 * network.Hops[u][v] - 1) * weight
+                    
+                    remote_swaps += num_rswaps
+                    fidelity_loss += (1 - network.W_eff[u][v]) * num_rswaps
+                    fidelity *= network.W_eff[u][v] ** num_rswaps
 
         # 获取剩余的边
         remaining_edges = G.edges(data=True)
         for u, v, data in remaining_edges:
             path_len = 2 * network.Hops[u][v] - 1
-            remote_swaps += path_len * data['weight']
+            num_rswaps = path_len * data['weight']
+            remote_swaps += num_rswaps
+            fidelity_loss += (1 - network.W_eff[u][v]) * num_rswaps
+            fidelity *= network.W_eff[u][v] ** num_rswaps
 
         # 更新num_comms
         curr_record.costs["remote_swaps"] = remote_swaps
         curr_record.costs["num_comms"] += remote_swaps
+        curr_record.costs["fidelity_loss"] += fidelity_loss
+        curr_record.costs["fidelity"] *= fidelity
         return
 
     def evaluate_total_costs(self, mapping_record_list: MappingRecordList) -> MappingRecordList:

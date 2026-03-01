@@ -154,9 +154,9 @@ def test_static_oee():
     network_config = {
         'type': 'self_defined',
         'network_coupling': {
-            (0, 1): 0.979,
+            (0, 1): 0.98,
             (1, 2): 0.98,
-            (0, 2): 0.981
+            (0, 2): 0.98
         }
     }
 
@@ -178,7 +178,7 @@ def test_static_oee():
     for compiler in compilers:
         print(f"Compiler: [{compiler.name}]")
         result = compiler.compile(qc, net, {"circuit_name": "QV30"})
-        pprint(result)
+        pprint(result.total_costs)
 
     return
 

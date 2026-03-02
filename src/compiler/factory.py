@@ -1,6 +1,7 @@
 import os
 import importlib
 import inspect
+import sys
 from typing import Type
 
 from .base import Compiler
@@ -14,35 +15,43 @@ class CompilerFactory:
     def register_compilers(cls, compiler_paths: list[str]) -> list[str]:
         """
         创建编译器注册表
-        :param config: 注册路径
+        :param compiler_paths: 编译器包的绝对路径
         """
-        # 工程根目录
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        # 程序执行的工作目录
-        current_script_dir = os.path.abspath(os.getcwd())
+        # for compiler_path in compiler_paths:
+        #     # 验证目录是否存在
+        #     if not os.path.exists(compiler_path):
+        #         print(f"[WARNING] 编译器路径不存在: {compiler_path}, 跳过")
+        #         continue
 
-        for rel_compiler_path in compiler_paths: # 相对于工程根目录
-            abs_compiler_path = os.path.abspath(os.path.join(project_root, rel_compiler_path))
-            print(f"[DEBUG] compiler_path: {abs_compiler_path}")
+        #     # 获取 baselines 的父目录
+        #     parent_dir = os.path.dirname(compiler_path)
+
+        #     # 将编译器路径转换为模块路径并导入
+        #     module_path = os.path.relpath(compiler_path, parent_dir).replace(os.sep, ".")
+        #     print(f"[DEBUG] Importing compiler module: {module_path} from {compiler_path}")
+        #     module = importlib.import_module(module_path)
+
+        # # 工程根目录
+        # project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        # # 程序执行的工作目录
+        # current_script_dir = os.path.abspath(os.getcwd())
+
+        # for rel_compiler_path in compiler_paths: # 相对于工程根目录
+        #     abs_compiler_path = os.path.abspath(os.path.join(project_root, rel_compiler_path))
+        #     print(f"[DEBUG] compiler_path: {abs_compiler_path}")
             
-            if not os.path.exists(abs_compiler_path):
-                print(f"[WARNING] 扫描目录不存在: {abs_compiler_path}, 跳过")
-                continue
+        #     if not os.path.exists(abs_compiler_path):
+        #         print(f"[WARNING] 扫描目录不存在: {abs_compiler_path}, 跳过")
+        #         continue
 
-            # 遍历目录下__init__.py里面对外的类
-            # 筛选Compiler子类且含compiler_id字段，加到cls._registry
-            init_file = os.path.join(abs_compiler_path, "__init__.py")
-            if not os.path.exists(init_file):
-                print(f"[WARNING] 目录缺少__init__.py: {abs_compiler_path}, 跳过")
-                continue
+        #     # 将文件路径转换为Python模块路径（核心步骤）
+        #     # 示例：/project_root/compilers/xxx → compilers.xxx
+        #     rel_path = os.path.relpath(abs_compiler_path, current_script_dir)
+        #     print(f"[DEBUG] relative path to cwd: {rel_path}")
+        #     module_path = rel_path.replace(os.sep, ".")
+        #     print(f"[DEBUG] module_path: {module_path}")
 
-            # 将文件路径转换为Python模块路径（核心步骤）
-            # 示例：/project_root/compilers/xxx → compilers.xxx
-            rel_path = os.path.relpath(abs_compiler_path, current_script_dir)
-            print(f"[DEBUG] relative path to cwd: {rel_path}")
-            module_path = rel_path.replace(os.sep, ".")
-            print(f"[DEBUG] module_path: {module_path}")
-
+        for module_path in compiler_paths:
             # 导入模块
             module = importlib.import_module(module_path)
         

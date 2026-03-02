@@ -74,6 +74,8 @@ class NADQC(Compiler):
         self.partition_plan = self.partition_assigner.assign_partitions(self.legal_paths)["partition_plan"]
 
         # TODO: 改成考虑噪声信息的
+
+        # 基于划分方案self.partition_plan，构造映射记录列表
         mapping_record_list = self._construct_mapping_record_list()
 
         # TODO: try telegate

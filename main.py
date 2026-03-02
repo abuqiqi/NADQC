@@ -170,7 +170,7 @@ def test_static_oee():
     qc = transpile(qc, basis_gates=["cu1", "u3"], optimization_level=0)
     # print(qc)
 
-    compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_paths"))
+    compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     # compilers = []
     # for compiler_id in compiler_ids:
     #     compilers.append(CompilerFactory.get_compiler(compiler_id)())

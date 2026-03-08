@@ -380,7 +380,7 @@ class Backend:
         # pprint(new_general_qlists)
 
         return {
-            'selected_qubits': selected_qubits,
+            'selected_qubits': sorted(selected_qubits),
             'basic_info': {
                 **self.basic_info,
                 'general_qlists': new_general_qlists,

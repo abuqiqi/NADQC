@@ -11,6 +11,7 @@ from ..compiler import Compiler, MappingRecord, MappingRecordList
 from ..utils import Network
 from .partitioner import PartitionerFactory
 from .partition_assigner import PartitionAssignerFactory
+from .mapper import MapperFactory
 
 class NADQC(Compiler):
     """
@@ -78,7 +79,10 @@ class NADQC(Compiler):
         # 基于划分方案self.partition_plan，构造映射记录列表
         mapping_record_list = self._construct_mapping_record_list()
 
+        # TODO: 考虑异构噪声的QPU间链路
+
         # TODO: try telegate
+        
 
         end_time = time.time()
 
@@ -383,92 +387,3 @@ class NADQC(Compiler):
         end_time = time.time()
         print(f"[find_min_comms_path] Time: {end_time - start_time} seconds")
         return mapping_record_list
-
-    def calculate_nonlocal_communications(self, prev_assign, curr_assign):
-        # TODO：把划分从数组改成set
-        prev_assign = [set(p) for p in prev_assign]
-        curr_assign = [set(p) for p in curr_assign]
-        num_qpus = len(prev_assign)
-        # assert num_qpus == len(self.qpus), f"[ERROR] prev_assign: {prev_assign}'s size {num_qpus} != len(self.qpus): {len(self.qpus)}"
-        # 构建权重矩阵（partition A和B集合的交集大小）
-        weights = [[len(prev_assign[i] & curr_assign[j]) for j in range(num_qpus)] for i in range(num_qpus)]
-        # 使用匈牙利算法找到最大权匹配
-        prev_assign_idx, curr_assign_idx = linear_sum_assignment(weights, maximize=True)
-
-        num_qubits = self.circ.num_qubits
-        G = nx.DiGraph() # 初始化有向图
-        G.add_nodes_from(range(len(prev_assign))) # 每个partition对应一个节点
-
-        communication_cost = 0
-
-        # 记录每个qubit在prev和curr的分区号
-        qubit_mapping = [[-1, -1] for _ in range(num_qubits)]
-        for pno, (i, j) in enumerate(zip(prev_assign_idx, curr_assign_idx)):
-            prev_partition, curr_partition = prev_assign[i], curr_assign[j]
-            for qubit in prev_partition:
-                qubit_mapping[qubit][0] = pno
-            for qubit in curr_partition:
-                qubit_mapping[qubit][1] = pno
-
-        # 遍历映射，若前后分配不同，添加边到图中
-        for prev_part, curr_part in qubit_mapping:
-            assert(prev_part != -1 and curr_part != -1)
-            if prev_part != curr_part: # prev_part -> curr_part
-                # 检查是否存在curr_part -> prev_part的边
-                # 如果存在，则说明形成了环
-                # 因为每次只加一条边，所以抵消掉一条就行
-                if G.has_edge(curr_part, prev_part):
-                    communication_cost += \
-                        self.swap_cost_matrix[curr_part][prev_part] # one RSWAP
-                    # 更新边权重
-                    if G[curr_part][prev_part]['weight'] > 1:
-                        G[curr_part][prev_part]['weight'] -= 1
-                    else:
-                        G.remove_edge(curr_part, prev_part)
-                # 否则添加一条边prev_part -> curr_part
-                else:
-                    if G.has_edge(prev_part, curr_part):
-                        G[prev_part][curr_part]['weight'] += 1
-                    else:
-                        G.add_edge(prev_part, curr_part, weight=1)
-
-        all_cycles = nx.simple_cycles(G)
-        cycles_by_length = defaultdict(list)
-        # 收集长度大于2的环
-        for cycle in all_cycles:
-            length = len(cycle)
-            assert(3 <= length <= len(self.qpus))
-            cycles_by_length[length].append(cycle)
-
-        for length in sorted(cycles_by_length.keys()):
-            assert(3 <= length <= len(self.qpus))
-            for cycle in cycles_by_length[length]:
-                exist = True # 先检查是不是所有边都在
-                weight = 999999
-                for i in range(length):
-                    u = cycle[i]
-                    v = cycle[(i + 1) % length]
-                    if not G.has_edge(u, v):
-                        exist = False
-                        break
-                    weight = min(weight, G[u][v]['weight']) # 记录环的个数
-                if not exist: # 当前环不存在了
-                    continue
-                for i in range(length): # 从G中移除这些环
-                    u = cycle[i]
-                    v = cycle[(i + 1) % length]
-                    if G[u][v]['weight'] > weight:
-                        G[u][v]['weight'] -= weight
-                    else:
-                        G.remove_edge(u, v)
-                    # 对环中的每一条边，计算通信开销
-                    swap_cost = self.swap_cost_matrix[u][v]
-                    communication_cost += swap_cost * weight
-
-        # 获取剩余的边
-        remaining_edges = G.edges(data=True)
-        for u, v, data in remaining_edges:
-            path_len = (self.swap_cost_matrix[u][v] + 1) / 2
-            communication_cost += path_len * data['weight']
-
-        return communication_cost

@@ -1,12 +1,44 @@
-{'backend_name': 'ibm_torino_sampled_3q',
+{'backend_name': 'ibm_torino_sampled_30q',
  'date': datetime.datetime(2025, 11, 9, 0, 0)}
-[build_partition_table] Partition calculation times: 188.
-[build_partition_table] Time: 0.006021976470947266 seconds
-[build_slicing_table] Time: 0.0007429122924804688 seconds
-Simple Mapper: Simple Mapper
-Metrics: {'total_comm_cost': np.float64(0.7000000000000006), 'total_fidelity': np.float64(0.49483865960020695), 'mapping_sequence_length': 32, 'time': 0.00026416778564453125}
-Mapping Seq: [[0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1]]
+Backend Name: ibm_torino, #Qubits: 30, Date: 2025-11-09
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: nadqc -> NADQC
+Compiler: [FGP-rOEE]
+Compiling with [FGP-rOEE]...
+[DEBUG] num_depths: 1147
+✅ 成功保存 1147 条映射记录到 JSON 文件：./outputs/QV90_net[30, 30, 30]_FGP-rOEE.json
+[DEBUG] Total swaps: 10456, Total gates: 1354.0
+[DEBUG] Total comms: 11810.0
 
-Link Oriented Mapper: Link-Oriented Mapper
-Metrics: {'total_comm_cost': np.float64(0.6200000000000006), 'total_fidelity': np.float64(0.536268225207185), 'mapping_sequence_length': 32, 'time': 0.0008397102355957031}
-Mapping Seq: [[0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [0, 1], [0, 1], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [0, 1], [0, 1], [0, 1], [0, 1]]
+{'exec_time (sec)': 998.234304189682,
+ 'fidelity': np.float64(2.398578455056711e-104),
+ 'fidelity_loss': np.float64(236.20000000000041),
+ 'num_comms': np.int64(11810),
+ 'remote_hops': np.int64(1354),
+ 'remote_swaps': np.int64(10456)}
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QV90_net[30, 30, 30]_Static OEE.json
+{'exec_time (sec)': 1.4870173931121826,
+ 'fidelity': np.float64(2.709682410130544e-64),
+ 'fidelity_loss': np.float64(144.90000000000316),
+ 'num_comms': np.int64(7245),
+ 'remote_hops': np.int64(7245),
+ 'remote_swaps': 0}
+Compiler: [NADQC]
+Compiling with [NADQC]...
+[INFO] gate_density: 0.7846556233653008
+[INFO] cu1_density: 0.17647058823529413
+[INFO] min_depth: 5
+[build_partition_table] Partition calculation times: 232069.
+[build_partition_table] Time: 24.133018970489502 seconds
+[build_slicing_table] Time: 0.9745666980743408 seconds
+[find_min_comms_path] Time: 0.019475460052490234 seconds
+✅ 成功保存 87 条映射记录到 JSON 文件：./outputs/QV90_net[30, 30, 30]_NADQC.json
+{'exec_time (sec)': 26.75713348388672,
+ 'fidelity': np.float64(4.4958808060988633e-23),
+ 'fidelity_loss': np.float64(50.94000000000003),
+ 'num_comms': np.int64(2547),
+ 'remote_hops': 0,
+ 'remote_swaps': np.int64(2547)}

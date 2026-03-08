@@ -136,19 +136,22 @@ def test_static_oee():
     import datetime
     from pprint import pprint
 
-    from src.utils import get_config, Backend, Network
+    from src.utils import get_config, write_compiler_results_to_csv, Backend, Network
     from src.compiler import CompilerFactory
+
+    num_qubits_per_qpu = 10
+    num_qpus = 3
 
     global_config = get_config()
     backend_config = {
-        'backend_name': 'ibm_torino_sampled_10q',
+        'backend_name': f'ibm_torino_sampled_{num_qubits_per_qpu}q',
         'date': datetime.datetime(2025, 11, 9)
     }
 
     backend = Backend(global_config, backend_config)
     backend.print()
 
-    backend_config = [backend for _ in range(3)]
+    backend_config = [backend for _ in range(num_qpus)]
 
     # 自定义网络配置
     network_config = {
@@ -165,20 +168,38 @@ def test_static_oee():
     # 创建一个简单的量子电路
     from qiskit import QuantumCircuit, transpile
     from qiskit.circuit.library import QuantumVolume, QFT
-    qc = QuantumVolume(30, seed=26).decompose()
-    # qc = QFT(30).decompose()
+    qc = QuantumVolume(num_qubits_per_qpu * num_qpus, seed=26).decompose()
+    # qc = QFT(num_qubits_per_qpu * num_qpus).decompose()
     qc = transpile(qc, basis_gates=["cu1", "u3"], optimization_level=0)
+
+    # 计算qc中有多少双量子门
+    num_cu1_gates = qc.count_ops().get("cu1", 0)
+    print(f"Number of CU1 gates: {num_cu1_gates}")
     # print(qc)
 
-    compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
-    # compilers = []
-    # for compiler_id in compiler_ids:
-    #     compilers.append(CompilerFactory.get_compiler(compiler_id)())
+    task_info = {
+        "Circuit": f"QV{num_qubits_per_qpu*num_qpus}",
+        "#Qubits": num_qubits_per_qpu * num_qpus,
+        "#Gates": sum(qc.count_ops().values()),
+        "#2Q Gates": num_cu1_gates,
+        "#QPUs": num_qpus
+    }
 
-    # for compiler in compilers:
-    #     print(f"Compiler: [{compiler.name}]")
-    #     result = compiler.compile(qc, net, {"circuit_name": "QV30"})
-    #     pprint(result.total_costs)
+    result_info = {}
+
+    compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
+    compilers = []
+    for compiler_id in compiler_ids:
+        compilers.append(CompilerFactory.get_compiler(compiler_id)())
+
+    for compiler in compilers:
+        print(f"Compiler: [{compiler.name}]")
+        result = compiler.compile(qc, net, {"circuit_name": f"QV{num_qubits_per_qpu*num_qpus}"})
+        pprint(result.total_costs)
+        result_info[compiler.name] = result.total_costs
+
+    # Write results to CSV
+    write_compiler_results_to_csv(task_info, result_info, f"{global_config.get('output_folder')}compiler_results.csv")
 
     return
 

@@ -1,3 +1,4 @@
+from qiskit import QuantumCircuit
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 import dataclasses
@@ -178,6 +179,28 @@ class Compiler(ABC):
             partition.append([])
         return partition
 
+    def build_qubit_interaction_graph(self, circuit: QuantumCircuit) -> nx.Graph:
+        """
+        Construct the qubit interaction graph from the circuit
+        """
+        qig = nx.Graph()
+        for qubit in range(circuit.num_qubits):
+            qig.add_node(qubit)
+        for instruction in circuit:
+            # gate = instruction.operation
+            qubits = [qubit._index for qubit in instruction.qubits]
+            if qubits[0] == None:
+                qubits = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
+            if len(qubits) > 1:
+                if instruction.name == "barrier":
+                    continue
+                assert len(qubits) == 2, f"instruction: {instruction}"
+                if qig.has_edge(qubits[0], qubits[1]):
+                    qig[qubits[0]][qubits[1]]['weight'] += 1
+                else:
+                    qig.add_edge(qubits[0], qubits[1], weight=1)
+        return qig
+
     def evaluate_partition(self, qig: nx.Graph, 
                            partition: list[list[int]], 
                            network: Any) -> dict[str, float]:
@@ -206,7 +229,7 @@ class Compiler(ABC):
 
     def evaluate_partition_switch(self, prev_record: MappingRecord, 
                                   curr_record: MappingRecord, 
-                                  network: Network):
+                                  network: Network) -> dict[str, float]:
         """
         计算切换划分的通信开销
         """
@@ -311,7 +334,7 @@ class Compiler(ABC):
         curr_record.costs["num_comms"] += remote_swaps
         curr_record.costs["fidelity_loss"] += fidelity_loss
         curr_record.costs["fidelity"] *= fidelity
-        return
+        return curr_record.costs
 
     def evaluate_total_costs(self, mapping_record_list: MappingRecordList) -> MappingRecordList:
         mapping_record_list.add_cost_sum("num_comms")

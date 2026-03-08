@@ -1,75 +1,29 @@
-from qiskit import QuantumCircuit
-from typing import Any, Optional
 import networkx as nx
 import numpy as np
-import time
 
-from ..compiler import Compiler, MappingRecord, MappingRecordList
 from ..utils import Network
 
-class StaticOEE(Compiler):
-    """
-    Static OEE
-    """
-    compiler_id = "staticoee"
-
+class OEE:
     def __init__(self):
-        super().__init__()
-        return
+        pass
 
-    @property
-    def name(self) -> str:
-        return "Static OEE"
-
-    def compile(self, circuit: QuantumCircuit, 
-                network: Network, 
-                config: Optional[dict[str, Any]] = None) -> MappingRecordList:
-        """
-        Compile the circuit using Static OEE algorithm
-        """
-        print(f"Compiling with [{self.name}]...")
-        
-        start_time = time.time()
-        iteration_count = config.get("iteration", 10) if config else 10
-        circuit_name = config.get("circuit_name", "circ") if config else "circ"
-
-        qig = self.build_qubit_interaction_graph(circuit)
-        
-        # TODO: use OEE.partition
-        partition = self._k_way_OEE(qig, network, iteration_count)
-
-        # TODO: fine-grained mapping
-
-        end_time = time.time()
-
-        costs = self.evaluate_partition(qig, partition, network)
-        
-        record = MappingRecord(
-            layer_start = 0, 
-            layer_end = circuit.depth() - 1,
-            partition = partition,
-            mapping_type = "telegate",
-            costs = costs
-        )
-        mapping_record_list = MappingRecordList()
-        mapping_record_list.add_record(record)
-        
-        mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
-        mapping_record_list = self.evaluate_total_costs(mapping_record_list)
-        mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
-        return mapping_record_list
-    
-    def _k_way_OEE(self, 
-                   qig: nx.Graph, 
-                   network: Network, 
-                   iteration_count: int) -> list[list[int]]:
+    @classmethod
+    def partition(cls, 
+                  partition: list[list[int]], 
+                  qig: nx.Graph, 
+                  network: Network, 
+                  iteration_count: int) -> list[list[int]]:
         """
         Partition the qubits into k subsets using the OEE algorithm
+        @param partition: Initial partition of qubits into subsets
+        @param qig: Qubit interaction graph
+        @param network: Network information for partitioning
+        @param iteration_count: Number of iterations for the OEE algorithm
+        @return: Final partition of qubits into subsets
         """
         nodes = list(qig.nodes())
         num_qubits = len(nodes)
         k = network.num_backends
-        partition = self.allocate_qubits(num_qubits, network) # initialize partition
         for _ in range(iteration_count):
             C = nodes.copy()
             D = np.zeros((num_qubits, k))
@@ -77,7 +31,7 @@ class StaticOEE(Compiler):
             for node in nodes:
                 current_col = next(j for j, subset in enumerate(partition) if node in subset)
                 for l in range(k):
-                    D[node, l] = self._calculate_d(qig, node, partition[l], partition[current_col])
+                    D[node, l] = cls._calculate_d(qig, node, partition[l], partition[current_col])
             g_values = []
             exchange_pairs = []
             while len(C) > 1:
@@ -154,15 +108,17 @@ class StaticOEE(Compiler):
                 partition[col_a].append(b)
         return partition
 
-    def _calculate_d(self, graph: nx.Graph, node: int, target_subset: list[int], current_subset: list[int]) -> float:
+    @classmethod
+    def _calculate_d(cls, graph: nx.Graph, node: int, target_subset: list[int], current_subset: list[int]) -> float:
         """
         Calculate the D(i, l) value for a node and a target subset
         """
-        w_target = self._calculate_w(graph, node, target_subset)
-        w_current = self._calculate_w(graph, node, current_subset)
+        w_target = cls._calculate_w(graph, node, target_subset)
+        w_current = cls._calculate_w(graph, node, current_subset)
         return w_target - w_current
 
-    def _calculate_w(self, graph: nx.Graph, node: int, subset: list[int]) -> float:
+    @classmethod
+    def _calculate_w(cls, graph: nx.Graph, node: int, subset: list[int]) -> float:
         """
         Calculate the sum of edge weights from a node to a subset of nodes
         """

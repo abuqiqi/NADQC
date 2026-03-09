@@ -152,14 +152,6 @@ class Compiler(ABC):
         """
         pass
 
-    # @abstractmethod
-    # def evaluate_total_costs(self, mapping_record_list) -> MappingRecordList:
-    #     """
-    #     获取映射结果
-    #     :return: 包含关键性能指标的字典
-    #     """
-    #     pass
-
     def allocate_qubits(self, num_qubits: int, network: Network) -> list[list[int]]:
         """
         Initialize the partition

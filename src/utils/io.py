@@ -4,6 +4,10 @@ import pandas as pd
 from typing import Any
 import numpy as np
 import os
+import json
+from pathlib import Path
+
+_cached_config = None
 
 def parse_int_list(input_str: str) -> List[int]:
     """Convert a comma-separated string to a list of integers (e.g., '4,6,8' -> [4,6,8])"""
@@ -12,38 +16,59 @@ def parse_int_list(input_str: str) -> List[int]:
     except ValueError:
         raise argparse.ArgumentTypeError(f"Invalid integer list format: '{input_str}'. Please use comma-separated integers, e.g., '4,6,8'")
 
+def parse_str_list(input_str: str) -> List[str]:
+    """Convert a comma-separated string to a list of strings (e.g., 'cu1,u3' -> ['cu1', 'u3'])"""
+    return [item.strip() for item in input_str.split(",")]
+
 def get_args():
     parser = argparse.ArgumentParser(description='Distributed quantum circuit mapping parameter configuration')
 
     # Required arguments
-    parser.add_argument('--core_count', '-core', type=int, required=True,
-                        help='Number of QPUs (integer)')
-    parser.add_argument('--core_capacity', '-cap', type=parse_int_list, required=True,
-                        help='Capacity of each QPU (comma-separated integers, e.g., "4" or "4,6,8")')
+    # Global Information
+    parser.add_argument('--global_config_path', '-gconf', type=str, required=False, default='config.json',
+                        help='Path to the global configuration JSON file (string)')
+
+    # Circuit Information
     parser.add_argument('--circuit_name', '-cname', type=str, required=True,
                         help='Name of the quantum circuit (string)')
     parser.add_argument('--qubit_count', '-nq', type=int, required=True,
                         help='Number of qubits in the quantum circuit (integer)')
+
+    # Network Information
+    parser.add_argument('--core_count', '-core', type=int, required=True,
+                        help='Number of QPUs (integer)')
+    parser.add_argument('--core_capacity', '-cap', type=parse_int_list, required=True,
+                        help='Capacity of each QPU (comma-separated integers, e.g., "4" or "4,6,8")')
+    parser.add_argument('--backend_name', '-bname', type=parse_str_list, required=False, default=['ibm_torino'],
+                        help='Name of the backend (comma-separated strings, e.g., "ibm_torino" or "ibm_torino,ibm_osaka")')
+    parser.add_argument('--date', '-date', type=parse_str_list, required=False, default=['2025-11-09'],
+                        help='Date of the backend properties (comma-separated strings in YYYY-MM-DD format, e.g., "2025-11-09" or "2025-11-09,2025-11-10")')
+    
+    parser.add_argument('--network', '-net', type=str, required=False, default='all_to_all',
+                        help='Name of the network (string)')
     parser.add_argument('--gate_set', '-gset', type=str, required=False, default='cu1,u3',
                         help='Comma-separated list of basis gates (string)')
-    parser.add_argument('--network', '-net', type=str, required=False, default='fc',
-                        help='Name of the network (string)')
 
     args = parser.parse_args()
 
     # Unify the capacity list for each QPU
     if len(args.core_capacity) == 1:
-        core_capacities = args.core_capacity * args.core_count
-    else:
-        core_capacities = args.core_capacity
+        args.core_capacity = args.core_capacity * args.core_count
 
-    # Validate the array length
-    if len(core_capacities) != 1 and len(core_capacities) != args.core_count:
-        raise ValueError(
-            f"The QPU capacity must be a single integer (for all QPUs) or {args.core_count} comma-separated values (specified individually for each QPU). "
-            f"Current input: {args.core_capacity}"
-        )
-    args.core_capacities = core_capacities
+    # Unify the backend name list
+    if len(args.backend_name) == 1:
+        args.backend_name = args.backend_name * args.core_count
+
+    # Unify the backend information date list
+    if len(args.date) == 1:
+        args.date = args.date * args.core_count
+
+    assert len(args.core_capacity) == args.core_count, \
+        f"The number of QPU capacities {args.core_capacity} must match the number of QPUs {args.core_count}."
+    assert len(args.backend_name) == args.core_count, \
+        f"The number of backend names {args.backend_name} must match the number of QPUs {args.core_count}."
+    assert len(args.date) == args.core_count, \
+        f"The number of backend property dates {args.date} must match the number of QPUs {args.core_count}."
 
     # Validate the basis gate set
     if not args.gate_set:
@@ -51,13 +76,57 @@ def get_args():
     args.gate_set = args.gate_set.split(",")
 
     print("[INFO] Configuration parameters:")
-    print(f"[INFO] Number of QPUs: {args.core_count}")
-    print(f"[INFO] Capacity of each QPU: {args.core_capacities}")
+    print(f"[INFO] Global config path: {args.global_config_path}")
+
     print(f"[INFO] Name of the quantum circuit: {args.circuit_name}")
     print(f"[INFO] Number of qubits in the quantum circuit: {args.qubit_count}")
-    print(f"[INFO] Basis gate set: {args.gate_set}")
+
+    print(f"[INFO] Number of QPUs: {args.core_count}")
+    print(f"[INFO] Capacity of each QPU: {args.core_capacity}")
+    print(f"[INFO] Backend names: {args.backend_name}")
+    print(f"[INFO] Backend properties dates: {args.date}")
+
     print(f"[INFO] Name of the network: {args.network}")
+    print(f"[INFO] Basis gate set: {args.gate_set}")
     return args
+
+
+def get_config(config_filename: str = "config.json"):
+    """
+    从项目根目录加载 JSON 配置文件。
+    
+    Args:
+        config_filename (str): 配置文件名，默认为 'config.json'
+    
+    Returns:
+        dict: 解析后的配置字典
+    
+    Raises:
+        FileNotFoundError: 如果配置文件不存在
+        json.JSONDecodeError: 如果 JSON 格式无效
+    """
+    global _cached_config
+
+    if _cached_config is not None:
+        return _cached_config.copy()
+
+    # 定位项目根目录：
+    # get_config.py → src/utils/ → 上两级 = 项目根
+    project_root = Path(__file__).resolve().parent.parent.parent
+    config_path = project_root / config_filename
+
+    if not config_path.exists():
+        raise FileNotFoundError(
+            f"配置文件未找到: {config_path}\n"
+            f"请确保在项目根目录 ({project_root}) 中存在 '{config_filename}' 文件。\n"
+            f"你可以复制 'config.example.json' 并重命名为 '{config_filename}'。"
+        )
+
+    with open(config_path, encoding="utf-8") as f:
+        _cached_config = json.load(f)
+
+    return _cached_config.copy()
+
 
 def write_compiler_results_to_csv(
     task_info: dict[str, Any],
@@ -146,41 +215,6 @@ def write_compiler_results_to_csv(
     print(f"📊 本次写入数据预览:\n{df}")
     return df
 
-def output_results(cname, circ, qpus, distributors):
-    """
-    将数据写入.csv文件
-    """
-    headers = ["Circuit", "#Qubits", "#Depths", "#Gates", "#Modules", "Metrics"]
-    metrics = ["Comm Costs", "#RGate", "#RSWAP", "Exec Time"]
-    for dis in distributors:
-        headers.append(dis.name)
-    data = {}
-    for head in headers:
-        data[head] = []
-    gate_counts = circ.count_ops()
-    total_gates = sum(gate_counts.values())
-
-    for m in metrics:
-        data["Circuit"].append(cname)
-        data["#Qubits"].append(circ.num_qubits)
-        data["#Depths"].append(circ.depth())
-        data["#Gates"].append(total_gates)
-        data["#Modules"].append(len(qpus))
-        data["Metrics"].append(m)
-
-    # 对每个distributor，写入四行
-    for distributor in distributors:
-        data[distributor.name].append(distributor.num_comms)
-        data[distributor.name].append(distributor.num_gates)
-        data[distributor.name].append(distributor.num_swaps)
-        data[distributor.name].append(distributor.exec_time)
-
-    print(data)
-
-    filename = f"./outputs/data.csv"
-    df = pd.DataFrame(data)
-    df.to_csv(filename, mode="a", header=not pd.io.common.file_exists(filename), index=False)
-    return
 
 if __name__ == '__main__':
     get_args()

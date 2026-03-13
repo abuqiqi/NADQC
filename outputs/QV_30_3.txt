@@ -12,3 +12,199 @@ num_depths: 382
 Time: 2.6170129776000977 seconds
 
 
+[INFO] QV #Qubits: 30
+[INFO] QV #Depths: 382
+[INFO] QV #Gates: 7650
+[INFO] QV #2Q Gates: 1350
+[INFO] 3 QPUs: [10, 10, 10]
+
+
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: fgproee -> WBCP
+[INFO] 成功注册编译器: nadqc -> NADQC
+Compiler: [NADQC]
+Compiling with [NADQC]...
+[INFO] gate_density: 0.7853403141361257
+[INFO] cu1_density: 0.17647058823529413
+[INFO] min_depth: 1
+[build_partition_table] Partition calculation times: 15963.
+[build_partition_table] Time: 0.9335417747497559 seconds
+[build_slicing_table] Time: 0.06561756134033203 seconds
+[find_min_comms_path] Time: 0.007809638977050781 seconds
+✅ 成功保存 30 条映射记录到 JSON 文件：./outputs/QV30_net[10, 10, 10]_NADQC.json
+{'exec_time (sec)': 1.2301948070526123,
+ 'fidelity': np.float64(0.0008157905003204389),
+ 'fidelity_loss': np.float64(7.040000000000007),
+ 'num_comms': np.int64(352),
+ 'remote_hops': 0,
+ 'remote_swaps': np.int64(352)}
+Compiling with [NADQC]...
+[INFO] gate_density: 0.7853403141361257
+[INFO] cu1_density: 0.17647058823529413
+[INFO] min_depth: 1
+[build_partition_table] Partition calculation times: 15963.
+[build_partition_table] Time: 0.8277151584625244 seconds
+[build_slicing_table] Time: 0.06547188758850098 seconds
+[INFO] QV #Qubits: 30
+[INFO] QV #Depths: 382
+[INFO] QV #Gates: 7650
+[INFO] QV #2Q Gates: 1350
+[INFO] 3 QPUs: [10, 10, 10]
+
+
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: fgproee -> WBCP
+[INFO] 成功注册编译器: nadqc -> NADQC
+Compiler: [NADQC]
+Compiling with [NADQC]...
+[INFO] gate_density: 0.7853403141361257
+[INFO] cu1_density: 0.17647058823529413
+[INFO] min_depth: 1
+[build_partition_table] Partition calculation times: 15963.
+[build_partition_table] Time: 1.188917636871338 seconds
+[build_slicing_table] Time: 0.06375241279602051 seconds
+[find_min_comms_path] Time: 0.005356788635253906 seconds
+✅ 成功保存 30 条映射记录到 JSON 文件：./outputs/QV30_net[10, 10, 10]_NADQC.json
+{'exec_time (sec)': 1.4840097427368164,
+ 'fidelity': np.float64(0.0008157905003204389),
+ 'fidelity_loss': np.float64(7.040000000000007),
+ 'num_comms': np.int64(352),
+ 'remote_hops': 0,
+ 'remote_swaps': np.int64(352)}
+Compiling with [NADQC]...
+[INFO] gate_density: 0.7853403141361257
+[INFO] cu1_density: 0.17647058823529413
+[INFO] min_depth: 1
+[build_partition_table] Partition calculation times: 15963.
+[build_partition_table] Time: 0.8213710784912109 seconds
+[build_slicing_table] Time: 0.06592226028442383 seconds
+[find_min_comms_path] Time: 0.0061817169189453125 seconds
+✅ 成功保存 30 条映射记录到 JSON 文件：./outputs/QV30_net[10, 10, 10]_NADQC.json
+{'exec_time (sec)': 1.1152644157409668,
+ 'fidelity': np.float64(0.0037878859223966412),
+ 'fidelity_loss': np.float64(5.520000000000005),
+ 'num_comms': np.int64(276),
+ 'remote_hops': 0,
+ 'remote_swaps': np.int64(276)}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+  Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs          QPUs          Metrics       NADQC
+0      QV       30    7650       1350     382      3  [10, 10, 10]  exec_time (sec)    1.115264
+1      QV       30    7650       1350     382      3  [10, 10, 10]        num_comms  276.000000
+2      QV       30    7650       1350     382      3  [10, 10, 10]      remote_hops    0.000000
+3      QV       30    7650       1350     382      3  [10, 10, 10]     remote_swaps  276.000000
+4      QV       30    7650       1350     382      3  [10, 10, 10]    fidelity_loss    5.520000
+5      QV       30    7650       1350     382      3  [10, 10, 10]         fidelity    0.003788
+[Total Runtime] 4.209257364273071 seconds
+
+
+[INFO] QV #Qubits: 30
+[INFO] QV #Depths: 382
+[INFO] QV #Gates: 7650
+[INFO] QV #2Q Gates: 1350
+[INFO] 3 QPUs: [10, 10, 10]
+
+
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: fgproee -> WBCP
+[INFO] 成功注册编译器: nadqc -> NADQC
+Compiler: [NADQC]
+Compiling with [NADQC]...
+[INFO] gate_density: 0.7853403141361257
+[INFO] cu1_density: 0.17647058823529413
+[INFO] min_depth: 1
+[build_partition_table] Partition calculation times: 15963.
+[build_partition_table] Time: 1.0487167835235596 seconds
+[build_slicing_table] Time: 0.06544637680053711 seconds
+[find_min_comms_path] Time: 0.005405902862548828 seconds
+✅ 成功保存 30 条映射记录到 JSON 文件：./outputs/QV30_net[10, 10, 10]_NADQC.json
+{'exec_time (sec)': 1.3448917865753174,
+ 'fidelity': np.float64(0.0008157905003204389),
+ 'fidelity_loss': np.float64(7.040000000000007),
+ 'num_comms': np.int64(352),
+ 'remote_hops': 0,
+ 'remote_swaps': np.int64(352)}
+Compiling with [NADQC]...
+[INFO] gate_density: 0.7853403141361257
+[INFO] cu1_density: 0.17647058823529413
+[INFO] min_depth: 1
+[build_partition_table] Partition calculation times: 15963.
+[build_partition_table] Time: 0.8250381946563721 seconds
+[build_slicing_table] Time: 0.06833243370056152 seconds
+[find_min_comms_path] Time: 0.006247997283935547 seconds
+✅ 成功保存 30 条映射记录到 JSON 文件：./outputs/QV30_net[10, 10, 10]_NADQC.json
+{'exec_time (sec)': 1.1192960739135742,
+ 'fidelity': np.float64(0.0037878859223966412),
+ 'fidelity_loss': np.float64(5.520000000000005),
+ 'num_comms': np.int64(276),
+ 'remote_hops': 0,
+ 'remote_swaps': np.int64(276)}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+  Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs          QPUs          Metrics  NADQC_direct  NADQC_global_max_match
+0      QV       30    7650       1350     382      3  [10, 10, 10]  exec_time (sec)      1.344892                1.119296
+1      QV       30    7650       1350     382      3  [10, 10, 10]        num_comms    352.000000              276.000000
+2      QV       30    7650       1350     382      3  [10, 10, 10]      remote_hops      0.000000                0.000000
+3      QV       30    7650       1350     382      3  [10, 10, 10]     remote_swaps    352.000000              276.000000
+4      QV       30    7650       1350     382      3  [10, 10, 10]    fidelity_loss      7.040000                5.520000
+5      QV       30    7650       1350     382      3  [10, 10, 10]         fidelity      0.000816                0.003788
+[Total Runtime] 4.181335926055908 seconds
+
+
+[INFO] QV #Qubits: 30
+[INFO] QV #Depths: 382
+[INFO] QV #Gates: 7650
+[INFO] QV #2Q Gates: 1350
+[INFO] 3 QPUs: [10, 10, 10]
+
+
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+{'backend_name': 'ibm_torino_sampled_10q',
+ 'date': datetime.datetime(2025, 11, 9, 0, 0)}
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: fgproee -> WBCP
+[INFO] 成功注册编译器: nadqc -> NADQC
+Compiler: [NADQC]
+Compiling with [NADQC]...
+[INFO] gate_density: 0.7853403141361257
+[INFO] cu1_density: 0.17647058823529413
+[INFO] min_depth: 1
+[build_partition_table] Partition calculation times: 15963.
+[build_partition_table] Time: 0.815584659576416 seconds
+[build_slicing_table] Time: 0.06532144546508789 seconds
+[find_min_comms_path] Time: 0.005330562591552734 seconds
+✅ 成功保存 30 条映射记录到 JSON 文件：./outputs/QV30_net[10, 10, 10]_NADQC.json
+{'exec_time (sec)': 1.0236854553222656,
+ 'fidelity': np.float64(0.0008157905003204389),
+ 'fidelity_loss': np.float64(7.040000000000007),
+ 'num_comms': np.int64(352),
+ 'remote_hops': 0,
+ 'remote_swaps': np.int64(352)}
+Compiling with [NADQC]...
+[INFO] gate_density: 0.7853403141361257
+[INFO] cu1_density: 0.17647058823529413
+[INFO] min_depth: 1
+[build_partition_table] Partition calculation times: 15963.
+[build_partition_table] Time: 0.8164310455322266 seconds
+[build_slicing_table] Time: 0.06514382362365723 seconds

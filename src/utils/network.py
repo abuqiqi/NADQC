@@ -7,12 +7,12 @@ from collections import deque
 import os
 
 class Network:
-    def __init__(self, network_config: dict, backend_config: list):
-        self.num_backends = len(backend_config)
+    def __init__(self, network_config: dict, backend_list: list):
+        self.num_backends = len(backend_list)
         self.network_coupling = self._build_network_coupling(network_config)
         self.network_graph = self._build_weighted_network_graph(self.network_coupling)
         self.W_eff, self.Hops, self.optimal_paths = self._compute_effective_fidelity()
-        self.backends = backend_config
+        self.backends = backend_list
         self.backend_sizes = [backend.num_qubits for backend in self.backends]
         return
 
@@ -23,15 +23,16 @@ class Network:
     def _build_network_coupling(self, network_config: dict) -> dict:
         self.net_type = network_config.get('type', 'all_to_all')
         self.size = network_config.get('size', (self.num_backends, 1))
-        self.fidelity_range = network_config.get('fidelity_range', (0.96, 0.99))
+        self.fidelity_range = network_config.get('fidelity_range', [0.98, 0.98])
 
         # 验证保真度范围
         if not (0 < self.fidelity_range[0] <= self.fidelity_range[1] < 1):
-            raise ValueError(f"Invalid fidelity range: {self.fidelity_range}. Must be in (0, 1).")
+            raise ValueError(f"Invalid fidelity range: {self.fidelity_range}. Must be in [0, 1].")
 
         network_coupling = {}
 
         if self.net_type == 'all_to_all':
+            # TODO: check，现在是单向边，会不会有问题
             network_coupling = {
                 (i, j): random.uniform(self.fidelity_range[0], self.fidelity_range[1])
                 for i in range(self.num_backends)
@@ -49,10 +50,10 @@ class Network:
                     network_coupling[(row * n_cols + col, (row + 1) * n_cols + col)] = random.uniform(self.fidelity_range[0], self.fidelity_range[1])
         elif self.net_type == 'self_defined':
             network_coupling = network_config.get('network_coupling', {})
-            self.fidelity_range = (
+            self.fidelity_range = [
                 min(network_coupling.values()),
                 max(network_coupling.values())
-            )
+            ]
         else:
             raise ValueError(f"Unsupported network type: {self.net_type}")
         return network_coupling
@@ -279,3 +280,90 @@ class Network:
         print(f"Hop weight: {self.hop_weight}")
         print(f"Fidelity range: {self.fidelity_range}")
         return
+
+    def get_network_coupling_and_qubits(self):
+        """
+        根据网络关系构建点对点耦合结构，类似于示例中的 server_coupling、server_qubits 和 swap_cost_matrix。
+
+        返回:
+            server_coupling (list[list[int]]): 每条边的两端节点列表，例如 [[0,1], [0,2], ...]
+            server_qubits (dict[int, list[int]]): 每个后端所拥有的全局量子比特索引列表，键为后端索引，值为该后端包含的量子比特列表。
+            swap_cost_matrix (np.ndarray): 形状 (n_backends, n_backends) 的矩阵，表示从一个后端到另一个后端的 SWAP 成本，
+                                            通常基于最短路径跳数（或自定义因子）。对角线为 0，不可达标记为 -1（或视情况处理）。
+        """
+        # 1. 构建 server_coupling：将内部存储的边字典转换为列表的列表
+        #    network_coupling 是一个字典，键为 (u, v) 元组，值为 fidelity
+        #    由于是无向图，每条边只出现一次（通常 u < v）
+        server_coupling = []
+        for (u, v) in self.network_coupling.keys():
+            server_coupling.append([u, v])
+            server_coupling.append([v, u])
+
+        # 2. 构建 server_qubits：为每个后端分配全局量子比特索引
+        #    按后端顺序切片，得到每个后端对应的量子比特索引段
+        server_qubits_list = []
+        current = 0
+        for backend in self.backends:
+            backend_qubits = list(range(current, current + backend.num_qubits))
+            server_qubits_list.append(backend_qubits)
+            current += backend.num_qubits
+
+        #    转换为字典形式，方便通过后端索引快速获取其量子比特列表
+        server_qubits = {i: qlist for i, qlist in enumerate(server_qubits_list)}
+
+        return server_coupling, server_qubits
+
+"""
+# 构建一个全连接网络
+def build_fc_network(qpus):
+    server_coupling = [
+        list(combination)
+        for combination in combinations([i for i in range(len(qpus))], 2)
+    ]
+    qubits = [i for i in range(sum(qpus))]
+    server_qubits_list = [
+        qubits[sum(qpus[:i]) : sum(qpus[:i+1])]
+        for i in range(len(qpus))
+    ]
+    server_qubits = {
+        i: qubits_list
+        for i, qubits_list in enumerate(server_qubits_list)
+    }
+    # 计算每个节点到其他节点的qubit swap cost
+    swap_cost_matrix = np.zeros((len(qpus), len(qpus)), dtype=int)
+    for i in range(len(qpus)):
+        for j in range(len(qpus)):
+            swap_cost_matrix[i][j] = 1
+        swap_cost_matrix[i][i] = 0
+    return NISQNetwork(server_coupling, server_qubits), swap_cost_matrix
+
+# 构建一个mesh-grid网络
+def build_mesh_grid_network(qpus, n_rows=4, n_cols=2):
+    assert len(qpus) == n_rows * n_cols
+    server_coupling = []
+    for row in range(n_rows): # 生成水平连接（左右）
+        for col in range(n_cols - 1):
+            server_coupling.append([row * n_cols + col, row * n_cols + col + 1])
+    for row in range(n_rows - 1): # 生成垂直连接（上下）
+        for col in range(n_cols):
+            server_coupling.append([row * n_cols + col, (row + 1) * n_cols + col])
+    qubits = [i for i in range(sum(qpus))]
+    server_qubits_list = [
+        qubits[sum(qpus[:i]) : sum(qpus[:i+1])]
+        for i in range(len(qpus))
+    ]
+    server_qubits = {
+        i: qubits_list
+        for i, qubits_list in enumerate(server_qubits_list)
+    }
+    # 计算每个节点到其他节点的qubit swap cost
+    G = nx.Graph()
+    G.add_edges_from(server_coupling)
+    swap_cost_matrix = np.zeros((len(G.nodes()), len(G.nodes())), dtype=int)
+    for i in G.nodes():
+        for j in G.nodes():
+            swap_cost_matrix[i][j] = 2 * nx.shortest_path_length(G, source=i, target=j) - 1
+        swap_cost_matrix[i][i] = 0
+    return NISQNetwork(server_coupling, server_qubits), swap_cost_matrix
+
+"""

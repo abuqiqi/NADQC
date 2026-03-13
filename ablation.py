@@ -1,5 +1,88 @@
+import sys
+import time
 import datetime
 from pprint import pprint
+
+from src.utils import get_args, get_config, select_circuit, write_compiler_results_to_csv, Backend, Network
+from src.nadqc import NADQC, PartitionAssignerFactory, MapperFactory
+from src.compiler import CompilerFactory
+
+def ablation(args):
+    global_config = get_config(args.global_config_path)
+
+    circ, trans_circ, task_info = select_circuit(args.circuit_name,
+                                                 args.qubit_count,
+                                                 args.core_count,
+                                                 args.core_capacity,
+                                                 args.gate_set)
+    # TODO: basis gate set换成硬件机器的实际gate set
+
+    # TODO: 根据task_info里面的QPU信息，构建对应的Backend和Network
+
+    backend_list = []
+    for i in range(args.core_count):
+        # 将字符串列表转换为datetime对象列表
+        backend_config = {
+            'backend_name': f'{args.backend_name[i]}_sampled_{args.core_capacity[i]}q',
+            'date': datetime.datetime.strptime(args.date[i], "%Y-%m-%d")
+        }
+        backend = Backend(global_config, backend_config)
+        backend_list.append(backend)
+
+    network_config = global_config.get('network', {})
+
+    network = Network(network_config, backend_list)
+
+    result_info = {}
+
+    compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
+    # compilers = []
+    # for compiler_id in compiler_ids:
+    #     compilers.append(CompilerFactory.get_compiler(compiler_id)())
+
+    compiler = CompilerFactory.get_compiler("nadqc")()
+
+    circuit_name = f"{args.circuit_name}{args.qubit_count}"
+
+    # partition_assigner: direct, max_match, global_max_match
+    # mapper: simple, link_oriented, exact, greedy
+    # 构建compiler configs
+    partition_assigners = ["direct", "max_match", "global_max_match"]
+    mappers = ["simple", "link_oriented", "exact", "greedy"]
+    compiler_configs = []
+    for partition_assigner in partition_assigners:
+        for mapper in mappers:
+            compiler_configs.append({
+                "circuit_name": circuit_name,
+                "partition_assigner": partition_assigner,
+                "mapper": mapper
+            })
+
+    print(f"Compiler: [{compiler.name}]")
+    for compiler_config in compiler_configs:
+        result = compiler.compile(trans_circ, network, compiler_config)
+        # pprint(result.total_costs)
+        result_info[f"{compiler.name}_{compiler_config['partition_assigner']}_{compiler_config['mapper']}"] = result.total_costs
+
+    # Write results to CSV
+    write_compiler_results_to_csv(task_info, result_info, f"{global_config.get('output_folder')}compiler_results.csv")
+
+    return
+
+if __name__ == "__main__":
+    # 获取全局配置
+    args = get_args()
+    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}"
+    original_stdout = sys.stdout
+    with open(f'outputs/{filename}.txt', 'a') as f:
+        # sys.stdout = f
+        start_time = time.time()
+        ablation(args)
+        end_time = time.time()
+        print(f"[Total Runtime] {end_time - start_time} seconds\n\n")
+        sys.stdout = original_stdout
+
+
 
 # # 自定义网络配置
 # network_config = {

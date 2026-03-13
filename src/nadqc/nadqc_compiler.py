@@ -1,9 +1,12 @@
 from qiskit import QuantumCircuit
+from qiskit.converters import circuit_to_dag, dag_to_circuit
+from qiskit import transpile
+from pytket.extensions.qiskit import qiskit_to_tk
+from pytket_dqc.networks import NISQNetwork
 from typing import Any, Optional
 import time
 from pprint import pprint
 import networkx as nx
-from qiskit.converters import circuit_to_dag
 import sys
 import numpy as np
 
@@ -12,6 +15,7 @@ from ..utils import Network
 from .partitioner import PartitionerFactory
 from .partition_assigner import PartitionAssignerFactory
 from .mapper import MapperFactory
+from .hyper_partitioner import DQCPass, CoverEmbeddingSteinerDetached, PartitioningAnnealing
 
 class NADQC(Compiler):
     """
@@ -50,38 +54,52 @@ class NADQC(Compiler):
         partition_assigner_type = config.get("partition_assigner", "global_max_match") if config else "global_max_match"
         self.partition_assigner = PartitionAssignerFactory.create_assigner(partition_assigner_type)
 
+        mapper_type = config.get("mapper", "simple") if config else "simple"
+        self.mapper = MapperFactory.create_mapper(mapper_type)
+
+        hyper_partitioner_type = config.get("hyper_partitioner", "CE") if config else "CE"
+        self.hyper_partitioner = hyper_partitioner_type
+        server_coupling, server_qubits = self.network.get_network_coupling_and_qubits()
+        self.nisq_network = NISQNetwork(server_coupling, server_qubits)
+
         start_time = time.time()
 
         # 获取仅有双量子比特门的线路
         print(f"[DEBUG] remove_single_qubit_gates", file=sys.stderr)
-        self._remove_single_qubit_gates()
-        self._set_min_depth()
+        self.remove_single_qubit_gates()
+        self.set_min_depth()
 
         # partition table
         print(f"[DEBUG] build_partition_table", file=sys.stderr)
-        self._build_partition_table()
+        self.build_partition_table()
         
         # slicing table and slicing results
-        self._build_slicing_table()
+        self.build_slicing_table()
         self.subc_ranges = []
-        self._get_sliced_subc(0, len(self.P) - 1)
+        self.get_sliced_subc(0, len(self.P) - 1)
 
         # teledata-only partition candidates
         self.legal_paths = [] # TODO: rename
         for (i, j) in self.subc_ranges:
             self.legal_paths.append(self.P[i][j]) # 返回所有划分方案
+        
+        # 测试匹配一致性
+        self.partition_plan = self.partition_assigner.assign(self.legal_paths)["partition_plan"]
 
-        # TODO: 测试匹配一致性
-        self.partition_plan = self.partition_assigner.assign_partitions(self.legal_paths)["partition_plan"]
+        # 构建mapping_record_list
+        mapping_record_list = self.construct_teledata_only_mapping_record_list(self.partition_plan)
+
+        # TODO: try telegate
+        self.group_shallow_subcircuits(mapping_record_list)
+
 
         # TODO: 改成考虑噪声信息的
+        self.partition_plan = self.mapper.map(self.partition_plan, self.network)["partition_plan"]
+        print(f"[DEBUG] partition_plan: {self.partition_plan}", file=sys.stderr)
 
-        # 基于划分方案self.partition_plan，构造映射记录列表
-        mapping_record_list = self._construct_mapping_record_list()
 
         # TODO: 考虑异构噪声的QPU间链路
 
-        # TODO: try telegate
         
 
         end_time = time.time()
@@ -90,8 +108,23 @@ class NADQC(Compiler):
         mapping_record_list = self.evaluate_total_costs(mapping_record_list)
         mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
         return mapping_record_list
-    
-    def _remove_single_qubit_gates(self):
+
+    def get_partition_candidates(self):
+        return self.legal_paths
+
+    def set_min_depth(self):
+        def sigmoid_decay(gate_density, depth, k=15, c=0.5):
+            return 0.6 * depth * (1 - 1 / (1 + np.exp(-k * (gate_density - c))))
+        def sigmoid_increase(gate_density, depth, k=15, c=0.5):
+            return 0.6 * depth * (1 / (1 + np.exp(-k * (gate_density - c))))
+        if self.min_depths is None:
+            self.min_depths = int(sigmoid_increase(self.cu1_density, self.circuit.depth()))
+        print(f"[INFO] gate_density: {self.gate_density}")
+        print(f"[INFO] cu1_density: {self.cu1_density}")
+        print(f"[INFO] min_depth: {self.min_depths}")
+        return
+
+    def remove_single_qubit_gates(self):
         """
         Remove single qubit gates to construct self.dag_multiq
         Calculate gate density
@@ -143,10 +176,10 @@ class NADQC(Compiler):
 
         end_time = time.time()
         print(f"[DEBUG] remove_single_qubit_gates: {end_time - start_time} seconds", file=sys.stderr)
-        # self._reconstruct_and_visualize_circuit()
+        # self.reconstruct_and_visualize_circuit()
         return
     
-    def _reconstruct_and_visualize_circuit(self):
+    def reconstruct_and_visualize_circuit(self):
         """
         Reconstructs the multi-qubit gate circuit from self.dag_multiq and visualizes it.
         
@@ -184,22 +217,10 @@ class NADQC(Compiler):
         
         return recon_circ  # 返回重建的电路对象供进一步使用
 
-    def _set_min_depth(self):
-        def sigmoid_decay(gate_density, depth, k=15, c=0.5):
-            return 0.6 * depth * (1 - 1 / (1 + np.exp(-k * (gate_density - c))))
-        def sigmoid_increase(gate_density, depth, k=15, c=0.5):
-            return 0.6 * depth * (1 / (1 + np.exp(-k * (gate_density - c))))
-        if self.min_depths is None:
-            self.min_depths = int(sigmoid_increase(self.cu1_density, self.circuit.depth()))
-        print(f"[INFO] gate_density: {self.gate_density}")
-        print(f"[INFO] cu1_density: {self.cu1_density}")
-        print(f"[INFO] min_depth: {self.min_depths}")
-        return
-
     # 
     # P table
     # 
-    def _build_partition_table(self):
+    def build_partition_table(self):
         """
         An efficient way of building the partition table
         """
@@ -209,7 +230,7 @@ class NADQC(Compiler):
         cnt = 0
         print(f"[DEBUG] num_depths: {num_depths}", file=sys.stderr)
         # build the qubit interaction nxGraph for the entire circuit
-        qig = self._build_qubit_interaction_graph((0, num_depths-1))
+        qig = self.build_qubit_interaction_graph_by_level((0, num_depths-1))
         is_changed = True
 
         for i in range(num_depths):
@@ -217,7 +238,7 @@ class NADQC(Compiler):
             # ===== P[i][numDepths-1] =====
             # rebuild qig
             if i != 0: # remove the (i-1)-th level of the remaining qig
-                is_changed = self._remove_qig_edge(qig, i-1)
+                is_changed = self.remove_qig_edge(qig, i-1)
 
             if len(self.P[i][num_depths-1]) > 0: # inherit from the upper grid
                 assert i != 0, f"[ERROR] P[{i}][{num_depths-1}] should be empty."
@@ -227,7 +248,7 @@ class NADQC(Compiler):
             else:
                 success = False
                 if is_changed:
-                    self.P[i][num_depths-1] = self._get_qig_partitions(qig)
+                    self.P[i][num_depths-1] = self.get_qig_partitions(qig)
                     cnt += 1
                     if len(self.P[i][num_depths-1]) > 0:
                         success = True # leftward propagation
@@ -237,7 +258,7 @@ class NADQC(Compiler):
             # ===== P[i][numDepths-2 ~ i] =====
             qig_tmp = qig.copy()
             for j in range(num_depths - 2, i - 1, -1):
-                is_changed = self._remove_qig_edge(qig_tmp, j+1)
+                is_changed = self.remove_qig_edge(qig_tmp, j+1)
                 # print(f"depth [{i}][{j}]", file=sys.stderr)
                 if len(self.P[i][j]) > 0: # inherit from the upper grid
                     success = True # leftward propagation
@@ -248,7 +269,7 @@ class NADQC(Compiler):
                 else:
                     # print(f"is_changed: {is_changed}", file=sys.stderr)
                     if is_changed:
-                        self.P[i][j] = self._get_qig_partitions(qig_tmp)
+                        self.P[i][j] = self.get_qig_partitions(qig_tmp)
                         cnt += 1
                         if len(self.P[i][j]) > 0:
                             success = True # leftward propagation
@@ -259,7 +280,7 @@ class NADQC(Compiler):
         print(f"[build_partition_table] Time: {end_time - start_time} seconds")
         return
     
-    def _build_qubit_interaction_graph(self, level_range):
+    def build_qubit_interaction_graph_by_level(self, level_range):
         G = nx.Graph()
         for qubit in range(self.circuit.num_qubits):
             G.add_node(qubit)
@@ -274,7 +295,7 @@ class NADQC(Compiler):
                     G.add_edge(qubits[0], qubits[1], weight=1)
         return G
 
-    def _remove_qig_edge(self, qig, lev):
+    def remove_qig_edge(self, qig, lev):
         """
         从qig中移除self.dag_multiq第lev列的量子门
         """
@@ -288,7 +309,7 @@ class NADQC(Compiler):
                     is_changed = True
         return is_changed
     
-    def _get_qig_partitions(self, qig):
+    def get_qig_partitions(self, qig):
         components = [list(comp) for comp in nx.connected_components(qig)]
         legal_partitions = self.partitioner.partition(components)
         return legal_partitions
@@ -296,7 +317,7 @@ class NADQC(Compiler):
     # 
     # S, T table
     # 
-    def _build_slicing_table(self):
+    def build_slicing_table(self):
         start_time = time.time()
         num_depths = len(self.P)
         self.T = [[0]  * num_depths for _ in range(num_depths)]
@@ -333,15 +354,15 @@ class NADQC(Compiler):
         print(f"[build_slicing_table] Time: {end_time - start_time} seconds")
         return
     
-    def _get_sliced_subc(self, i, j):
+    def get_sliced_subc(self, i, j):
         if self.S[i][j] == -1:
             self.subc_ranges.append((i, j))
             return
-        self._get_sliced_subc(i, self.S[i][j])
-        self._get_sliced_subc(self.S[i][j] + 1, j)
+        self.get_sliced_subc(i, self.S[i][j])
+        self.get_sliced_subc(self.S[i][j] + 1, j)
         return
 
-    def _construct_mapping_record_list(self): # TODO: rename function
+    def construct_teledata_only_mapping_record_list(self, partition_plan): # TODO: rename function
         """
         基于每个子线路合法的划分
         找到最少swap次数的路径
@@ -354,17 +375,18 @@ class NADQC(Compiler):
         # dp = {}
         self.num_comms = 0
         self.swap_only_path = [] # 记录最优路径 TODO: remove
-        self.swap_prefix_sums = [0 for _ in range(len(self.partition_plan))] # 记录最优路径上的交换次数
+        self.swap_prefix_sums = [0 for _ in range(len(partition_plan))] # 记录最优路径上的交换次数
 
-        for i in range(len(self.partition_plan)):
-            # assert(len(self.partition_plan[i]) == 1)
-            self.swap_only_path.append(self.partition_plan[i])
+        for i in range(len(partition_plan)):
+            # assert(len(partition_plan[i]) == 1)
+            self.swap_only_path.append(partition_plan[i])
 
             (left, right) = self.subc_ranges[i]
+
             record = MappingRecord(
-                layer_start = self.map_to_init_layer[left],
-                layer_end = self.map_to_init_layer[right],
-                partition = self.partition_plan[i],
+                layer_start = left, # self.map_to_init_layer[left],
+                layer_end = right, # self.map_to_init_layer[right],
+                partition = partition_plan[i],
                 mapping_type = "teledata",
                 costs = {
                     "num_comms": 0,
@@ -372,7 +394,7 @@ class NADQC(Compiler):
                     "remote_swaps": 0,
                     "fidelity_loss": 0,
                     "fidelity": 1
-                }
+                } # TODO: 这里是否需要计算划分的通信成本？应该是没有telegate操作的，所以通信成本为0
             )
             mapping_record_list.add_record(record)
 
@@ -387,3 +409,173 @@ class NADQC(Compiler):
         end_time = time.time()
         print(f"[find_min_comms_path] Time: {end_time - start_time} seconds")
         return mapping_record_list
+
+    # 
+    # Group shallow subcircuits
+    # 
+    def group_shallow_subcircuits(self, mapping_record_list):
+        """
+        Group adjacent subcircuits with shallow depth into a single subcircuit to reduce communication times.
+        """
+        start_time = time.time()
+        left = right = 0
+        left_subc_idx = right_subc_idx = -1
+
+        records = mapping_record_list.records
+
+        grouped_records = MappingRecordList()
+
+        for i in range(len(records)):
+            record = records[i]
+            depth = record.layer_end - record.layer_start + 1
+            if depth < self.min_depths:
+                right = record.layer_end
+                right_subc_idx = i + 1
+            else:
+                # 当前的子线路层数比较多，不需要做gate teleportation
+                # 1. 先把之前收集的子线路（如果有）用gate teleportation试一下
+                if left_subc_idx < right_subc_idx:
+                    self.try_replace_with_gate_tele(mapping_record_list, 
+                                                    left_subc_idx, 
+                                                    right_subc_idx, 
+                                                    left, 
+                                                    right,
+                                                    grouped_records)
+
+                # 2. 当前子线路还是采用swap，记录
+                # 更新当前record的costs
+                grouped_records.add_record()
+
+                # 3. 再把left和right更新成下一个子线路的左起点
+                left_subc_idx = right_subc_idx = i
+                if i != len(records) - 1: # subc[i]不是最后一个子线路
+                    left = right = records[i+1].layer_start
+                # 如果subc[i]是最后一个子线路，处理完毕
+
+        if left_subc_idx < right_subc_idx: # 处理最后一个
+            self.try_replace_with_gate_tele(mapping_record_list, left_subc_idx, right_subc_idx, left, right, grouped_records)
+        end_time = time.time()
+        print(f"[group_shallow_subcircuits] Time: {end_time - start_time} seconds")
+        return
+
+    def try_replace_with_gate_tele(self, 
+                                   mapping_record_list,
+                                   left_subc_idx, 
+                                   right_subc_idx, 
+                                   left, 
+                                   right, 
+                                   grouped_records):
+        """
+        Try to replace dag_multiq[left, right] with gate teleportation
+        """
+        # print(f"[debug][try replace] {left_subc_idx} {right_subc_idx} {left} {right}")
+        # 1. 尝试替换[left, right]这部分子线路
+        # 1.1. 获取替换后的分区以及cat-ent costs
+        partition, cat_ent_costs = self.hyper_partition(left, right)
+        assert len(partition) == len(self.network.backend_sizes), f"[ERROR] partition: {partition} != {len(self.network.backend_sizes)}"
+        # 1.2. 计算新分区和左分区的swap costs
+        swap_costs = 0
+        # 获取左子线路的partition
+        assert(left_subc_idx < len(self.swap_only_path) - 1)
+        if left_subc_idx != -1:
+            left_partition = self.swap_only_path[left_subc_idx]
+            # print(left_partition)
+            # left_swap = calculate_nonlocal_communication(self.circ.num_qubits, left_partition, partition)
+            # print(left_partition, partition[0])
+            left_swap = self.calculate_nonlocal_communications(left_partition, partition)
+            # print(f"left_swap: {left_swap}")
+            swap_costs += left_swap
+        # 1.3. 计算新分区和右分区的swap costs
+        assert(right_subc_idx > 0)
+        if right_subc_idx != len(self.swap_only_path):
+            right_partition = self.swap_only_path[right_subc_idx]
+            # print(right_partition)
+            # right_swap = calculate_nonlocal_communication(self.circ.num_qubits, partition, right_partition)
+            right_swap = self.calculate_nonlocal_communications(partition, right_partition)
+            # print(f"right_swap: {right_swap}")
+            swap_costs += right_swap
+        new_costs = cat_ent_costs + swap_costs
+
+        # 2. 和全部基于swap的通信代价进行比较
+        # 2.1. 获取[left, right]这部分子线路的swap costs
+        old_costs = 0
+        if right_subc_idx >= len(self.swap_only_path):
+            old_costs = self.swap_prefix_sums[right_subc_idx - 1]
+        else:
+            old_costs = self.swap_prefix_sums[right_subc_idx]
+        if left_subc_idx >= 0:
+            old_costs -= self.swap_prefix_sums[left_subc_idx]
+        # print(f"[try_replace_with_gate_tele] old_costs: {old_costs}, new_costs: {new_costs}")
+
+        # 2. 如果新的ecosts更低，那么这部分线路用gate teleportation
+        if new_costs < old_costs:
+            self.num_comms += new_costs - old_costs
+            self.add_final_entry((left, right), "gate", partition)
+            self.num_gates += cat_ent_costs
+            return
+
+        for j in range(left_subc_idx + 1, right_subc_idx):
+            self.add_final_entry(self.subc_ranges[j], "swap", self.swap_only_path[j])
+        return
+
+    def hyper_partition(self, left, right):
+        """
+        Call Pytket-DQC's partitioner
+        """
+        # 
+        # 1. 获取原线路中的[map[left], map[right]]这部分子线路
+        # 
+        # print(f"[hyper_partition] {left}-{right}")
+        ori_left = self.map_to_init_layer[left]
+        ori_right = self.map_to_init_layer[right]
+        # layers = list(self.dag.layers())
+        # sub_dag = self.dag.copy_empty_like()
+        # for lev in range(ori_left, ori_right + 1):
+        #     for node in layers[lev]["graph"].op_nodes():
+        #         sub_dag.apply_operation_back(node.op, node.qargs, node.cargs)
+        sub_qc = self.get_ori_subc(ori_left, ori_right)
+        # 
+        # 2. 转译成Pytket-DQC可以处理的线路
+        # 
+        sub_qc = transpile(sub_qc, basis_gates=["cu1", "rz", "h"])
+        sub_qc = qiskit_to_tk(sub_qc)
+        DQCPass().apply(sub_qc)
+        # print(f"[hyper_partition] sub_qc: {ori_left}-{ori_right}")
+        # output_circuit_as_html(sub_qc, "hyper_partition")
+        # 
+        # 3. 调用Pytket-DQC的库，计算划分和ecosts
+        #
+        if self.hyper_partitioner == "CE":
+            distribution = CoverEmbeddingSteinerDetached().distribute(sub_qc, self.nisq_network, seed=26)
+        else:
+            distribution = PartitioningAnnealing().distribute(sub_qc, self.nisq_network, seed=26)
+            # distributed_circ = distribution.to_pytket_circuit()
+            # output_circuit_as_html(distributed_circ, "distributed_circ")
+        # 
+        # 4. 返回前后的划分，以及通信次数
+        # 
+        partition = [[] for _ in range(self.network.num_backends)] # 每个qpu上一个划分
+        # print(f"[get_qubit_mapping]")
+        # qubit_mapping = distribution.get_qubit_mapping()
+        # print(qubit_mapping)
+        # for e in qubit_mapping:
+        #     print(e.index[0], qubit_mapping[e])
+        for i in range(self.circuit.num_qubits): # q[i]->server[j]
+            # print(i, distribution.placement.placement[i])
+            partition[distribution.placement.placement[i]].append(i)
+        # print(partition)
+        # print(distribution.cost())
+        return partition, distribution.cost()
+
+    def get_ori_subc(self, ori_left, ori_right):
+        """
+        获取原线路中[ori_left, ori_right]的子线路
+        """
+        layers = list(self.dag.layers())
+        sub_dag = self.dag.copy_empty_like()
+        for lev in range(ori_left, ori_right + 1):
+            for node in layers[lev]["graph"].op_nodes():
+                sub_dag.apply_operation_back(node.op, node.qargs, node.cargs)
+        sub_qc = dag_to_circuit(sub_dag)
+        return sub_qc
+    

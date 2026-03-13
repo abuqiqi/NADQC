@@ -1,31 +1,19 @@
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit.library import *
-from qiskit.transpiler import PassManager
-from qiskit.transpiler.passes import (
-    Collect2qBlocks,
-    ConsolidateBlocks,
-    UnitarySynthesis,
-)
 import random
 import numpy as np
 from math import *
+import os
 import sys
 from qiskit.quantum_info import Pauli
 from QASMBench.interface.qiskit import QASMBenchmark
 
 # basis_gates = ["rx", "ry", "rxx"]
 # basis_gates = ["ecr", "u3"]
-basis_gates = ["cu1", "u3"]
+# basis_gates = ["cu1", "u3"]
 # basis_gates=["cu1", "rz", "h"] # Pytket-DQC
 # basis_gates = ["crz", "rz", "h"] # AutoComm rebuttal
 two_qubit_gates = ["ecr", "cx", "cz", "cu1", "cp", "crz", "swap"]
-transpiler = PassManager(
-    [
-        Collect2qBlocks(),
-        ConsolidateBlocks(basis_gates=basis_gates),
-        UnitarySynthesis(basis_gates),
-    ]
-)
 
 def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates=["cu1", "u3"]):
     assert num_qpus == len(qpus), "[ERROR] num_qpus != len(qpus)"
@@ -59,11 +47,16 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates=["cu1", "u3"]):
         circ = Toffoli(num_qubits).decompose()
     elif name == "MCMT":
         circ = MCMTcircuit(num_qubits).decompose()
+    elif name == "IQP":
+        circ = myIQP(num_qubits).decompose()
+    elif name == "VQC_AA":
+        circ = VQC_AA(num_qubits).decompose()
     else:
-        trans_bm = QASMbm(do_transpile=True,
-                          basis_gates=basis_gates,
-                          category="large")
-        circ = trans_bm.bm.get(name).decompose()
+        circ = load_circ_from_qasm("./benchmarks", name)
+        # trans_bm = QASMbm(do_transpile=True,
+        #                   basis_gates=basis_gates,
+        #                   category="large")
+        # circ = trans_bm.bm.get(name).decompose()
 
     assert circ != None, "[ERROR] Unknown circuit name."
 
@@ -78,53 +71,79 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates=["cu1", "u3"]):
 
     # 将线路转换到basis gates
     trans_circ = transpile(circ, basis_gates=basis_gates, optimization_level=0)
-    # trans_circ = remove_single_qubit_gates(trans_circ)
     # print(trans_circ)
     # 输出线路和QPU信息
     gate_counts = trans_circ.count_ops()
     total_gates = sum(gate_counts.values())
     assert total_gates > 0, "[ERROR] An empty circuit."
+    
+    # 计算2-qubit门数量
+    # 从basis_gates中筛选出2-qubit门
+    two_qubit_gate_counts = {gate: count for gate, count in gate_counts.items() if gate in two_qubit_gates}
+    num_2q_gates = sum(two_qubit_gate_counts.values())
+
     print(f"[INFO] {name} #Qubits: {trans_circ.num_qubits}")
     print(f"[INFO] {name} #Depths: {trans_circ.depth()}")
     print(f"[INFO] {name} #Gates: {total_gates}")
+    print(f"[INFO] {name} #2Q Gates: {num_2q_gates}")
     print(f"[INFO] {num_qpus} QPUs: {qpus}\n\n")
     print(f"[INFO] {name} #Qubits: {trans_circ.num_qubits}", file=sys.stderr)
     print(f"[INFO] {name} #Depths: {trans_circ.depth()}", file=sys.stderr)
     print(f"[INFO] {name} #Gates: {total_gates}", file=sys.stderr)
+    print(f"[INFO] {name} #2Q Gates: {num_2q_gates}", file=sys.stderr)
     print(f"[INFO] {num_qpus} QPUs: {qpus}\n\n", file=sys.stderr)
-    return circ, trans_circ, qpus
 
-class QASMbm:
-    def __init__(self, 
-                 do_transpile=True, 
-                 basis_gates=basis_gates, 
-                 path="./QASMBench", 
-                 category="small"):
-        transpile_args = {
-            "basis_gates": basis_gates
-        }
-        self.bm = QASMBenchmark(path, category, 
-                                num_qubits_list=None, 
-                                remove_final_measurements=True, 
-                                do_transpile=do_transpile, 
-                                **transpile_args)
-        return
+    task_info = {
+        "Circuit": name,
+        "#Qubits": trans_circ.num_qubits,
+        "#Gates": total_gates,
+        "#2Q Gates": num_2q_gates,
+        "#Depth": trans_circ.depth(),
+        "#QPUs": num_qpus,
+        "QPUs": qpus
+    }
 
-    def set_category(self, category):
-        self.category = category
-        return
+    return circ, trans_circ, task_info
 
-    def get_circuit(self, circ_name, num_qpus=2):
-        circ = self.bm.get(circ_name)
-        qpu_capacity = circ.num_qubits // num_qpus + 1
-        if qpu_capacity % 2 == 1:
-            qpu_capacity += 1
-        qpus = [qpu_capacity] * num_qpus
-        return circ, qpus
+def load_circ_from_qasm(path, circ_name=None):
+    if circ_name == None:
+        return None
+    # load the .qasm file
+    filename = os.path.join(path, circ_name + ".qasm")
+    circ = QuantumCircuit.from_qasm_file(filename)
+    return circ
 
-    def get_circuit_list(self, circ_list):
-        circ_list = self.bm.get(circ_list)
-        return circ_list
+# class QASMbm:
+#     def __init__(self, 
+#                  do_transpile=True, 
+#                  basis_gates=basis_gates, 
+#                  path="./QASMBench", 
+#                  category="small"):
+#         transpile_args = {
+#             "basis_gates": basis_gates
+#         }
+#         self.bm = QASMBenchmark(path, category, 
+#                                 num_qubits_list=None, 
+#                                 remove_final_measurements=True, 
+#                                 do_transpile=do_transpile, 
+#                                 **transpile_args)
+#         return
+
+#     def set_category(self, category):
+#         self.category = category
+#         return
+
+#     def get_circuit(self, circ_name, num_qpus=2):
+#         circ = self.bm.get(circ_name)
+#         qpu_capacity = circ.num_qubits // num_qpus + 1
+#         if qpu_capacity % 2 == 1:
+#             qpu_capacity += 1
+#         qpus = [qpu_capacity] * num_qpus
+#         return circ, qpus
+
+#     def get_circuit_list(self, circ_list):
+#         circ_list = self.bm.get(circ_list)
+#         return circ_list
 
 def PauliGadget(num_qubits):
     np.random.seed(26)
@@ -303,33 +322,8 @@ def test():
     # qc.ecr(1, 2)
     # qc.ecr(1, 4)
     # qc.ecr(2, 3)
-    transpiled_qc = transpile(qc, basis_gates=basis_gates)
-    return qc, transpiled_qc
-
-def remove_single_qubit_gates(circuit):
-    new_circuit = QuantumCircuit(circuit.num_qubits)
-    for instruction in circuit:
-        # print(instruction.qubits)
-        gate = instruction.operation
-        # print(gate)
-        qubits = [qubit._index for qubit in instruction.qubits]
-        if qubits[0] == None:
-            qubits = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
-        # print(qubits)
-        if len(qubits) > 1:
-            new_circuit.append(gate, qubits)
-    return new_circuit
-
-def remove_single_qubit_gates_by_instr(circuit):
-    new_circuit = QuantumCircuit(circuit.num_qubits)
-    for instruction in circuit:
-        gate = instruction.operation
-        qubits = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
-        print(qubits)
-        if len(qubits) > 1:
-            assert(gate.name in two_qubit_gates)
-            new_circuit.append(gate, qubits)
-    return new_circuit
+    # transpiled_qc = transpile(qc, basis_gates=basis_gates)
+    return qc #, transpiled_qc
 
 def Grover(numQubits, k=0):
     ''' One implementation of Grover\'s algorithm '''
@@ -369,53 +363,13 @@ def Grover(numQubits, k=0):
         #     qc.h(j) # |00...0> => |u>
     return qc
 
-def myQFT(num_qubits):
-    print(f"[QFT] #Qubits: [{num_qubits}]")
-    qc = QFT(num_qubits).decompose()
-    transpiled_qc = transpile(qc, basis_gates=basis_gates)
-    # transpiled_qc = transpiler.run(qc)
-    # single_removed_qc = remove_single_qubit_gates(transpiled_qc)
-    return qc, transpiled_qc #, single_removed_qc
-
-def myQV(num_qubits):
-    print(f"[QV] #Qubits: [{num_qubits}]")
-    qc = QuantumVolume(num_qubits, seed=26).decompose()
-    transpiled_qc = transpile(qc, basis_gates=basis_gates)
-    # transpiled_qc = transpiler.run(qc)
-    # single_removed_qc = remove_single_qubit_gates(transpiled_qc)
-    return qc, transpiled_qc #, single_removed_qc
-
-# def myCZFraction(num_qubits: int, depth: int, p: float):
-#     qc = CPFraction(num_qubits, depth, p)
-#     transpiled_qc = transpile(qc, basis_gates=basis_gates)
-#     return qc, transpiled_qc
-
-def myCuccaroAdder(num_qubits, num_qpus):
-    qc = CDKMRippleCarryAdder(num_qubits).decompose()
-    print(f"[CuccaroAdder] #Qubits: [{num_qubits}] [{qc.num_qubits}]")
-    transpiled_qc = transpile(qc, basis_gates=basis_gates)
-    # 构造QPU集合
-    qpu_capacity = qc.num_qubits // num_qpus + 1
-    if qpu_capacity % 2 == 1:
-        qpu_capacity += 1
-    qpus = [qpu_capacity] * num_qpus
-    # print(transpiled_qc)
-    return qc, transpiled_qc, qpus
-
-def myGrover(num_qubits):
-    print(f"[Grover] #Qubits: [{num_qubits}]")
-    qc = Grover(num_qubits).decompose()
-    transpiled_qc = transpile(qc, basis_gates=basis_gates)
-    return qc, transpiled_qc
-
 def myIQP(num_qubits):
     print(f"[IQP] #Qubits: [{num_qubits}]")
     A = np.random.randint(0, 10, size=(num_qubits, num_qubits))
     symmetric_matrix = (A + A.T) // 2 # 生成对称矩阵
     # print(symmetric_matrix)
-    qc = IQP(symmetric_matrix).decompose()
-    transpiled_qc = transpile(qc, basis_gates=basis_gates)
-    return qc, transpiled_qc
+    qc = IQP(symmetric_matrix)
+    return qc
 
 def VQC_AA(numQubits):
     qc = QuantumCircuit(numQubits)

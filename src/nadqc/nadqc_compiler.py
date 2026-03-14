@@ -9,6 +9,7 @@ from pprint import pprint
 import networkx as nx
 import sys
 import numpy as np
+import copy
 
 from ..compiler import Compiler, MappingRecord, MappingRecordList
 from ..utils import Network
@@ -79,38 +80,33 @@ class NADQC(Compiler):
         self.get_sliced_subc(0, len(self.P) - 1)
 
         # teledata-only partition candidates
-        self.legal_paths = [] # TODO: rename
+        self.partition_candidates = [] # TODO: rename
         for (i, j) in self.subc_ranges:
-            self.legal_paths.append(self.P[i][j]) # 返回所有划分方案
+            self.partition_candidates.append(self.P[i][j]) # 返回所有划分方案
         
         # 测试匹配一致性
-        self.partition_plan = self.partition_assigner.assign(self.legal_paths)["partition_plan"]
+        self.partition_plan = self.partition_assigner.assign(self.partition_candidates)["partition_plan"]
 
-        # 构建mapping_record_list
+        # 构建mapping_record_list，此时层号是在2q gates only线路上的
         mapping_record_list = self.construct_teledata_only_mapping_record_list(self.partition_plan)
 
-        # TODO: try telegate
-        self.group_shallow_subcircuits(mapping_record_list)
-
+        # 尝试使用telegate并恢复在原始线路中的层号
+        grouped_records = self.group_shallow_subcircuits(mapping_record_list)
 
         # TODO: 改成考虑噪声信息的
-        self.partition_plan = self.mapper.map(self.partition_plan, self.network)["partition_plan"]
+        # 考虑异构噪声的QPU间链路
+        self.partition_plan = self.mapper.map(grouped_records, self.network)["partition_plan"]
         print(f"[DEBUG] partition_plan: {self.partition_plan}", file=sys.stderr)
-
-
-        # TODO: 考虑异构噪声的QPU间链路
-
-        
 
         end_time = time.time()
 
-        mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
-        mapping_record_list = self.evaluate_total_costs(mapping_record_list)
-        mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
-        return mapping_record_list
+        grouped_records.add_cost("exec_time (sec)", end_time - start_time)
+        grouped_records = self.evaluate_total_costs(grouped_records)
+        grouped_records.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
+        return grouped_records
 
     def get_partition_candidates(self):
-        return self.legal_paths
+        return self.partition_candidates
 
     def set_min_depth(self):
         def sigmoid_decay(gate_density, depth, k=15, c=0.5):
@@ -131,7 +127,7 @@ class NADQC(Compiler):
         """
         # 根据原始线路的dag，逐层保留双量子比特门，并记录双量子比特门的层号
         start_time = time.time()
-        self.dag  = circuit_to_dag(self.circuit)
+        self.dag = circuit_to_dag(self.circuit)
         self.dag_multiq = []
         self.map_to_init_layer = {}
         self.map_to_dag_multi_layer = {}
@@ -362,7 +358,7 @@ class NADQC(Compiler):
         self.get_sliced_subc(self.S[i][j] + 1, j)
         return
 
-    def construct_teledata_only_mapping_record_list(self, partition_plan): # TODO: rename function
+    def construct_teledata_only_mapping_record_list(self, partition_plan):
         """
         基于每个子线路合法的划分
         找到最少swap次数的路径
@@ -394,7 +390,7 @@ class NADQC(Compiler):
                     "remote_swaps": 0,
                     "fidelity_loss": 0,
                     "fidelity": 1
-                } # TODO: 这里是否需要计算划分的通信成本？应该是没有telegate操作的，所以通信成本为0
+                } # 没有telegate操作，所以通信成本初始化为0
             )
             mapping_record_list.add_record(record)
 
@@ -443,8 +439,10 @@ class NADQC(Compiler):
                                                     grouped_records)
 
                 # 2. 当前子线路还是采用swap，记录
-                # 更新当前record的costs
-                grouped_records.add_record()
+                # 已经在try_replace_with_gate_tele更新过当前record的costs
+                record.layer_start = self.map_to_init_layer[record.layer_start]
+                record.layer_end = self.map_to_init_layer[record.layer_end]
+                grouped_records.add_record(record)
 
                 # 3. 再把left和right更新成下一个子线路的左起点
                 left_subc_idx = right_subc_idx = i
@@ -456,7 +454,7 @@ class NADQC(Compiler):
             self.try_replace_with_gate_tele(mapping_record_list, left_subc_idx, right_subc_idx, left, right, grouped_records)
         end_time = time.time()
         print(f"[group_shallow_subcircuits] Time: {end_time - start_time} seconds")
-        return
+        return grouped_records
 
     def try_replace_with_gate_tele(self, 
                                    mapping_record_list,
@@ -471,35 +469,43 @@ class NADQC(Compiler):
         # print(f"[debug][try replace] {left_subc_idx} {right_subc_idx} {left} {right}")
         # 1. 尝试替换[left, right]这部分子线路
         # 1.1. 获取替换后的分区以及cat-ent costs
-        partition, cat_ent_costs = self.hyper_partition(left, right)
-        assert len(partition) == len(self.network.backend_sizes), f"[ERROR] partition: {partition} != {len(self.network.backend_sizes)}"
+        # partition, cat_ent_costs = self.hyper_partition(left, right)
+        telegate_record = self.hyper_partition(left, right)
+        cat_ent_costs = telegate_record.costs["remote_hops"]
+        # assert len(partition) == len(self.network.backend_sizes), f"[ERROR] partition: {partition} != {len(self.network.backend_sizes)}"
+        
         # 1.2. 计算新分区和左分区的swap costs
-        swap_costs = 0
+        swap_costs, left_swaps, right_swaps = 0, 0, 0
+        right_record = None
         # 获取左子线路的partition
-        assert(left_subc_idx < len(self.swap_only_path) - 1)
+        assert(left_subc_idx < len(mapping_record_list) - 1)
         if left_subc_idx != -1:
-            left_partition = self.swap_only_path[left_subc_idx]
+            left_record = mapping_record_list.records[left_subc_idx]
+            # left_partition = left_record.partition
             # print(left_partition)
             # left_swap = calculate_nonlocal_communication(self.circ.num_qubits, left_partition, partition)
             # print(left_partition, partition[0])
-            left_swap = self.calculate_nonlocal_communications(left_partition, partition)
+            left_swaps = self.evaluate_partition_switch(left_record, telegate_record, self.network)["remote_swaps"]
             # print(f"left_swap: {left_swap}")
-            swap_costs += left_swap
+            swap_costs += left_swaps
+        
         # 1.3. 计算新分区和右分区的swap costs
         assert(right_subc_idx > 0)
-        if right_subc_idx != len(self.swap_only_path):
-            right_partition = self.swap_only_path[right_subc_idx]
+        if right_subc_idx != len(mapping_record_list):
+            # copy一个新的right_record
+            right_record = copy.deepcopy(mapping_record_list.records[right_subc_idx])
+            # right_partition = mapping_record_list.records[right_subc_idx].partition
             # print(right_partition)
             # right_swap = calculate_nonlocal_communication(self.circ.num_qubits, partition, right_partition)
-            right_swap = self.calculate_nonlocal_communications(partition, right_partition)
+            right_swaps = self.evaluate_partition_switch(telegate_record, right_record, self.network)["remote_swaps"]
             # print(f"right_swap: {right_swap}")
-            swap_costs += right_swap
+            swap_costs += right_swaps
         new_costs = cat_ent_costs + swap_costs
 
         # 2. 和全部基于swap的通信代价进行比较
         # 2.1. 获取[left, right]这部分子线路的swap costs
         old_costs = 0
-        if right_subc_idx >= len(self.swap_only_path):
+        if right_subc_idx >= len(mapping_record_list):
             old_costs = self.swap_prefix_sums[right_subc_idx - 1]
         else:
             old_costs = self.swap_prefix_sums[right_subc_idx]
@@ -510,13 +516,25 @@ class NADQC(Compiler):
         # 2. 如果新的ecosts更低，那么这部分线路用gate teleportation
         if new_costs < old_costs:
             self.num_comms += new_costs - old_costs
-            self.add_final_entry((left, right), "gate", partition)
             self.num_gates += cat_ent_costs
-            return
+            # self.add_final_entry((left, right), "gate", partition)
+            grouped_records.add_record(telegate_record)
 
+            # 更新下一个子线路的record
+            if right_subc_idx < len(mapping_record_list):
+                mapping_record_list.records[right_subc_idx] = right_record
+
+            return True
+
+        # 3. 如果旧的ecosts更低，那么不变
         for j in range(left_subc_idx + 1, right_subc_idx):
-            self.add_final_entry(self.subc_ranges[j], "swap", self.swap_only_path[j])
-        return
+            # self.add_final_entry(self.subc_ranges[j], "swap", self.swap_only_path[j])
+            # 更新层号
+            record = mapping_record_list.records[j]
+            record.layer_start = self.map_to_init_layer[record.layer_start]
+            record.layer_end = self.map_to_init_layer[record.layer_end]
+            grouped_records.add_record(record)
+        return False
 
     def hyper_partition(self, left, right):
         """
@@ -565,7 +583,20 @@ class NADQC(Compiler):
             partition[distribution.placement.placement[i]].append(i)
         # print(partition)
         # print(distribution.cost())
-        return partition, distribution.cost()
+        record = MappingRecord(
+            layer_start = ori_left,
+            layer_end = ori_right,
+            partition = partition,
+            mapping_type = "telegate",
+            costs = {
+                "num_comms": distribution.cost(),
+                "remote_hops": distribution.cost(),
+                "remote_swaps": 0,
+                "fidelity_loss": 0, # TODO: calculate fidelity loss based on the distribution result
+                "fidelity": 1
+            }
+        )
+        return record
 
     def get_ori_subc(self, ori_left, ori_right):
         """
@@ -578,4 +609,3 @@ class NADQC(Compiler):
                 sub_dag.apply_operation_back(node.op, node.qargs, node.cargs)
         sub_qc = dag_to_circuit(sub_dag)
         return sub_qc
-    

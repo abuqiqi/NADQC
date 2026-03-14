@@ -5,6 +5,7 @@ import numpy as np
 import itertools
 from typing import Any, Optional
 
+from ..compiler import MappingRecordList
 from ..utils import Network
 
 class Mapper(ABC):
@@ -20,32 +21,23 @@ class Mapper(ABC):
         """
         pass
 
-    # @abstractmethod
+    @abstractmethod
     # def map(self, partition_plan: Any, network: Network) -> dict[str, Any]:
-    #     """
-    #     将量子线路映射到特定量子硬件
-    #     :param partition_plan: 量子比特划分
-    #     :param network: 目标量子硬件
-    #     :return: 映射结果，包含线路、深度、门数、错误率等指标
-    #     """
-    #     pass
+    def map(self,
+            mapping_record_list: MappingRecordList,
+            circuit_layers: list[Any],
+            network: Network) -> dict[str, Any]:
+        """
+        将量子线路映射到特定量子硬件
+        :param partition_plan: 量子比特划分
+        :param network: 目标量子硬件
+        :return: 映射结果，包含线路、深度、门数、错误率等指标
+        """
+        pass
 
-# class BaseMapper(Mapper):
-#     """
-#     基础映射器类，提取公共方法和属性
-#     """
-    
-#     def __init__(self):
-#         super().__init__()
-#         self.metrics: dict[str, Any] = {}
-#         self.network: Network
-
-    # def get_metrics(self) -> dict[str, float]:
-    #     """获取映射性能指标"""
-    #     return self.metrics
-
-    def _compute_switch_demand(self, current_partition: list[list[int]], 
-                             next_partition: list[list[int]]) -> tuple[np.ndarray, dict]:
+    def _compute_switch_demand(self, 
+                               current_partition: list[list[int]], 
+                               next_partition: list[list[int]]) -> tuple[np.ndarray, dict]:
         """
         计算单次切换的通信需求
         :param current_partition: 当前时间片的分区
@@ -223,7 +215,9 @@ class SimpleMapper(Mapper):
         
         return mapping_sequence
 
-    def map(self, partition_plan: Any, network: Any) -> dict[str, Any]:
+    def map(self, 
+            partition_plan: Any,
+            network: Any) -> dict[str, Any]:
         """
         将量子线路映射到特定量子硬件（基线实现）
         :param partition_plan: 量子比特划分

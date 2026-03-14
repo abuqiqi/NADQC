@@ -219,19 +219,56 @@ class Compiler(ABC):
             "fidelity": fidelity
         }
 
-    def evaluate_partition_switch(self, prev_record: MappingRecord, 
-                                  curr_record: MappingRecord, 
-                                  network: Network) -> dict[str, float]:
+    def evaluate_partition_switch(
+        self,
+        arg1: MappingRecord | list[list[int]],  # 兼容两种类型：prev_record / prev_partition
+        arg2: MappingRecord | list[list[int]],  # 兼容两种类型：curr_record / curr_partition
+        network: Network
+    ) -> dict[str, Any]:
         """
-        计算切换划分的通信开销
+        计算切换划分的通信开销，支持两种输入格式：
+        格式1：arg1=prev_record(MappingRecord), arg2=curr_record(MappingRecord), network
+        格式2：arg1=prev_partition(list[list[int]]), arg2=curr_partition(list[list[int]]), network
         """
-        # 检查remote_hops
-        assert curr_record.costs["remote_swaps"] == 0, f"curr_remote_swaps: {curr_record.costs['remote_swaps']}"
-        assert prev_record.costs["num_comms"] == prev_record.costs["remote_hops"] + prev_record.costs["remote_swaps"]
-        assert curr_record.costs["num_comms"] == curr_record.costs["remote_hops"]
+        prev_record, curr_record = None, None
+        prev_partition, curr_partition = None, None
+        # ========== 第一步：类型判断 + 参数校验 ==========
+        # 场景1：输入是 MappingRecord（原有逻辑）
+        if isinstance(arg1, MappingRecord) and isinstance(arg2, MappingRecord):
+            prev_record, curr_record = arg1, arg2
+            # 提取 partition
+            prev_partition = prev_record.partition
+            curr_partition = curr_record.partition
+            # 原有断言校验
+            # assert curr_record.costs["remote_swaps"] == 0, f"curr_remote_swaps: {curr_record.costs['remote_swaps']}"
+            assert prev_record.costs["num_comms"] == prev_record.costs["remote_hops"] + prev_record.costs["remote_swaps"]
+            assert curr_record.costs["num_comms"] == curr_record.costs["remote_hops"] + curr_record.costs["remote_swaps"]
+        
+        # 场景2：输入是 list[list[int]]（新增逻辑）
+        elif isinstance(arg1, list) and isinstance(arg2, list):
+            prev_partition, curr_partition = arg1, arg2
 
-        prev_partition = prev_record.partition
-        curr_partition = curr_record.partition
+        # 场景3：类型不匹配（抛错提示）
+        else:
+            raise TypeError(
+                "输入参数类型错误！仅支持两种格式：\n"
+                "1. arg1=MappingRecord, arg2=MappingRecord\n"
+                "2. arg1=list[list[int]], arg2=list[list[int]]"
+            )
+
+    # def evaluate_partition_switch(self, prev_record: MappingRecord, 
+    #                               curr_record: MappingRecord, 
+    #                               network: Network) -> dict[str, float]:
+    #     """
+    #     计算切换划分的通信开销
+    #     """
+    #     # 检查remote_hops
+    #     assert curr_record.costs["remote_swaps"] == 0, f"curr_remote_swaps: {curr_record.costs['remote_swaps']}"
+    #     assert prev_record.costs["num_comms"] == prev_record.costs["remote_hops"] + prev_record.costs["remote_swaps"]
+    #     assert curr_record.costs["num_comms"] == curr_record.costs["remote_hops"]
+
+    #     prev_partition = prev_record.partition
+    #     curr_partition = curr_record.partition
 
         G = nx.DiGraph() # 初始化有向图
         G.add_nodes_from(range(len(prev_partition))) # 每个partition对应一个节点
@@ -321,12 +358,21 @@ class Compiler(ABC):
             fidelity_loss += (1 - network.W_eff[u][v]) * num_rswaps
             fidelity *= network.W_eff[u][v] ** num_rswaps
 
-        # 更新num_comms
-        curr_record.costs["remote_swaps"] = remote_swaps
-        curr_record.costs["num_comms"] += remote_swaps
-        curr_record.costs["fidelity_loss"] += fidelity_loss
-        curr_record.costs["fidelity"] *= fidelity
-        return curr_record.costs
+        if isinstance(arg2, MappingRecord):
+            # 更新num_comms
+            arg2.costs["remote_swaps"] = remote_swaps
+            arg2.costs["num_comms"] = arg2.costs["remote_hops"] + arg2.costs["remote_swaps"]
+            arg2.costs["fidelity_loss"] += fidelity_loss
+            arg2.costs["fidelity"] *= fidelity
+            return arg2.costs
+
+        return {
+            "num_comms": remote_swaps,
+            "remote_hops": 0,
+            "remote_swaps": remote_swaps,
+            "fidelity_loss": fidelity_loss,
+            "fidelity": fidelity
+        }
 
     def evaluate_total_costs(self, mapping_record_list: MappingRecordList) -> MappingRecordList:
         mapping_record_list.add_cost_sum("num_comms")

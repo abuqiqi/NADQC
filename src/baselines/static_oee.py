@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 import time
 
-from ..compiler import Compiler, MappingRecord, MappingRecordList
+from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
 
 class StaticOEE(Compiler):
@@ -33,7 +33,7 @@ class StaticOEE(Compiler):
         iteration_count = config.get("iteration", 10) if config else 10
         circuit_name = config.get("circuit_name", "circ") if config else "circ"
 
-        qig = self.build_qubit_interaction_graph(circuit)
+        qig = CompilerUtils.build_qubit_interaction_graph(circuit)
         
         # TODO: use OEE.partition
         partition = self._k_way_OEE(qig, network, iteration_count)
@@ -42,7 +42,7 @@ class StaticOEE(Compiler):
 
         end_time = time.time()
 
-        costs = self.evaluate_partition(qig, partition, network)
+        costs = CompilerUtils.evaluate_partition(qig, partition, network)
         
         record = MappingRecord(
             layer_start = 0, 
@@ -55,7 +55,7 @@ class StaticOEE(Compiler):
         mapping_record_list.add_record(record)
         
         mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
-        mapping_record_list = self.evaluate_total_costs(mapping_record_list)
+        mapping_record_list = CompilerUtils.evaluate_total_costs(mapping_record_list)
         mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
         return mapping_record_list
     
@@ -69,7 +69,7 @@ class StaticOEE(Compiler):
         nodes = list(qig.nodes())
         num_qubits = len(nodes)
         k = network.num_backends
-        partition = self.allocate_qubits(num_qubits, network) # initialize partition
+        partition = CompilerUtils.allocate_qubits(num_qubits, network) # initialize partition
         for _ in range(iteration_count):
             C = nodes.copy()
             D = np.zeros((num_qubits, k))

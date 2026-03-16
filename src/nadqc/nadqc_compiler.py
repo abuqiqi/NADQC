@@ -1,8 +1,11 @@
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, transpile
 from qiskit.converters import circuit_to_dag, dag_to_circuit
-from qiskit import transpile
-from pytket.extensions.qiskit import qiskit_to_tk
+
+from pytket.extensions.qiskit.qiskit_convert import qiskit_to_tk
+from pytket_dqc.utils import DQCPass
 from pytket_dqc.networks import NISQNetwork
+from pytket_dqc.distributors import CoverEmbeddingSteinerDetached, PartitioningAnnealing
+
 from typing import Any, Optional
 import time
 from pprint import pprint
@@ -11,12 +14,11 @@ import sys
 import numpy as np
 import copy
 
-from ..compiler import Compiler, MappingRecord, MappingRecordList
+from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
 from .partitioner import PartitionerFactory
 from .partition_assigner import PartitionAssignerFactory
 from .mapper import MapperFactory
-from .hyper_partitioner import DQCPass, CoverEmbeddingSteinerDetached, PartitioningAnnealing
 
 class NADQC(Compiler):
     """
@@ -36,7 +38,7 @@ class NADQC(Compiler):
                 network: Network, 
                 config: Optional[dict[str, Any]] = None) -> MappingRecordList:
         """
-        Compile the circuit using Static OEE algorithm
+        Compile the circuit
         """
         print(f"Compiling with [{self.name}]...")
         
@@ -80,7 +82,7 @@ class NADQC(Compiler):
         self.get_sliced_subc(0, len(self.P) - 1)
 
         # teledata-only partition candidates
-        self.partition_candidates = [] # TODO: rename
+        self.partition_candidates = []
         for (i, j) in self.subc_ranges:
             self.partition_candidates.append(self.P[i][j]) # 返回所有划分方案
         
@@ -101,7 +103,7 @@ class NADQC(Compiler):
         end_time = time.time()
 
         grouped_records.add_cost("exec_time (sec)", end_time - start_time)
-        grouped_records = self.evaluate_total_costs(grouped_records)
+        grouped_records = CompilerUtils.evaluate_total_costs(grouped_records)
         grouped_records.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
         return grouped_records
 
@@ -298,6 +300,9 @@ class NADQC(Compiler):
         is_changed = False # whether an edge is removed from qig
         for node in self.dag_multiq[lev]:
             qubits = [qubit._index for qubit in node.qargs]
+            if qubits[0] == None:
+                qubits = [self.circuit.qubits.index(node.qargs[i]) for i in range(len(node.qargs))]
+
             if qig.has_edge(qubits[0], qubits[1]):
                 qig[qubits[0]][qubits[1]]['weight'] -= 1
                 if qig[qubits[0]][qubits[1]]['weight'] == 0:
@@ -363,8 +368,6 @@ class NADQC(Compiler):
         基于每个子线路合法的划分
         找到最少swap次数的路径
         """
-        start_time = time.time()
-
         mapping_record_list = MappingRecordList()
 
         # dp[i][A]：表示第 i 个子线路选择分配方案 A 时的最小累计SWAP次数。
@@ -395,15 +398,13 @@ class NADQC(Compiler):
             mapping_record_list.add_record(record)
 
             if i > 0:
-                self.evaluate_partition_switch(mapping_record_list.records[-2], 
+                CompilerUtils.evaluate_partition_switch(mapping_record_list.records[-2], 
                                                mapping_record_list.records[-1],
                                                self.network)
                 comms = mapping_record_list.records[-1].costs["remote_swaps"]
                 self.num_comms += comms
                 self.swap_prefix_sums[i] = self.swap_prefix_sums[i-1] + comms
 
-        end_time = time.time()
-        print(f"[find_min_comms_path] Time: {end_time - start_time} seconds")
         return mapping_record_list
 
     # 
@@ -485,19 +486,19 @@ class NADQC(Compiler):
             # print(left_partition)
             # left_swap = calculate_nonlocal_communication(self.circ.num_qubits, left_partition, partition)
             # print(left_partition, partition[0])
-            left_swaps = self.evaluate_partition_switch(left_record, telegate_record, self.network)["remote_swaps"]
+            left_swaps = CompilerUtils.evaluate_partition_switch(left_record, telegate_record, self.network)["remote_swaps"]
             # print(f"left_swap: {left_swap}")
             swap_costs += left_swaps
         
         # 1.3. 计算新分区和右分区的swap costs
         assert(right_subc_idx > 0)
-        if right_subc_idx != len(mapping_record_list):
+        if right_subc_idx != len(mapping_record_list.records):
             # copy一个新的right_record
             right_record = copy.deepcopy(mapping_record_list.records[right_subc_idx])
             # right_partition = mapping_record_list.records[right_subc_idx].partition
             # print(right_partition)
             # right_swap = calculate_nonlocal_communication(self.circ.num_qubits, partition, right_partition)
-            right_swaps = self.evaluate_partition_switch(telegate_record, right_record, self.network)["remote_swaps"]
+            right_swaps = CompilerUtils.evaluate_partition_switch(telegate_record, right_record, self.network)["remote_swaps"]
             # print(f"right_swap: {right_swap}")
             swap_costs += right_swaps
         new_costs = cat_ent_costs + swap_costs
@@ -505,7 +506,7 @@ class NADQC(Compiler):
         # 2. 和全部基于swap的通信代价进行比较
         # 2.1. 获取[left, right]这部分子线路的swap costs
         old_costs = 0
-        if right_subc_idx >= len(mapping_record_list):
+        if right_subc_idx >= len(mapping_record_list.records):
             old_costs = self.swap_prefix_sums[right_subc_idx - 1]
         else:
             old_costs = self.swap_prefix_sums[right_subc_idx]
@@ -516,12 +517,12 @@ class NADQC(Compiler):
         # 2. 如果新的ecosts更低，那么这部分线路用gate teleportation
         if new_costs < old_costs:
             self.num_comms += new_costs - old_costs
-            self.num_gates += cat_ent_costs
+            # self.num_gates += cat_ent_costs
             # self.add_final_entry((left, right), "gate", partition)
             grouped_records.add_record(telegate_record)
 
             # 更新下一个子线路的record
-            if right_subc_idx < len(mapping_record_list):
+            if right_subc_idx < len(mapping_record_list.records):
                 mapping_record_list.records[right_subc_idx] = right_record
 
             return True
@@ -563,6 +564,7 @@ class NADQC(Compiler):
         # 
         # 3. 调用Pytket-DQC的库，计算划分和ecosts
         #
+        distribution = None
         if self.hyper_partitioner == "CE":
             distribution = CoverEmbeddingSteinerDetached().distribute(sub_qc, self.nisq_network, seed=26)
         else:

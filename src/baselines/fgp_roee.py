@@ -7,7 +7,7 @@ import time
 from itertools import combinations
 from collections import defaultdict
 
-from ..compiler import Compiler, MappingRecord, MappingRecordList
+from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
 
 # # 构建一个全连接网络
@@ -70,7 +70,7 @@ class FGPrOEE(Compiler):
         end_time = time.time()
 
         mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
-        mapping_record_list = self.evaluate_total_costs(mapping_record_list)
+        mapping_record_list = CompilerUtils.evaluate_total_costs(mapping_record_list)
         mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
         
         # print(f"[DEBUG] num_swaps: {self.num_swaps}\nnum_gates: {self.num_gates}")
@@ -86,7 +86,7 @@ class FGPrOEE(Compiler):
         circuit_depth = circuit.depth()
         print(f"[DEBUG] num_depths: {circuit_depth}")
         
-        partition = self.allocate_qubits(circuit.num_qubits, network)
+        partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
         mapping_record_list = MappingRecordList()
 
         self.num_swaps = []
@@ -108,7 +108,7 @@ class FGPrOEE(Compiler):
                 #                                                              mapping_record_list.records[-1].partition))
 
                 # 
-                self.evaluate_partition_switch(mapping_record_list.records[-2], 
+                CompilerUtils.evaluate_partition_switch(mapping_record_list.records[-2], 
                                                mapping_record_list.records[-1],
                                                network)
         return mapping_record_list
@@ -160,7 +160,7 @@ class FGPrOEE(Compiler):
         cnt = 0
         k = len(partition)
 
-        costs = self.evaluate_partition(time_slice_graph, partition, network)
+        costs = CompilerUtils.evaluate_partition(time_slice_graph, partition, network)
 
         while costs["remote_hops"] != 0:
             cnt += 1
@@ -246,7 +246,7 @@ class FGPrOEE(Compiler):
                 partition[col_b].remove(b)
                 partition[col_a].append(b)
         
-        costs = self.evaluate_partition(time_slice_graph, partition, network)
+        costs = CompilerUtils.evaluate_partition(time_slice_graph, partition, network)
 
         # # 
         # self.num_gates.append(self.count_cut_edges(time_slice_graph, partition))

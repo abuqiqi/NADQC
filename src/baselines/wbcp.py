@@ -12,7 +12,7 @@ from gurobipy import GRB
 import numpy as np
 import random
 
-from ..compiler import Compiler, MappingRecord, MappingRecordList
+from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
 from .oee import OEE
 
@@ -48,7 +48,7 @@ class WBCP(Compiler):
         end_time = time.time()
 
         mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
-        mapping_record_list = self.evaluate_total_costs(mapping_record_list)
+        mapping_record_list = CompilerUtils.evaluate_total_costs(mapping_record_list)
         mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
         
         return mapping_record_list
@@ -76,10 +76,10 @@ class WBCP(Compiler):
         # 第一个子线路直接用OEE算法得到初始划分
         right = min(win_len-1, num_depths-1)
         sub_qc = self._get_subcircuit_by_levels(circuit_dag, circuit_layers, (0, right))
-        qig = self.build_qubit_interaction_graph(sub_qc)
+        qig = CompilerUtils.build_qubit_interaction_graph(sub_qc)
 
         # 初始化划分
-        partition = self.allocate_qubits(circuit.num_qubits, network)
+        partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
         partition = OEE.partition(partition, qig, network, iteration_count)
 
         # TODO: 完成逻辑QPU到物理QPU的映射
@@ -90,7 +90,7 @@ class WBCP(Compiler):
             layer_end = right,
             partition = partition,
             mapping_type = "telegate",
-            costs = self.evaluate_partition(qig, partition, network)
+            costs = CompilerUtils.evaluate_partition(qig, partition, network)
         )
         mapping_record_list.add_record(record)
 
@@ -100,7 +100,7 @@ class WBCP(Compiler):
             right = min((i+1)*win_len-1, num_depths-1)
             sub_qc = self._get_subcircuit_by_levels(circuit_dag, circuit_layers, (i*win_len, right))
             # 构造子线路的qubit interaction graph
-            qig = self.build_qubit_interaction_graph(sub_qc)
+            qig = CompilerUtils.build_qubit_interaction_graph(sub_qc)
 
             # 获取上一个子线路的划分结果
             previous_record = mapping_record_list.records[-1]
@@ -110,7 +110,7 @@ class WBCP(Compiler):
             weighted_qig = self._build_weighted_qigraph(sub_qc, previous_partition)
             
             # 继续用OEE算法得到划分
-            current_partition = self.allocate_qubits(circuit.num_qubits, network)
+            current_partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
             current_partition = OEE.partition(current_partition, weighted_qig, network, iteration_count)
             current_partition = self._map_logical_to_physical(current_partition, qig, network)
 
@@ -119,12 +119,12 @@ class WBCP(Compiler):
                 layer_end = right,
                 partition = current_partition,
                 mapping_type = "telegate",
-                costs = self.evaluate_partition(qig, current_partition, network)
+                costs = CompilerUtils.evaluate_partition(qig, current_partition, network)
             )
-            costs_for_current_partition = self.evaluate_partition_switch(previous_record, current_record, network)
+            costs_for_current_partition = CompilerUtils.evaluate_partition_switch(previous_record, current_record, network)
 
             # 检查用上一个partition是否更好
-            costs_for_previous_partition = self.evaluate_partition(qig, previous_partition, network)
+            costs_for_previous_partition = CompilerUtils.evaluate_partition(qig, previous_partition, network)
 
             # 比较哪个开销小
             if costs_for_previous_partition["num_comms"] < costs_for_current_partition["num_comms"]:

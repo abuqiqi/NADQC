@@ -297,7 +297,7 @@ class Network:
         server_coupling = []
         for (u, v) in self.network_coupling.keys():
             server_coupling.append([u, v])
-            server_coupling.append([v, u])
+            # server_coupling.append([v, u])
 
         # 2. 构建 server_qubits：为每个后端分配全局量子比特索引
         #    按后端顺序切片，得到每个后端对应的量子比特索引段

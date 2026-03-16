@@ -152,7 +152,13 @@ class Compiler(ABC):
         """
         pass
 
-    def allocate_qubits(self, num_qubits: int, network: Network) -> list[list[int]]:
+
+class CompilerUtils:
+    """
+    编译工具类
+    """
+    @staticmethod
+    def allocate_qubits(num_qubits: int, network: Network) -> list[list[int]]:
         """
         Initialize the partition
         """
@@ -171,7 +177,8 @@ class Compiler(ABC):
             partition.append([])
         return partition
 
-    def build_qubit_interaction_graph(self, circuit: QuantumCircuit) -> nx.Graph:
+    @staticmethod
+    def build_qubit_interaction_graph(circuit: QuantumCircuit) -> nx.Graph:
         """
         Construct the qubit interaction graph from the circuit
         """
@@ -193,7 +200,8 @@ class Compiler(ABC):
                     qig.add_edge(qubits[0], qubits[1], weight=1)
         return qig
 
-    def evaluate_partition(self, qig: nx.Graph, 
+    @staticmethod
+    def evaluate_partition(qig: nx.Graph, 
                            partition: list[list[int]], 
                            network: Any) -> dict[str, float]:
         """
@@ -219,8 +227,8 @@ class Compiler(ABC):
             "fidelity": fidelity
         }
 
+    @staticmethod
     def evaluate_partition_switch(
-        self,
         arg1: MappingRecord | list[list[int]],  # 兼容两种类型：prev_record / prev_partition
         arg2: MappingRecord | list[list[int]],  # 兼容两种类型：curr_record / curr_partition
         network: Network
@@ -374,7 +382,8 @@ class Compiler(ABC):
             "fidelity": fidelity
         }
 
-    def evaluate_total_costs(self, mapping_record_list: MappingRecordList) -> MappingRecordList:
+    @staticmethod
+    def evaluate_total_costs(mapping_record_list: MappingRecordList) -> MappingRecordList:
         mapping_record_list.add_cost_sum("num_comms")
         mapping_record_list.add_cost_sum("remote_hops")
         mapping_record_list.add_cost_sum("remote_swaps")

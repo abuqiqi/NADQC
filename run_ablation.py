@@ -52,8 +52,11 @@ class NAVIAblationStudy:
         for p_type in partitioners:
             for ctx, trace in ctx_pool:
                 ctx_copy = copy.deepcopy(ctx)
+                start_time = time.time()
                 ctx_new = self.compiler.generate_partition_candidates(ctx_copy, partitioner_type=p_type)
-                new_pool.append((ctx_new, {**trace, "partitioner": p_type}))
+                new_pool.append((ctx_new, {**trace, 
+                                           "partitioner": p_type, 
+                                           "partition_time (sec)": time.time() - start_time}))
         ctx_pool = new_pool
 
         # --- Phase 2: Partition Assigner ---
@@ -61,8 +64,11 @@ class NAVIAblationStudy:
         for pa_type in partition_assigners:
             for ctx, trace in ctx_pool:
                 ctx_copy = copy.deepcopy(ctx)
+                start_time = time.time()
                 ctx_new = self.compiler.generate_partition_plan(ctx_copy, pa_type)
-                new_pool.append((ctx_new, {**trace, "partition_assigner": pa_type}))
+                new_pool.append((ctx_new, {**trace, 
+                                           "partition_assigner": pa_type, 
+                                           "assign_time (sec)": time.time() - start_time}))
         ctx_pool = new_pool
 
         # --- Phase 3: Telegate ---
@@ -70,8 +76,11 @@ class NAVIAblationStudy:
         for tp_type in telegate_partitioners:
             for ctx, trace in ctx_pool:
                 ctx_copy = copy.deepcopy(ctx)
+                start_time = time.time()
                 ctx_new = self.compiler.optimize_with_telegate(ctx_copy, tp_type)
-                new_pool.append((ctx_new, {**trace, "telegate_partitioner": tp_type}))
+                new_pool.append((ctx_new, {**trace, 
+                                           "telegate_partitioner": tp_type, 
+                                           "telegate_time (sec)": time.time() - start_time}))
                 # 输出每个ctx下的hybrid_records的total_costs，便于调试
                 # if hasattr(ctx_new, 'hybrid_records') and ctx_new.hybrid_records is not None:
                 #     print(f"Trace: {trace}, Hybrid Records:")
@@ -86,8 +95,11 @@ class NAVIAblationStudy:
         for m_type in mappers:
             for ctx, trace in ctx_pool:
                 ctx_copy = copy.deepcopy(ctx)
+                start_time = time.time()
                 ctx_new = self.compiler.optimize_mapping(ctx_copy, m_type)
-                new_pool.append((ctx_new, {**trace, "mapper": m_type}))
+                new_pool.append((ctx_new, {**trace, 
+                                           "mapper": m_type, 
+                                           "mapper_time (sec)": time.time() - start_time}))
         ctx_pool = new_pool
 
         # --- Phase 5: 统一收集结果 ---

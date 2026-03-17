@@ -167,9 +167,28 @@ class DirectMapper(Mapper):
         """
         将量子线路映射到特定量子硬件（基线实现）
         """
-        assert type(mapping_record_list) == MappingRecordList, "Expected mapping_record_list to be of type MappingRecordList"
         return mapping_record_list
 
+
+class GreedyMapper(Mapper):
+
+    @property
+    def name(self) -> str:
+        """获取映射器名称"""
+        return "Greedy Mapper"
+    
+    def map(self,
+            mapping_record_list: MappingRecordList,
+            circuit_layers: list[Any],
+            network: Network) -> MappingRecordList:
+        
+        # 对于每一段子线路，我们尝试找到一个局部最优的映射
+
+        # 初始线路，评估它到目标网络的保真度损失
+
+        # 后续的，评估每个子线路在当前映射下的保真度损失，并尝试通过局部调整映射来减少损失
+
+        return mapping_record_list
 
 # class HybridMapper(Mapper):
 #     """

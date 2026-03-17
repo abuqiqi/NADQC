@@ -17,7 +17,7 @@ class QiskitBackendImporter:
     def download_backend_info(self, backend_name, start_date, end_date, folder):
         backend = self.service.backend(backend_name)
         self._print_backend(backend)
-        config = backend.configuration()
+        config = backend.configuration() # type: ignore
 
         folder = f'{folder}{backend_name}/'
         if not os.path.exists(folder):
@@ -25,7 +25,7 @@ class QiskitBackendImporter:
 
         date = start_date
         while date <= end_date:
-            properties = backend.properties(datetime=date)
+            properties = backend.properties(datetime=date) # type: ignore
             pkl.dump(
                 (properties, config),
                 open(
@@ -35,8 +35,12 @@ class QiskitBackendImporter:
             )
             print('Device properties saved for date:', date.strftime("%Y-%m-%d"))
 
-            # 将properties写入xlsx文件
-            self._to_xlsx(properties.to_dict(), os.path.join(folder, f'{backend.name}_{date.strftime("%Y-%m-%d")}.xlsx'))
+            # 将properties和coupling_map写入xlsx文件
+            data_dict = {
+                **properties.to_dict(),
+                'coupling_map': config.coupling_map
+            }
+            self._to_xlsx(data_dict, os.path.join(folder, f'{backend.name}_{date.strftime("%Y-%m-%d")}.xlsx'))
 
             date += datetime.timedelta(days=1)
         return
@@ -65,6 +69,7 @@ class QiskitBackendImporter:
             'backend_version': data.get('backend_version'),
             'general_qlists': data.get('general_qlists'),
             'last_update_date': self._to_iso(data.get('last_update_date')),
+            'coupling_map': data.get('coupling_map')
         }
         return pd.DataFrame([row])
 
@@ -96,7 +101,7 @@ class QiskitBackendImporter:
         qubits = data.get('qubits', [])
         rows = []
         for qid, qlist in enumerate(qubits):
-            row = {'qubit_id': qid}
+            row: dict[str, Any] = {'qubit_id': qid}
             if isinstance(qlist, list):
                 for item in qlist:
                     name = item.get('name')
@@ -162,7 +167,7 @@ class Backend:
         return
 
     def _init_backend(self, global_config: dict = {}, backend_config: dict = {}):
-        pprint(backend_config)
+        # pprint(backend_config)
         if 'backend_name' in backend_config:
             self.name = backend_config['backend_name']
             self.load_properties(global_config, self.name, backend_config.get('date', datetime.datetime.today()))
@@ -214,6 +219,12 @@ class Backend:
         self.num_qubits = len(self.qubit_info)
         # 初始化general_info
         # self.general_info = general_df.to_dict(orient='records')
+        # 初始化coupling_map
+        self.coupling_map = self.basic_info.get('coupling_map', [])
+        if isinstance(self.coupling_map, str): # 字符串转列表
+            self.coupling_map = json.loads(self.coupling_map.replace("'", '"'))
+        # 初始化basis gate set
+        self.basis_gates = self._get_basis_gates()
         return
 
     def _download_backend_data(self, config: dict, backend_name: str, date: datetime.datetime):
@@ -258,6 +269,7 @@ class Backend:
         new_qubit_info = sampled['qubit_info']
         new_gate_info = sampled['gate_info']
         new_general_qlists = sampled['basic_info']['general_qlists']
+        new_coupling_map = sampled['basic_info']['coupling_map']
 
         # Step 2: 重映射 qubit 编号（如果需要）
         if remap_qubits:
@@ -288,8 +300,12 @@ class Backend:
                     remapped_general_qlists.append({'name': item['name'], 'qubits': remapped_q})
             new_general_qlists = remapped_general_qlists
 
+            # 重映射 coupling_map
+            remapped_coupling_map = [[qubit_map[u], qubit_map[v]] for u, v in new_coupling_map]
+
             # 更新 basic_info 中的 num_qubits
             sampled['basic_info']['general_qlists'] = new_general_qlists
+            sampled['basic_info']['coupling_map'] = remapped_coupling_map
 
         # Step 3: 更新数据并构造 DataFrames
         self.basic_info = sampled['basic_info']
@@ -326,12 +342,10 @@ class Backend:
         if num_qubits <= 0:
             raise ValueError("Number of qubits must be positive.")
 
-        # 获取真实的量子比特编号（避免假设 0~num_qubits-1 连续）
-        # 假设 self.qubit_info 的索引即为物理 qubit 编号（常见于 Qiskit 导出格式）
-        all_qubit_ids = list(range(self.num_qubits))  # ⚠️ 若编号非连续，请替换为此：
-        # all_qubit_ids = [q['qubit_id'] for q in self.qubit_info]  # 如果有 'qubit' 字段
+        # 获取真实的量子比特编号
+        all_qubit_ids = [q['qubit_id'] for q in self.qubit_info]
 
-        selected_qubits: set[int] = set()
+        selected_qubits = set()
         general_qlists = self.basic_info.get('general_qlists', [])
         # 把general_qlists从json字符串转成list
         if isinstance(general_qlists, str):
@@ -353,7 +367,7 @@ class Backend:
                                 f"Available: {len(remaining) + len(selected_qubits)}")
             selected_qubits.update(random.sample(remaining, need))
 
-        # selected_qubits = sorted(selected_qubits)
+        selected_qubits = sorted(selected_qubits)
 
         # Step 3: Filter qubit_info
         new_qubit_info = [self.qubit_info[q] for q in selected_qubits]
@@ -365,28 +379,35 @@ class Backend:
             gate['qubits'] = gate_qubits
             if all(q in selected_qubits for q in gate_qubits):
                 new_gate_info.append(gate)
-        # print("Filtered gate_info:")
-        # pprint(new_gate_info)
 
         # Step 5: Update general_qlists (保留与 selected_qubits 有交集的路径)
-        # print(f"selected_qubits: {selected_qubits}")
         new_general_qlists = [{'name': f'lf_{len(selected_qubits)}', 'qubits': selected_qubits}]
-        # for item in general_qlists:
-        #     filtered_q = [q for q in item.get('qubits', []) if q in selected_qubits]
-        #     print(f"Original qlist: {item.get('qubits', [])}, Filtered: {filtered_q}")
-        #     if filtered_q:
-        #         new_general_qlists.append({'name': item.get('name', ''), 'qubits': filtered_q})
-        # print("Filtered general_qlists:")
-        # pprint(new_general_qlists)
+
+        # Step 6: Update coupling_map (保留与 selected_qubits 相关的连接)
+        # 把coupling map从json字符串转成list
+        coupling_map = self.basic_info.get('coupling_map', [])
+        if isinstance(coupling_map, str):
+            coupling_map = json.loads(coupling_map.replace("'", '"'))
+        new_coupling_map = []
+        for u, v in coupling_map:
+            if u in selected_qubits and v in selected_qubits:
+                new_coupling_map.append((u, v))
 
         return {
-            'selected_qubits': sorted(selected_qubits),
+            'selected_qubits': selected_qubits,
             'basic_info': {
                 **self.basic_info,
                 'general_qlists': new_general_qlists,
-                'sampled_qubits_original': selected_qubits
+                'sampled_qubits_original': selected_qubits,
+                'coupling_map': new_coupling_map
             },
             'gate_info': new_gate_info,
             'qubit_info': new_qubit_info,
             # 'general_info': self.general_info
         }
+
+    def _get_basis_gates(self) -> list[str]:
+        basis_gates = set()
+        for gate in self.gate_info:
+            basis_gates.add(gate['gate'])
+        return list(basis_gates)

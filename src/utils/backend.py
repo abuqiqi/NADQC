@@ -214,6 +214,7 @@ class Backend:
         self.date = date
         # 初始化gate_info
         self.gate_info = gate_df.to_dict(orient='records')
+        self.gate_dict = {gate['name']: gate for gate in self.gate_info}
         # 初始化qubit_info
         self.qubit_info = qubit_df.to_dict(orient='records')
         self.num_qubits = len(self.qubit_info)
@@ -287,7 +288,7 @@ class Backend:
             # 重映射 gate_info 中的 qubits
             for gate in new_gate_info:
                 orig_qubits = gate['qubits']
-                new_qubits = sorted([qubit_map[q] for q in orig_qubits])
+                new_qubits = [qubit_map[q] for q in orig_qubits]
                 # 更新gate_name
                 gate['name'] = f"{gate['gate']}{'_'.join(map(str, new_qubits))}"
                 gate['qubits'] = ','.join(map(str, new_qubits))
@@ -311,6 +312,7 @@ class Backend:
         self.basic_info = sampled['basic_info']
         self.name = f"{self.name}_sampled_{num_qubits}q"
         self.gate_info = new_gate_info
+        self.gate_dict = {gate['name']: gate for gate in new_gate_info}
         self.qubit_info = new_qubit_info
         self.num_qubits = num_qubits
 

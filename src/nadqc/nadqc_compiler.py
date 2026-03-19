@@ -398,7 +398,7 @@ class NADQC(Compiler):
             mapping_record_list.add_record(record)
 
             if i > 0:
-                CompilerUtils.evaluate_partition_switch(mapping_record_list.records[-2], 
+                CompilerUtils.evaluate_teledata(mapping_record_list.records[-2], 
                                                mapping_record_list.records[-1],
                                                self.network)
                 comms = mapping_record_list.records[-1].costs["remote_swaps"]
@@ -486,7 +486,7 @@ class NADQC(Compiler):
             # print(left_partition)
             # left_swap = calculate_nonlocal_communication(self.circ.num_qubits, left_partition, partition)
             # print(left_partition, partition[0])
-            left_swaps = CompilerUtils.evaluate_partition_switch(left_record, telegate_record, self.network)["remote_swaps"]
+            left_swaps = CompilerUtils.evaluate_teledata(left_record, telegate_record, self.network)["remote_swaps"]
             # print(f"left_swap: {left_swap}")
             swap_costs += left_swaps
         
@@ -498,7 +498,7 @@ class NADQC(Compiler):
             # right_partition = mapping_record_list.records[right_subc_idx].partition
             # print(right_partition)
             # right_swap = calculate_nonlocal_communication(self.circ.num_qubits, partition, right_partition)
-            right_swaps = CompilerUtils.evaluate_partition_switch(telegate_record, right_record, self.network)["remote_swaps"]
+            right_swaps = CompilerUtils.evaluate_teledata(telegate_record, right_record, self.network)["remote_swaps"]
             # print(f"right_swap: {right_swap}")
             swap_costs += right_swaps
         new_costs = cat_ent_costs + swap_costs

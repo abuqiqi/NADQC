@@ -47,8 +47,10 @@ class WBCP(Compiler):
 
         end_time = time.time()
 
-        mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
-        mapping_record_list = CompilerUtils.evaluate_total_costs(mapping_record_list)
+        # mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
+        # mapping_record_list = CompilerUtils.evaluate_total_costs(mapping_record_list)
+        mapping_record_list.summarize_total_costs()
+        mapping_record_list.update_total_costs(execution_time = end_time - start_time)
         mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
         
         return mapping_record_list
@@ -89,9 +91,9 @@ class WBCP(Compiler):
             layer_start = 0,
             layer_end = right,
             partition = partition,
-            mapping_type = "telegate",
-            costs = CompilerUtils.evaluate_partition(qig, partition, network)
+            mapping_type = "telegate"
         )
+        _ = CompilerUtils.evaluate_local_telegate(record, sub_qc, network)
         mapping_record_list.add_record(record)
 
         # 处理后续的子线路
@@ -112,22 +114,25 @@ class WBCP(Compiler):
             # 继续用OEE算法得到划分
             current_partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
             current_partition = OEE.partition(current_partition, weighted_qig, network, iteration_count)
+
+            # TODO: 先确定partition，再确定logical到物理的映射
             current_partition = self._map_logical_to_physical(current_partition, qig, network)
 
             current_record = MappingRecord(
                 layer_start = i*win_len,
                 layer_end = right,
                 partition = current_partition,
-                mapping_type = "telegate",
-                costs = CompilerUtils.evaluate_partition(qig, current_partition, network)
+                mapping_type = "telegate"
             )
-            costs_for_current_partition = CompilerUtils.evaluate_partition_switch(previous_record, current_record, network)
+            _ = CompilerUtils.evaluate_local_telegate(current_record, sub_qc, network)
+            costs_for_current_partition = CompilerUtils.evaluate_teledata(previous_record, current_record, network)
 
-            # 检查用上一个partition是否更好
-            costs_for_previous_partition = CompilerUtils.evaluate_partition(qig, previous_partition, network)
+            # 检查沿用上一个partition是否更好
+            num_prev_remote_hops = CompilerUtils.evaluate_remote_hops(qig, previous_partition, network)
 
             # 比较哪个开销小
-            if costs_for_previous_partition["num_comms"] < costs_for_current_partition["num_comms"]:
+            # TODO: 用哪个指标来衡量更好？目前先用total_fidelity_loss
+            if num_prev_remote_hops < costs_for_current_partition.num_comms:
                 # 更新previous record的costs和layers
                 record = MappingRecord(
                     layer_start = i*win_len,

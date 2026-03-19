@@ -1,6 +1,8 @@
 import warnings
 from typing import Any, Optional, Union
 import numpy as np
+from dataclasses import dataclass
+
 from qiskit import QuantumCircuit, transpile
 from qiskit.transpiler import CouplingMap, Layout
 from qiskit.converters import circuit_to_dag, dag_to_circuit
@@ -18,7 +20,7 @@ class NoiseEvaluator:
         pass
 
     @classmethod
-    def evaluate_mapping_record(
+    def evaluate_local_telegate(
         cls,
         mapping_record: MappingRecord,
         circuit: QuantumCircuit,

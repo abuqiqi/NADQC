@@ -1,15 +1,98 @@
-from qiskit import QuantumCircuit
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import networkx as nx
 import json
 import numpy as np
 import copy
 from collections import defaultdict
 
+from qiskit import QuantumCircuit, transpile
+
 from ..utils import Network
+
+@dataclass
+class ExecCosts:
+    remote_hops: int = 0
+    remote_swaps: int = 0
+    remote_fidelity_loss: float = 0.0
+    remote_fidelity: float = 1.0
+    local_fidelity_loss: float = 0.0
+    local_fidelity: float = 1.0
+    execution_time: float = 0.0
+    
+    # 只读属性（实时计算）
+    @property
+    def num_comms(self) -> int:
+        return self.remote_hops + self.remote_swaps
+    
+    @property
+    def total_fidelity_loss(self) -> float:
+        return self.remote_fidelity_loss + self.local_fidelity_loss
+    
+    @property
+    def total_fidelity(self) -> float:
+        return self.remote_fidelity * self.local_fidelity
+
+    def update(self, **kwargs):
+        """批量更新字段"""
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                raise AttributeError(f"ExecCosts 没有属性 {key}")
+
+    # 重置方法
+    def reset(self) -> None:
+        self.remote_hops = 0
+        self.remote_swaps = 0
+        self.remote_fidelity_loss = 0.0
+        self.remote_fidelity = 1.0
+        self.local_fidelity_loss = 0.0
+        self.local_fidelity = 1.0
+        self.execution_time = 0.0
+    
+    # 字符串表示
+    def __str__(self) -> str:
+        return (
+            f"ExecCosts("
+            f"comms={self.num_comms}, "
+            f"fidelity={self.total_fidelity:.4f}, "
+            f"loss={self.total_fidelity_loss:.4f}, "
+            f"time={self.execution_time:.2f})"
+        )
+    
+    def __repr__(self) -> str:
+        return self.__str__()
+    
+    # 累加方法
+    def __iadd__(self, other: "ExecCosts") -> "ExecCosts":
+        if not isinstance(other, ExecCosts):
+            raise TypeError(f"不能与 {type(other)} 累加")
+        
+        self.remote_hops += other.remote_hops
+        self.remote_swaps += other.remote_swaps
+        self.remote_fidelity_loss += other.remote_fidelity_loss
+        self.local_fidelity_loss += other.local_fidelity_loss
+        self.execution_time += other.execution_time
+        self.remote_fidelity *= other.remote_fidelity
+        self.local_fidelity *= other.local_fidelity
+        
+        return self
+
+    def to_dict(self) -> dict:
+        """将 ExecCosts 转为字典，包含所有字段 + property 计算属性"""
+        # 先获取默认的字段字典（真实字段）
+        base_dict = dataclasses.asdict(self)
+        # 手动添加 property 字段
+        base_dict.update({
+            "num_comms": self.num_comms,
+            "total_fidelity_loss": self.total_fidelity_loss,
+            "total_fidelity": self.total_fidelity
+        })
+        return base_dict
+
 
 @dataclass
 class MappingRecord:
@@ -23,7 +106,7 @@ class MappingRecord:
     partition: list[list[int]]
     # 必选字段：映射信息
     mapping_type: str         # 映射类型（如 "teledata"、"telegate"）
-    costs: dict[str, Any]
+    costs: ExecCosts = ExecCosts() # 执行成本，包含保真度损失、通信开销、执行时间等指标
     # 可选字段：扩展信息（如额外配置、备注）
     extra_info: Optional[dict[str, Any]] = None
 
@@ -34,6 +117,25 @@ class MappingRecord:
         if self.extra_info is not None:
             object.__setattr__(self, "extra_info", copy.deepcopy(self.extra_info))
 
+    def to_dict(self) -> dict:
+        """将 MappingRecord 转为字典，包含嵌套的 ExecCosts 字典"""
+        return {
+            "layer_start": self.layer_start,
+            "layer_end": self.layer_end,
+            "partition": self.partition,
+            "mapping_type": self.mapping_type,
+            "costs": self.costs.to_dict(),  # 直接用自定义 to_dict
+            "extra_info": self.extra_info
+        }
+
+    def update(self, **kwargs):
+        """批量更新字段"""
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                raise AttributeError(f"MappingRecord 没有属性 {key}")
+
 
 # 辅助类：管理多条记录
 @dataclass
@@ -41,29 +143,42 @@ class MappingRecordList:
     """
     映射记录管理器：批量存储、查询记录
     """
-    total_costs: dict[str, Any]  = dataclasses.field(default_factory=dict)
+    total_costs: ExecCosts = dataclasses.field(default_factory=ExecCosts)
     records: list[MappingRecord] = dataclasses.field(default_factory=list)
 
     def add_record(self, record: MappingRecord):
         """添加一条记录"""
         self.records.append(record)
 
-    def add_cost(self, key: str, value: Any):
-        """添加项目到total_costs"""
-        self.total_costs[key] = value
-
-    def add_cost_sum(self, key: str):
-        """添加求和项到total_costs"""
-        sum = 0
+    def summarize_total_costs(self):
+        """汇总所有记录的成本信息"""
+        total_costs = ExecCosts()
         for record in self.records:
-            sum += record.costs[key]
-        self.total_costs[key] = sum
+            total_costs += record.costs
+        self.total_costs = total_costs
+        return
 
-    def add_cost_mul(self, key: str):
-        mul = 1
-        for record in self.records:
-            mul *= record.costs[key]
-        self.total_costs[key] = mul
+    def update_total_costs(self, **kwargs):
+        """批量更新total_costs指标"""
+        self.total_costs.update(**kwargs)
+        return
+
+    # def add_cost(self, key: str, value: Any):
+    #     """添加项目到total_costs"""
+    #     self.total_costs[key] = value
+
+    # def add_cost_sum(self, key: str):
+    #     """添加求和项到total_costs"""
+    #     sum = 0
+    #     for record in self.records:
+    #         sum += record.costs[key]
+    #     self.total_costs[key] = sum
+
+    # def add_cost_mul(self, key: str):
+    #     mul = 1
+    #     for record in self.records:
+    #         mul *= record.costs[key]
+    #     self.total_costs[key] = mul
 
     def get_records_by_layer_range(self, layer_start: int, layer_end: int) -> list[MappingRecord]:
         """按层级范围查询记录（包含交集）"""
@@ -83,8 +198,16 @@ class MappingRecordList:
             return
 
         # 统一序列化：将 dataclass 转为字典（兼容可选字段 extra_info）
-        data_dict = dataclasses.asdict(self)
-        data_dict = self._convert_numpy_types(data_dict)
+        # 将total_costs转为字典
+        total_costs_dict = self.total_costs.to_dict()
+        # 将每条记录转为字典
+        records_dict = [record.to_dict() for record in self.records]
+        data_dict = {
+            "total_costs": total_costs_dict,
+            "records": records_dict
+        }
+        # data_dict = dataclasses.asdict(self)
+        # data_dict = self._convert_numpy_types(data_dict)
 
         # 按格式保存
         with open(filename, 'w', encoding='utf-8') as f:
@@ -99,7 +222,7 @@ class MappingRecordList:
         return
 
     @staticmethod
-    def _convert_numpy_types(obj: Any) -> Any:
+    def _convert_numpy_types(obj: Any) -> Any: # TODO: remove
         """
         递归转换所有NumPy类型为原生Python类型
         支持：字典、列表、元组、np.int64/np.float64等
@@ -201,9 +324,9 @@ class CompilerUtils:
         return qig
 
     @staticmethod
-    def evaluate_partition(qig: nx.Graph, 
+    def evaluate_remote_hops(qig: nx.Graph, 
                            partition: list[list[int]], 
-                           network: Any) -> dict[str, float]:
+                           network: Any) -> int:
         """
         计算qubit interaction graph在partitions下的割
         """
@@ -211,28 +334,22 @@ class CompilerUtils:
         for i, part in enumerate(partition):
             for node in part:
                 node_to_partition[node] = i
-        remote_hops, fidelity_loss, fidelity = 0, 0, 1
+        remote_hops = 0
         for u, v in qig.edges(): # 遍历图中的每一条边，也就是双量子门
             qpu_u = node_to_partition[u]
             qpu_v = node_to_partition[v]
             if qpu_u != qpu_v:
                 remote_hops += network.Hops[qpu_u][qpu_v] * qig[u][v]['weight']
-                fidelity_loss += (1 - network.W_eff[qpu_u][qpu_v]) * qig[u][v]['weight']
-                fidelity *= network.W_eff[qpu_u][qpu_v] ** qig[u][v]['weight']
-        return {
-            "num_comms": remote_hops,
-            "remote_hops": remote_hops,
-            "remote_swaps": 0,
-            "fidelity_loss": fidelity_loss,
-            "fidelity": fidelity
-        }
+                # fidelity_loss += (1 - network.W_eff[qpu_u][qpu_v]) * qig[u][v]['weight']
+                # fidelity *= network.W_eff[qpu_u][qpu_v] ** qig[u][v]['weight']
+        return remote_hops
 
     @staticmethod
-    def evaluate_partition_switch(
+    def evaluate_teledata(
         arg1: MappingRecord | list[list[int]],  # 兼容两种类型：prev_record / prev_partition
         arg2: MappingRecord | list[list[int]],  # 兼容两种类型：curr_record / curr_partition
         network: Network
-    ) -> dict[str, Any]:
+    ) -> ExecCosts:
         """
         计算切换划分的通信开销，支持两种输入格式：
         格式1：arg1=prev_record(MappingRecord), arg2=curr_record(MappingRecord), network
@@ -241,18 +358,14 @@ class CompilerUtils:
         prev_record, curr_record = None, None
         prev_partition, curr_partition = None, None
         # ========== 第一步：类型判断 + 参数校验 ==========
-        # 场景1：输入是 MappingRecord（原有逻辑）
+        # 场景1：输入是 MappingRecord
         if isinstance(arg1, MappingRecord) and isinstance(arg2, MappingRecord):
             prev_record, curr_record = arg1, arg2
             # 提取 partition
             prev_partition = prev_record.partition
             curr_partition = curr_record.partition
-            # 原有断言校验
-            # assert curr_record.costs["remote_swaps"] == 0, f"curr_remote_swaps: {curr_record.costs['remote_swaps']}"
-            assert prev_record.costs["num_comms"] == prev_record.costs["remote_hops"] + prev_record.costs["remote_swaps"]
-            assert curr_record.costs["num_comms"] == curr_record.costs["remote_hops"] + curr_record.costs["remote_swaps"]
-        
-        # 场景2：输入是 list[list[int]]（新增逻辑）
+
+        # 场景2：输入是 list[list[int]]
         elif isinstance(arg1, list) and isinstance(arg2, list):
             prev_partition, curr_partition = arg1, arg2
 
@@ -264,26 +377,13 @@ class CompilerUtils:
                 "2. arg1=list[list[int]], arg2=list[list[int]]"
             )
 
-    # def evaluate_partition_switch(self, prev_record: MappingRecord, 
-    #                               curr_record: MappingRecord, 
-    #                               network: Network) -> dict[str, float]:
-    #     """
-    #     计算切换划分的通信开销
-    #     """
-    #     # 检查remote_hops
-    #     assert curr_record.costs["remote_swaps"] == 0, f"curr_remote_swaps: {curr_record.costs['remote_swaps']}"
-    #     assert prev_record.costs["num_comms"] == prev_record.costs["remote_hops"] + prev_record.costs["remote_swaps"]
-    #     assert curr_record.costs["num_comms"] == curr_record.costs["remote_hops"]
-
-    #     prev_partition = prev_record.partition
-    #     curr_partition = curr_record.partition
-
         G = nx.DiGraph() # 初始化有向图
         G.add_nodes_from(range(len(prev_partition))) # 每个partition对应一个节点
 
-        remote_swaps = 0
-        fidelity_loss = 0
-        fidelity = 1
+        # remote_swaps = 0
+        # fidelity_loss = 0
+        # fidelity = 1
+        costs = ExecCosts()
 
         # 记录每个qubit在prev和curr的分区号
         qubit_mapping = {}
@@ -305,9 +405,9 @@ class CompilerUtils:
                 if G.has_edge(curr_part, prev_part):
                     num_rswaps = 2 * network.Hops[curr_part][prev_part] - 1
                     
-                    remote_swaps += num_rswaps
-                    fidelity_loss += (1 - network.W_eff[prev_part][curr_part]) * num_rswaps
-                    fidelity *= network.W_eff[prev_part][curr_part] ** num_rswaps
+                    costs.remote_swaps += num_rswaps
+                    costs.remote_fidelity_loss += (1 - network.W_eff[prev_part][curr_part]) * num_rswaps
+                    costs.remote_fidelity *= network.W_eff[prev_part][curr_part] ** num_rswaps
                     
                     # 更新边权重
                     if G[curr_part][prev_part]['weight'] > 1:
@@ -353,40 +453,136 @@ class CompilerUtils:
                     # 对环中的每一条边，计算通信开销
                     num_rswaps = (2 * network.Hops[u][v] - 1) * weight
                     
-                    remote_swaps += num_rswaps
-                    fidelity_loss += (1 - network.W_eff[u][v]) * num_rswaps
-                    fidelity *= network.W_eff[u][v] ** num_rswaps
+                    costs.remote_swaps += num_rswaps
+                    costs.remote_fidelity_loss += (1 - network.W_eff[u][v]) * num_rswaps
+                    costs.remote_fidelity *= network.W_eff[u][v] ** num_rswaps
 
         # 获取剩余的边
         remaining_edges = G.edges(data=True)
         for u, v, data in remaining_edges:
             path_len = 2 * network.Hops[u][v] - 1
             num_rswaps = path_len * data['weight']
-            remote_swaps += num_rswaps
-            fidelity_loss += (1 - network.W_eff[u][v]) * num_rswaps
-            fidelity *= network.W_eff[u][v] ** num_rswaps
+            costs.remote_swaps += num_rswaps
+            costs.remote_fidelity_loss += (1 - network.W_eff[u][v]) * num_rswaps
+            costs.remote_fidelity *= network.W_eff[u][v] ** num_rswaps
 
         if isinstance(arg2, MappingRecord):
-            # 更新num_comms
-            arg2.costs["remote_swaps"] = remote_swaps
-            arg2.costs["num_comms"] = arg2.costs["remote_hops"] + arg2.costs["remote_swaps"]
-            arg2.costs["fidelity_loss"] += fidelity_loss
-            arg2.costs["fidelity"] *= fidelity
+            # 更新costs
+            arg2.costs += costs
             return arg2.costs
 
-        return {
-            "num_comms": remote_swaps,
-            "remote_hops": 0,
-            "remote_swaps": remote_swaps,
-            "fidelity_loss": fidelity_loss,
-            "fidelity": fidelity
-        }
+        return costs
+
+    # @staticmethod
+    # def evaluate_total_costs(mapping_record_list: MappingRecordList) -> MappingRecordList:
+    #     mapping_record_list.summarize_total_costs()
+    #     return mapping_record_list
+    #     # mapping_record_list.add_cost_sum("num_comms")
+    #     # mapping_record_list.add_cost_sum("remote_hops")
+    #     # mapping_record_list.add_cost_sum("remote_swaps")
+    #     # mapping_record_list.add_cost_sum("fidelity_loss")
+    #     # mapping_record_list.add_cost_mul("fidelity")
+    #     # return mapping_record_list
 
     @staticmethod
-    def evaluate_total_costs(mapping_record_list: MappingRecordList) -> MappingRecordList:
-        mapping_record_list.add_cost_sum("num_comms")
-        mapping_record_list.add_cost_sum("remote_hops")
-        mapping_record_list.add_cost_sum("remote_swaps")
-        mapping_record_list.add_cost_sum("fidelity_loss")
-        mapping_record_list.add_cost_mul("fidelity")
-        return mapping_record_list
+    def evaluate_local_telegate(
+        arg: MappingRecord | list[list[int]],  # 兼容两种类型：record / partition
+        circuit: QuantumCircuit, 
+        network: Network
+    ) -> ExecCosts:
+        """
+        评估在给定划分和后端分配下执行线路的总体保真度
+        @param record: 包含划分和映射信息的记录
+        @param circuit: 量子线路
+        @param network: 网络信息
+        @return: 更新后的记录，包含评估的成本信息
+        """
+        partition = None
+
+        if isinstance(arg, MappingRecord):
+            record = arg
+            partition = record.partition
+        else:
+            # arg is a list of lists representing the partition
+            partition = arg
+
+        # 建立每个分区对应的子线路
+        subcircuits = [QuantumCircuit(len(group)) for group in partition]
+
+        # 建立一个反向索引，用于快速查询每个量子比特属于哪个分区
+        qubit_to_partition = {}
+        for idx, group in enumerate(partition):
+            for qubit in group:
+                qubit_to_partition[qubit] = idx
+
+        # 对每个分区内，要将量子比特编号映射到0,1,...,len(group)-1，以便构建子线路
+        # 例如，如果分区是 [0,2,5]，则子线路中的量子比特0对应原线路的0，量子比特1对应原线路的2，量子比特2对应原线路的5
+        qubit_to_subcircuit = {}
+        for group in partition:
+            mapping = {original_qubit: idx for idx, original_qubit in enumerate(group)}
+            qubit_to_subcircuit.update(mapping)
+
+        # 初始化噪声
+        costs = ExecCosts()
+
+        # 遍历circuit上的每个操作，如果操作完全属于某个group，则添加到对应的subcircuit；如果操作跨越多个group，则记录为telegate操作
+        for instruction in circuit:
+            qubits = [qubit._index for qubit in instruction.qubits]
+            if qubits[0] == None:
+                qubits = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
+
+            # 检查操作涉及的量子比特属于哪个分区
+            involved_partitions = set()
+            for qubit in qubits:
+                involved_partitions.add(qubit_to_partition[qubit])
+
+            if len(involved_partitions) == 1:
+                # 操作完全属于一个分区，添加到对应的subcircuit
+                partition_idx = involved_partitions.pop()
+                # 更新操作中的量子比特编号为子线路中的编号
+                mapped_qubits = [qubit_to_subcircuit[qubit] for qubit in qubits]
+                subcircuits[partition_idx].append(instruction.operation, mapped_qubits)
+                print(f"[DEBUG] Added instruction {instruction.operation.name} on qubits {mapped_qubits} to subcircuit {partition_idx}")
+            else: # 操作跨越多个分区，为telegate操作
+                # 对qubits里的每一对相邻qubits，算作一组remote_hop
+                # 直接统计跨分区的telegate保真度损失
+                for i in range(len(qubits) - 1):
+                    q1, q2 = qubits[i], qubits[i + 1]
+                    p1, p2 = qubit_to_partition[q1], qubit_to_partition[q2]
+                    if p1 != p2:
+                        costs.remote_hops += network.Hops[p1][p2]
+                        costs.remote_fidelity_loss += 1 - network.W_eff[p1][p2]
+                        costs.remote_fidelity *= network.W_eff[p1][p2]
+
+        # 遍历每个子线路
+        assert len(subcircuits) == len(network.backends)
+        for idx in range(len(subcircuits)):
+            # 获取每个分区单独的保真度损失
+            subcircuit = subcircuits[idx]
+            backend = network.backends[idx]
+
+            transpiled_circuit = transpile(
+                subcircuit,
+                coupling_map=backend.coupling_map,
+                basis_gates=backend.basis_gates,
+            )
+
+            # 统计每个量子门的保真度损失
+            for instruction in transpiled_circuit:
+                # 获取操作名字
+                gate_name = instruction.operation.name
+                qubits = [transpiled_circuit.qubits.index(qubit) for qubit in instruction.qubits]
+                assert qubits[0] is not None, f"Qubit index is None for instruction: {instruction}"
+                gate_key = f"{gate_name}{'_'.join(map(str, qubits))}"
+                
+                # 获取操作保真度
+                gate_error = backend.gate_dict.get(gate_key, {}).get("gate_error_value", None)
+                assert gate_error is not None, f"Gate error not found for gate_key: {gate_key} in backend.gate_dict"
+                costs.local_fidelity_loss += gate_error
+                costs.local_fidelity *= (1 - gate_error)
+
+        if isinstance(arg, MappingRecord):
+            # 更新record的costs
+            arg.costs += costs
+
+        return costs

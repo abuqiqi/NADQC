@@ -4,34 +4,10 @@ from typing import Any, Optional
 import networkx as nx
 import numpy as np
 import time
-from itertools import combinations
-from collections import defaultdict
 
+from .oee import OEE
 from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
-
-# # 构建一个全连接网络
-# def build_fc_network(qpus):
-#     server_coupling = [
-#         list(combination)
-#         for combination in combinations([i for i in range(len(qpus))], 2)
-#     ]
-#     qubits = [i for i in range(sum(qpus))]
-#     server_qubits_list = [
-#         qubits[sum(qpus[:i]) : sum(qpus[:i+1])]
-#         for i in range(len(qpus))
-#     ]
-#     server_qubits = {
-#         i: qubits_list
-#         for i, qubits_list in enumerate(server_qubits_list)
-#     }
-#     # 计算每个节点到其他节点的qubit swap cost
-#     swap_cost_matrix = np.zeros((len(qpus), len(qpus)), dtype=int)
-#     for i in range(len(qpus)):
-#         for j in range(len(qpus)):
-#             swap_cost_matrix[i][j] = 1
-#         swap_cost_matrix[i][i] = 0
-#     return swap_cost_matrix
 
 class FGPrOEE(Compiler):
     """
@@ -47,9 +23,10 @@ class FGPrOEE(Compiler):
     def name(self) -> str:
         return "FGP-rOEE"
 
-    def compile(self, circuit: QuantumCircuit, 
-                    network: Network, 
-                    config: Optional[dict[str, Any]] = None) -> MappingRecordList:
+    def compile(self, 
+                circuit: QuantumCircuit, 
+                network: Network, 
+                config: Optional[dict[str, Any]] = None) -> MappingRecordList:
         """
         Compile the circuit
         """
@@ -69,8 +46,10 @@ class FGPrOEE(Compiler):
         
         end_time = time.time()
 
-        mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
-        mapping_record_list = CompilerUtils.evaluate_total_costs(mapping_record_list)
+        # mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
+        # mapping_record_list = CompilerUtils.evaluate_total_costs(mapping_record_list)
+        mapping_record_list.summarize_total_costs()
+        mapping_record_list.update_total_costs(execution_time = end_time - start_time)
         mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
         
         # print(f"[DEBUG] num_swaps: {self.num_swaps}\nnum_gates: {self.num_gates}")
@@ -94,23 +73,33 @@ class FGPrOEE(Compiler):
 
         for lev in range(circuit_depth):
             lookahead_graph, time_slice_graph = self._build_lookahead_graphs(circuit, circuit_layers, lev)
-            mapping_record = self._k_way_rOEE(partition, 
-                                             lookahead_graph, 
-                                             time_slice_graph, 
-                                             network, 
-                                             iteration_count)
-            mapping_record.layer_start = lev
-            mapping_record.layer_end = lev
-            mapping_record_list.add_record(mapping_record)
+            partition = self._k_way_rOEE(partition,
+                                         lookahead_graph, 
+                                         time_slice_graph, 
+                                         network, 
+                                         iteration_count)
+            # 获取子线路
+            sub_qc = self._extract_subcircuit(circuit.num_qubits, circuit_layers, lev)
+
+            # 评估划分
+            record = MappingRecord(
+                layer_start = lev, 
+                layer_end = lev,
+                partition = partition,
+                mapping_type = "telegate"
+            )
+            _ = CompilerUtils.evaluate_local_telegate(record, sub_qc, network)
+
+            # 更新mapping_record_list
+            mapping_record_list.add_record(record)
+
             if lev > 0:
                 # TODO: CHECK
                 # self.num_swaps.append(self.calculate_nonlocal_communications(mapping_record_list.records[-2].partition, 
                 #                                                              mapping_record_list.records[-1].partition))
-
-                # 
-                CompilerUtils.evaluate_partition_switch(mapping_record_list.records[-2], 
-                                               mapping_record_list.records[-1],
-                                               network)
+                CompilerUtils.evaluate_teledata(mapping_record_list.records[-2],
+                                                mapping_record_list.records[-1],
+                                                network)
         return mapping_record_list
 
     def _build_lookahead_graphs(self, circuit: QuantumCircuit, 
@@ -154,15 +143,15 @@ class FGPrOEE(Compiler):
                    lookahead_graph: nx.Graph, 
                    time_slice_graph: nx.Graph, 
                    network: Network, 
-                   iteration_count: int) -> MappingRecord:
+                   iteration_count: int) -> list[list[int]]:
         nodes = list(lookahead_graph.nodes())
         n = len(nodes)
         cnt = 0
         k = len(partition)
 
-        costs = CompilerUtils.evaluate_partition(time_slice_graph, partition, network)
+        num_remote_hops = CompilerUtils.evaluate_remote_hops(time_slice_graph, partition, network)
 
-        while costs["remote_hops"] != 0:
+        while num_remote_hops != 0:
             cnt += 1
             if cnt > iteration_count:
                 break
@@ -173,7 +162,7 @@ class FGPrOEE(Compiler):
             for node in nodes:
                 current_col = next(j for j, subset in enumerate(partition) if node in subset)
                 for l in range(k):
-                    D[node, l] = self._calculate_d(lookahead_graph, node, partition[l], partition[current_col])
+                    D[node, l] = OEE._calculate_d(lookahead_graph, node, partition[l], partition[current_col])
             g_values = []
             exchange_pairs = []
             while len(C) > 1:
@@ -245,41 +234,32 @@ class FGPrOEE(Compiler):
                 partition[col_b].append(a)
                 partition[col_b].remove(b)
                 partition[col_a].append(b)
-        
-        costs = CompilerUtils.evaluate_partition(time_slice_graph, partition, network)
 
-        # # 
-        # self.num_gates.append(self.count_cut_edges(time_slice_graph, partition))
-        # assert costs["remote_hops"] == self.num_gates[-1], f"costs.remote_hops: {costs['remote_hops']}, num_gates: {self.num_gates[-1]}"
-        # # 
+        return partition
 
-        record = MappingRecord(
-            layer_start = 0,
-            layer_end = 0,
-            partition = partition,
-            mapping_type = "telegate",
-            costs = costs
-        )
+    def _extract_subcircuit(self, num_qubits: int, circuit_layers: list, level: int) -> QuantumCircuit:
+        sub_qc = QuantumCircuit(num_qubits)
+        for node in circuit_layers[level]["graph"].op_nodes():
+            sub_qc.append(node.op, qargs=node.qargs, cargs=node.cargs)
+        return sub_qc
 
-        return record
-
-    def _calculate_d(self, graph: nx.Graph, node: int, target_subset: list[int], current_subset: list[int]) -> float:
-        """
-        Calculate the D(i, l) value for a node and a target subset
-        """
-        w_target = self._calculate_w(graph, node, target_subset)
-        w_current = self._calculate_w(graph, node, current_subset)
-        return w_target - w_current
+    # def _calculate_d(self, graph: nx.Graph, node: int, target_subset: list[int], current_subset: list[int]) -> float:
+    #     """
+    #     Calculate the D(i, l) value for a node and a target subset
+    #     """
+    #     w_target = self._calculate_w(graph, node, target_subset)
+    #     w_current = self._calculate_w(graph, node, current_subset)
+    #     return w_target - w_current
     
-    def _calculate_w(self, graph: nx.Graph, node: int, subset: list[int]) -> float:
-        """
-        Calculate the sum of edge weights from a node to a subset of nodes
-        """
-        weight_sum = 0
-        for neighbor in subset:
-            if graph.has_edge(node, neighbor):
-                weight_sum += graph[node][neighbor].get('weight', 1)
-        return weight_sum
+    # def _calculate_w(self, graph: nx.Graph, node: int, subset: list[int]) -> float:
+    #     """
+    #     Calculate the sum of edge weights from a node to a subset of nodes
+    #     """
+    #     weight_sum = 0
+    #     for neighbor in subset:
+    #         if graph.has_edge(node, neighbor):
+    #             weight_sum += graph[node][neighbor].get('weight', 1)
+    #     return weight_sum
 
     # def count_cut_edges(self, graph, partitions):
     #     node_to_partition = {} # 构建节点到划分编号的映射

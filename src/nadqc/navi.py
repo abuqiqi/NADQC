@@ -490,7 +490,7 @@ class NAVI(Compiler):
             if i > 0:
                 prev_rec = mapping_record_list.records[-2]
                 curr_rec = mapping_record_list.records[-1]
-                cost_dict = CompilerUtils.evaluate_partition_switch(prev_rec, curr_rec, network)
+                cost_dict = CompilerUtils.evaluate_teledata(prev_rec, curr_rec, network)
                 comms = cost_dict.get("remote_swaps", 0)
                 
                 ctx.num_comms += comms
@@ -641,13 +641,13 @@ class NAVI(Compiler):
         # 获取左子线路的record
         if left_subc_idx != -1:
             left_record = mapping_record_list.records[left_subc_idx]
-            swap_costs += CompilerUtils.evaluate_partition_switch(left_record, telegate_record, ctx.network)["remote_swaps"]
+            swap_costs += CompilerUtils.evaluate_teledata(left_record, telegate_record, ctx.network)["remote_swaps"]
         
         # 获取右子线路的record
         right_record = None
         if right_subc_idx < len(mapping_record_list.records):
             right_record = copy.deepcopy(mapping_record_list.records[right_subc_idx])
-            swap_costs += CompilerUtils.evaluate_partition_switch(telegate_record, right_record, ctx.network)["remote_swaps"]
+            swap_costs += CompilerUtils.evaluate_teledata(telegate_record, right_record, ctx.network)["remote_swaps"]
         
         new_costs = cat_ent_costs + swap_costs
 

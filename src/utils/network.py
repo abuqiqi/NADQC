@@ -105,7 +105,7 @@ class Network:
                         count[s, v] += count[s, u]
         return dist, count
 
-    def _compute_effective_fidelity(self) -> tuple[np.ndarray, np.ndarray, list[list[list[int]]]]:
+    def _compute_effective_fidelity(self) -> tuple:
         """
         计算有效保真度、跳数和最优路径
         :return:
@@ -116,8 +116,10 @@ class Network:
         m = self.num_backends
         
         # 初始化矩阵
-        W_eff = np.zeros((m, m))
-        Hops = np.zeros((m, m), dtype=int)
+        # W_eff = np.zeros((m, m))
+        # Hops = np.zeros((m, m), dtype=int)
+        W_eff = [[0.0 for _ in range(m)] for __ in range(m)]
+        Hops = [[0 for _ in range(m)] for __ in range(m)]
         optimal_paths = [[[] for _ in range(m)] for __ in range(m)]  # m x m 空列表
         
         # 自环设置
@@ -141,6 +143,8 @@ class Network:
             for target in range(m):
                 if source == target:
                     continue
+
+                assert type(lengths) == dict and type(paths) == dict, "Expected lengths and paths to be dictionaries"
 
                 if target in lengths:
                     # 获取路径

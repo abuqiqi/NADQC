@@ -58,8 +58,9 @@ class DirectTelegatePartitioner(TelegatePartitioner):
             partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
 
         # 计算telegate代价
-        qig = CompilerUtils.build_qubit_interaction_graph(circuit)
-        costs = CompilerUtils.evaluate_partition(qig, partition, network)
+        # qig = CompilerUtils.build_qubit_interaction_graph(circuit)
+        # costs = CompilerUtils.evaluate_partition(qig, partition, network)
+        costs = CompilerUtils.evaluate_local_and_telegate(partition, circuit, network)
 
         return MappingRecord(
             layer_start  = layer_start,
@@ -115,19 +116,16 @@ class PytketDQCPartitioner(TelegatePartitioner):
         for i in range(circuit.num_qubits):
             target = distribution.placement.placement[i]
             partition[target].append(i)
+
+        # TODO: 计算cat-ent的telegate代价
+        costs = CompilerUtils.evaluate_local_and_telegate(partition, circuit, network)
         
         return MappingRecord(
             layer_start=layer_start,
             layer_end=layer_end,
             partition=partition,
             mapping_type="telegate",
-            costs={
-                "num_comms": distribution.cost(),
-                "remote_hops": distribution.cost(),
-                "remote_swaps": 0,
-                "fidelity_loss": 0,
-                "fidelity": 1
-            }
+            costs=costs
         )
 
 

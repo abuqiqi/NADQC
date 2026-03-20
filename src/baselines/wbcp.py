@@ -93,7 +93,7 @@ class WBCP(Compiler):
             partition = partition,
             mapping_type = "telegate"
         )
-        _ = CompilerUtils.evaluate_local_telegate(record, sub_qc, network)
+        _ = CompilerUtils.evaluate_local_and_telegate(record, sub_qc, network)
         mapping_record_list.add_record(record)
 
         # 处理后续的子线路
@@ -115,7 +115,7 @@ class WBCP(Compiler):
             current_partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
             current_partition = OEE.partition(current_partition, weighted_qig, network, iteration_count)
 
-            # TODO: 先确定partition，再确定logical到物理的映射
+            # 先确定partition，再确定logical到物理的映射
             current_partition = self._map_logical_to_physical(current_partition, qig, network)
 
             current_record = MappingRecord(
@@ -124,23 +124,23 @@ class WBCP(Compiler):
                 partition = current_partition,
                 mapping_type = "telegate"
             )
-            _ = CompilerUtils.evaluate_local_telegate(current_record, sub_qc, network)
+            _ = CompilerUtils.evaluate_local_and_telegate(current_record, sub_qc, network)
             costs_for_current_partition = CompilerUtils.evaluate_teledata(previous_record, current_record, network)
 
             # 检查沿用上一个partition是否更好
+            # 如果沿用上一个partition，只有local和remote telegate开销，没有teledata开销
             num_prev_remote_hops = CompilerUtils.evaluate_remote_hops(qig, previous_partition, network)
 
             # 比较哪个开销小
-            # TODO: 用哪个指标来衡量更好？目前先用total_fidelity_loss
             if num_prev_remote_hops < costs_for_current_partition.num_comms:
                 # 更新previous record的costs和layers
                 record = MappingRecord(
                     layer_start = i*win_len,
                     layer_end = right,
                     partition = previous_partition,
-                    mapping_type = "telegate",
-                    costs = costs_for_previous_partition
+                    mapping_type = "telegate"
                 )
+                _ = CompilerUtils.evaluate_local_and_telegate(record, sub_qc, network)
                 mapping_record_list.add_record(record)
             else:
                 mapping_record_list.add_record(current_record)
@@ -241,7 +241,7 @@ class WBCP(Compiler):
             weight = data["weight"]
             # 存储正向和反向键，确保双向查询都能拿到值
             inter_physical_qpu_weights[(physical_qpu_id, logical_qpu_id)] = weight
-            # inter_physical_qpu_weights[(v, u)] = weight TODO
+            inter_physical_qpu_weights[(logical_qpu_id, physical_qpu_id)] = weight
 
         # ---------- 若无组间通信，直接顺序映射 ----------
         if not inter_logical_qpu_weights:

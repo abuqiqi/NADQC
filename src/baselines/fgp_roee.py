@@ -88,7 +88,7 @@ class FGPrOEE(Compiler):
                 partition = partition,
                 mapping_type = "telegate"
             )
-            _ = CompilerUtils.evaluate_local_telegate(record, sub_qc, network)
+            _ = CompilerUtils.evaluate_local_and_telegate(record, sub_qc, network)
 
             # 更新mapping_record_list
             mapping_record_list.add_record(record)

@@ -45,7 +45,7 @@ class StaticOEE(Compiler):
             mapping_type = "telegate"
         )
 
-        _ = CompilerUtils.evaluate_local_telegate(record, circuit, network)
+        _ = CompilerUtils.evaluate_local_and_telegate(record, circuit, network)
         
         mapping_record_list = MappingRecordList()
         mapping_record_list.add_record(record)

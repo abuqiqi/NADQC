@@ -324,6 +324,32 @@ class CompilerUtils:
         return qig
 
     @staticmethod
+    def get_subcircuit_by_level(num_qubits: int, 
+                                circuit: QuantumCircuit, 
+                                circuit_layers: list[list[Any]], 
+                                layer_start: int, 
+                                layer_end: int) -> QuantumCircuit:
+        """
+        从DAGOpNode分层中提取子线路
+        """
+        subcircuit = QuantumCircuit(num_qubits)
+
+        # 遍历指定层级的DAGOpNode
+        for layer in circuit_layers[layer_start:layer_end + 1]:
+            for node in layer: # node 是 DAGOpNode 对象
+                if node.op.name == "barrier":
+                    continue
+                gate_instruction = node.op  # 获取门指令（Instruction对象）
+                # qubit_indices = [q._index for q in node.qargs]  # 提取量子比特索引
+                # if qubit_indices[0] == None:
+                qubit_indices = [circuit.qubits.index(q) for q in node.qargs]
+                assert qubit_indices[0] is not None, f"无法找到量子比特索引，node.qargs: {node.qargs}"
+                # 将门添加到子线路
+                subcircuit.append(gate_instruction, qubit_indices)
+        
+        return subcircuit
+
+    @staticmethod
     def evaluate_remote_hops(qig: nx.Graph, 
                            partition: list[list[int]], 
                            network: Any) -> int:
@@ -485,7 +511,7 @@ class CompilerUtils:
     #     # return mapping_record_list
 
     @staticmethod
-    def evaluate_local_telegate(
+    def evaluate_local_and_telegate(
         arg: MappingRecord | list[list[int]],  # 兼容两种类型：record / partition
         circuit: QuantumCircuit, 
         network: Network

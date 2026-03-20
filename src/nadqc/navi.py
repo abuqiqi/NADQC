@@ -6,17 +6,15 @@ import copy
 import numpy as np
 import networkx as nx
 
-from qiskit import QuantumCircuit, transpile
-from qiskit.converters import circuit_to_dag, dag_to_circuit
-from pytket.extensions.qiskit.qiskit_convert import qiskit_to_tk
-from pytket_dqc.networks import NISQNetwork
+from qiskit import QuantumCircuit
+from qiskit.converters import circuit_to_dag
 
 from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
-from .partitioner import PartitionerFactory
-from .partition_assigner import PartitionAssignerFactory
-from .mapper import MapperFactory
-from .telegate_partitioner import TelegatePartitionerFactory
+from .partitioner import Partitioner, PartitionerFactory
+from .partition_assigner import PartitionAssigner, PartitionAssignerFactory
+from .telegate_partitioner import TelegatePartitioner, TelegatePartitionerFactory
+from .mapper import Mapper, MapperFactory
 
 @dataclass
 class CompilationContext:
@@ -30,7 +28,7 @@ class CompilationContext:
     
     # --- 预处理状态 (Preprocessing State) ---
     dag: Any = None
-    circuit_layers: list[Any] = field(default_factory=list)
+    circuit_layers: list[list[Any]] = field(default_factory=list) # Any <- DAGOpNode
     multiq_layers: list[list[Any]] = field(default_factory=list)
     map_to_circuit_layer: dict[int, int] = field(default_factory=dict)
     gate_density: float = 0.0
@@ -55,10 +53,10 @@ class CompilationContext:
     swap_prefix_sums: list[int] = field(default_factory=list)
     
     # --- 运行时组件 (Runtime Components) ---
-    partitioner: Any = None
-    partition_assigner: Any = None
-    telegate_partitioner: Any = None
-    mapper: Any = None
+    partitioner: Optional[Partitioner] = None
+    partition_assigner: Optional[PartitionAssigner] = None
+    telegate_partitioner: Optional[TelegatePartitioner] = None
+    mapper: Optional[Mapper] = None
 
     # --- 编译阶段完成标志 ---
     preprocessed: bool = False
@@ -140,6 +138,7 @@ class NAVI(Compiler):
         ctx.partition_candidates = [ctx.P_table[i][j] for (i, j) in ctx.subc_ranges]
         
         # Step 6: 分配分区计划
+        assert ctx.partition_assigner is not None
         assign_result = ctx.partition_assigner.assign(ctx.partition_candidates)
         ctx.partition_plan = assign_result["partition_plan"]
 
@@ -150,13 +149,14 @@ class NAVI(Compiler):
         grouped_records = self._step_group_and_optimize(ctx, mapping_record_list)
 
         # Step 9: 最终映射 (考虑噪声)
+        assert ctx.mapper is not None
         final_result = ctx.mapper.map(grouped_records, ctx.circuit_layers, ctx.network)
 
         end_time = time.time()
         exec_time = end_time - start_time
 
-        final_result.add_cost("exec_time (sec)", exec_time)
-        final_result = CompilerUtils.evaluate_total_costs(final_result)
+        final_result.summarize_total_costs()
+        final_result.update_total_costs(execution_time = exec_time)
         final_result.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
 
         return final_result
@@ -238,7 +238,7 @@ class NAVI(Compiler):
         ctx.telegate_partitioner = TelegatePartitionerFactory.create_telegate_partitioner(telegate_partitioner_type)
 
         grouped_records = self._step_group_and_optimize(ctx, mapping_record_list)
-        grouped_records = CompilerUtils.evaluate_total_costs(grouped_records)
+        grouped_records.summarize_total_costs()
         
         ctx.hybrid_records = grouped_records
         ctx.telegate_optimized = True
@@ -270,7 +270,7 @@ class NAVI(Compiler):
         start_time = time.time()
         ctx.dag = circuit_to_dag(ctx.circuit)
         
-        circuit_layers = [] # TODO: 每一层存放的是原始量子线路上所有量子门，但注意，如果双量子比特门被拆分了，它也要被拆分，帮我写代码完成circuit_layers的构建
+        circuit_layers = [] # 每一层存放的是原始量子线路上所有量子门，如果双量子比特门被拆分了，它也要被拆分
         multiq_layers = []
         map_to_circuit_layer = {}
         # map_to_multiq_layer = {}
@@ -373,6 +373,8 @@ class NAVI(Compiler):
         
         qig = self._build_qubit_interaction_graph_by_level(ctx, (0, num_depths-1))
         is_changed = True
+
+        assert ctx.partitioner is not None
 
         for i in range(num_depths):
             # ===== P[i][numDepths-1] =====
@@ -479,19 +481,15 @@ class NAVI(Compiler):
                 layer_start=left,
                 layer_end=right,
                 partition=partition,
-                mapping_type="teledata",
-                costs={
-                    "num_comms": 0, "remote_hops": 0, "remote_swaps": 0,
-                    "fidelity_loss": 0, "fidelity": 1
-                } # 没有telegate操作
+                mapping_type="teledata"
             )
             mapping_record_list.add_record(record)
 
             if i > 0:
                 prev_rec = mapping_record_list.records[-2]
                 curr_rec = mapping_record_list.records[-1]
-                cost_dict = CompilerUtils.evaluate_teledata(prev_rec, curr_rec, network)
-                comms = cost_dict.get("remote_swaps", 0)
+                costs = CompilerUtils.evaluate_teledata(prev_rec, curr_rec, network)
+                comms = costs.remote_swaps
                 
                 ctx.num_comms += comms
                 swap_prefix_sums[i] = swap_prefix_sums[i-1] + comms
@@ -592,7 +590,7 @@ class NAVI(Compiler):
                     is_changed = True
         return is_changed
 
-    def _get_qig_partitions(self, qig: nx.Graph, partitioner):
+    def _get_qig_partitions(self, qig: nx.Graph, partitioner: Partitioner):
         components = [list(comp) for comp in nx.connected_components(qig)]
         return partitioner.partition(components)
 
@@ -622,7 +620,8 @@ class NAVI(Compiler):
         if left_subc_idx != -1:
             prev_partition = mapping_record_list.records[left_subc_idx].partition
         
-        # 2. 调用策略类进行划分 (不再在这里写 if/else)
+        # 2. 调用策略类进行划分
+        assert ctx.telegate_partitioner is not None
         telegate_record = ctx.telegate_partitioner.partition(
             circuit = sub_qc,
             network = ctx.network,
@@ -634,20 +633,20 @@ class NAVI(Compiler):
         )
 
         # telegate_record = self._hyper_partition(ctx, left, right)
-        cat_ent_costs = telegate_record.costs["remote_hops"]
+        cat_ent_costs = telegate_record.costs.remote_hops
         
         swap_costs = 0
 
         # 获取左子线路的record
         if left_subc_idx != -1:
             left_record = mapping_record_list.records[left_subc_idx]
-            swap_costs += CompilerUtils.evaluate_teledata(left_record, telegate_record, ctx.network)["remote_swaps"]
+            swap_costs += CompilerUtils.evaluate_teledata(left_record, telegate_record, ctx.network).remote_swaps
         
         # 获取右子线路的record
         right_record = None
         if right_subc_idx < len(mapping_record_list.records):
             right_record = copy.deepcopy(mapping_record_list.records[right_subc_idx])
-            swap_costs += CompilerUtils.evaluate_teledata(telegate_record, right_record, ctx.network)["remote_swaps"]
+            swap_costs += CompilerUtils.evaluate_teledata(telegate_record, right_record, ctx.network).remote_swaps
         
         new_costs = cat_ent_costs + swap_costs
 
@@ -682,13 +681,18 @@ class NAVI(Compiler):
         """
         获取原线路中[ori_left, ori_right]的子线路
         """
-        # layers = list(ctx.dag.layers())
-        sub_dag = ctx.dag.copy_empty_like()
+        subcircuit = QuantumCircuit(ctx.circuit.num_qubits)
         for lev in range(ori_left, ori_right + 1):
-            # for node in layers[lev]["graph"].op_nodes():
             for node in ctx.circuit_layers[lev]:
-                sub_dag.apply_operation_back(node.op, node.qargs, node.cargs)
-        return dag_to_circuit(sub_dag) # TODO: 改成circuit_layers的形式
+                subcircuit.append(node.op, node.qargs, getattr(node, 'cargs', []))
+        return subcircuit
+        # # layers = list(ctx.dag.layers())
+        # sub_dag = ctx.dag.copy_empty_like()
+        # for lev in range(ori_left, ori_right + 1):
+        #     # for node in layers[lev]["graph"].op_nodes():
+        #     for node in ctx.circuit_layers[lev]:
+        #         sub_dag.apply_operation_back(node.op, node.qargs, node.cargs)
+        # return dag_to_circuit(sub_dag) # 改成circuit_layers的形式
 
     def reconstruct_and_visualize_circuit(self, ctx: CompilationContext, verbose: bool = True) -> QuantumCircuit:
         """

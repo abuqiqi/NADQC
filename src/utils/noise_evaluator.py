@@ -20,7 +20,7 @@ class NoiseEvaluator:
         pass
 
     @classmethod
-    def evaluate_local_telegate(
+    def evaluate_local_and_telegate(
         cls,
         mapping_record: MappingRecord,
         circuit: QuantumCircuit,

@@ -3,9 +3,12 @@ import dataclasses
 import time
 import numpy as np
 import itertools
-from typing import Any, Optional
+from typing import Any
+import copy
 
-from ..compiler import MappingRecordList
+from qiskit import QuantumCircuit
+
+from ..compiler import MappingRecordList, CompilerUtils
 from ..utils import Network
 
 class Mapper(ABC):
@@ -24,6 +27,7 @@ class Mapper(ABC):
     @abstractmethod
     def map(self,
             mapping_record_list: MappingRecordList,
+            circuit: QuantumCircuit,
             circuit_layers: list[Any],
             network: Network) -> MappingRecordList:
         """
@@ -34,43 +38,44 @@ class Mapper(ABC):
         """
         pass
 
-    # def _compute_switch_demand(self, 
-    #                            current_partition: list[list[int]], 
-    #                            next_partition: list[list[int]]) -> tuple[np.ndarray, dict]:
-    #     """
-    #     计算单次切换的通信需求
-    #     :param current_partition: 当前时间片的分区
-    #     :param next_partition: 下一时间片的分区
-    #     :return: (D_switch, qubit_movements)
-    #     """
-    #     # 创建量子比特到逻辑QPU的映射
-    #     current_qubit_to_logical = {}
-    #     for logical_idx, group in enumerate(current_partition):
-    #         for qubit in group:
-    #             current_qubit_to_logical[qubit] = logical_idx
+    def _compute_switch_demand(self, 
+                               current_partition: list[list[int]], 
+                               next_partition: list[list[int]]
+        ) -> tuple[np.ndarray, dict]:
+        """
+        计算单次切换的通信需求
+        :param current_partition: 当前时间片的分区
+        :param next_partition: 下一时间片的分区
+        :return: (D_switch, qubit_movements)
+        """
+        # 创建量子比特到逻辑QPU的映射
+        current_qubit_to_logical = {}
+        for logical_idx, group in enumerate(current_partition):
+            for qubit in group:
+                current_qubit_to_logical[qubit] = logical_idx
         
-    #     next_qubit_to_logical = {}
-    #     for logical_idx, group in enumerate(next_partition):
-    #         for qubit in group:
-    #             next_qubit_to_logical[qubit] = logical_idx
+        next_qubit_to_logical = {}
+        for logical_idx, group in enumerate(next_partition):
+            for qubit in group:
+                next_qubit_to_logical[qubit] = logical_idx
         
-    #     # 初始化需求矩阵
-    #     m_logical_current = len(current_partition)
-    #     m_logical_next = len(next_partition)
-    #     D_switch = np.zeros((m_logical_current, m_logical_next))
+        # 初始化需求矩阵
+        m_logical_current = len(current_partition)
+        m_logical_next = len(next_partition)
+        D_switch = np.zeros((m_logical_current, m_logical_next))
         
-    #     # 记录每个量子比特的移动
-    #     qubit_movements = {}
+        # 记录每个量子比特的移动
+        qubit_movements = {}
         
-    #     # 计算需求
-    #     num_qubits = len(current_qubit_to_logical)
-    #     for qubit in range(num_qubits):
-    #         curr_logical = current_qubit_to_logical[qubit]
-    #         next_logical = next_qubit_to_logical[qubit]
-    #         qubit_movements[qubit] = (curr_logical, next_logical)
-    #         D_switch[curr_logical][next_logical] += 1
+        # 计算需求
+        num_qubits = len(current_qubit_to_logical)
+        for qubit in range(num_qubits):
+            curr_logical = current_qubit_to_logical[qubit]
+            next_logical = next_qubit_to_logical[qubit]
+            qubit_movements[qubit] = (curr_logical, next_logical)
+            D_switch[curr_logical][next_logical] += 1
 
-    #     return D_switch, qubit_movements
+        return D_switch, qubit_movements
 
     # def _evaluate_switch_cost(self, 
     #                           network: Network,
@@ -162,6 +167,7 @@ class DirectMapper(Mapper):
 
     def map(self,
             mapping_record_list: MappingRecordList,
+            circuit: QuantumCircuit,
             circuit_layers: list[Any],
             network: Network) -> MappingRecordList:
         """
@@ -179,16 +185,105 @@ class GreedyMapper(Mapper):
     
     def map(self,
             mapping_record_list: MappingRecordList,
+            circuit: QuantumCircuit,
             circuit_layers: list[Any],
-            network: Network) -> MappingRecordList:
+            network: Network
+        ) -> MappingRecordList:
         
+        start_time = time.time()
         # 对于每一段子线路，我们尝试找到一个局部最优的映射
+        k = len(mapping_record_list.records)  # 时间片数量
+        n_physical = network.num_backends  # 物理QPU数量
 
-        # 初始线路，评估它到目标网络的保真度损失
+        all_perms = list(itertools.permutations(range(n_physical)))
 
-        # 后续的，评估每个子线路在当前映射下的保真度损失，并尝试通过局部调整映射来减少损失
+        for t in range(k): # 对于每一段线路
+            # 使用贪心算法为下一时间片找到映射
+            curr_record = mapping_record_list.records[t]
+            original_partition = curr_record.partition
+
+            # 获取子线路
+            subcircuit = CompilerUtils.get_subcircuit_by_level(
+                num_qubits=circuit.num_qubits,
+                circuit=circuit,
+                circuit_layers=circuit_layers,
+                layer_start=curr_record.layer_start,
+                layer_end=curr_record.layer_end
+            )
+
+            # 记录最佳排列
+            best_perm = None
+            min_costs = None
+            min_num_comms = float('inf')
+            min_fidelity_loss = float('inf')
+
+            # perm所有可能的排列
+            for perm in all_perms:
+                # 获取映射顺序
+                order = list(perm)
+
+                # 根据order的顺序构建新的partition
+                partition = []
+                for idx in order:
+                    partition.append(original_partition[idx])
+
+                # 评估当前排列的local_and_telegate_cost
+                costs = CompilerUtils.evaluate_local_and_telegate(
+                    partition,
+                    subcircuit,
+                    network
+                )
+
+                # 评估当前排列和前一个排列（如果有）的teledata_cost
+                if t > 0:
+                    costs += CompilerUtils.evaluate_teledata(
+                        mapping_record_list.records[t-1].partition,
+                        partition,
+                        network
+                    )
+
+                curr_fidelity_loss = costs.total_fidelity_loss
+                curr_num_comms = costs.num_comms
+
+                if curr_fidelity_loss < min_fidelity_loss:
+                    # 比较最小num_comms和最小fidelity_loss的排列是否一致
+                    if curr_num_comms < min_num_comms:
+                        min_num_comms = curr_num_comms
+                    else:
+                        print(f"[NOTE] Found a permutation with lower fidelity loss but higher communication cost: {curr_num_comms} vs {min_num_comms}")
+                    min_fidelity_loss = curr_fidelity_loss
+                    best_perm = perm
+                    min_costs = costs
+
+            # 调整curr_record.partition成最佳排列
+            assert best_perm is not None and min_costs is not None, "未找到最佳排列，可能存在问题"
+            best_partition = []
+            for idx in best_perm:
+                best_partition.append(original_partition[idx])
+            curr_record.partition = copy.deepcopy(best_partition)
+            curr_record.costs = copy.deepcopy(min_costs)
+
+        end_time = time.time()
+        print(f"[INFO] Greedy Mapper completed in {end_time - start_time:.2f} seconds.")
+        return mapping_record_list
+
+
+class DPMapper(Mapper):
+
+    @property
+    def name(self) -> str:
+        """获取映射器名称"""
+        return "DP Mapper"
+
+    def map(self,
+            mapping_record_list: MappingRecordList,
+            circuit: QuantumCircuit,
+            circuit_layers: list[Any],
+            network: Network
+        ) -> MappingRecordList:
 
         return mapping_record_list
+
 
 # class HybridMapper(Mapper):
 #     """

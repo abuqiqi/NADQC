@@ -568,7 +568,7 @@ class CompilerUtils:
                 # 更新操作中的量子比特编号为子线路中的编号
                 mapped_qubits = [qubit_to_subcircuit[qubit] for qubit in qubits]
                 subcircuits[partition_idx].append(instruction.operation, mapped_qubits)
-                print(f"[DEBUG] Added instruction {instruction.operation.name} on qubits {mapped_qubits} to subcircuit {partition_idx}")
+                # print(f"[DEBUG] Added instruction {instruction.operation.name} on qubits {mapped_qubits} to subcircuit {partition_idx}")
             else: # 操作跨越多个分区，为telegate操作
                 # 对qubits里的每一对相邻qubits，算作一组remote_hop
                 # 直接统计跨分区的telegate保真度损失
@@ -591,6 +591,7 @@ class CompilerUtils:
                 subcircuit,
                 coupling_map=backend.coupling_map,
                 basis_gates=backend.basis_gates,
+                optimization_level=0
             )
 
             # 统计每个量子门的保真度损失

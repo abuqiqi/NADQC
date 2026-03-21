@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
-import dataclasses
 import time
 import numpy as np
 import itertools
-from typing import Any
+from typing import Any, Optional
 import copy
+from math import inf
 
 from qiskit import QuantumCircuit
 
-from ..compiler import MappingRecordList, CompilerUtils
+from ..compiler import MappingRecordList, CompilerUtils, ExecCosts
 from ..utils import Network
 
 class Mapper(ABC):
@@ -281,7 +281,112 @@ class DPMapper(Mapper):
             circuit_layers: list[Any],
             network: Network
         ) -> MappingRecordList:
+        """
+        使用动态规划为每个时间片选择最优的物理QPU映射（排列），
+        使得所有时间片的总成本（保真度损失+通信成本）最小。
+        """
+        start_time = time.time()
+        k = len(mapping_record_list.records)          # 时间片数量
+        n_physical = network.num_backends             # 物理QPU数量
 
+        # 所有可能的物理QPU排列（即映射状态）
+        all_perms = list(itertools.permutations(range(n_physical)))
+        num_states = len(all_perms)
+
+        # ---------- 预计算每个时间片各状态下的 local_and_telegate 成本 ----------
+        telegate_costs: list[list[ExecCosts]] = [] # telegate_costs[t][idx] -> Costs 对象
+        for t in range(k):
+            record = mapping_record_list.records[t]
+            original_partition = record.partition
+            subcircuit = CompilerUtils.get_subcircuit_by_level(
+                num_qubits=circuit.num_qubits,
+                circuit=circuit,
+                circuit_layers=circuit_layers,
+                layer_start=record.layer_start,
+                layer_end=record.layer_end
+            )
+            cost_list = []
+            for perm in all_perms:
+                partition = [original_partition[idx] for idx in perm]
+                costs = CompilerUtils.evaluate_local_and_telegate(partition, subcircuit, network)
+                cost_list.append(costs)
+            telegate_costs.append(cost_list)
+
+        # ---------- 预计算相邻时间片之间的 teledata 成本 ----------
+        teledata_costs: list[list[list[ExecCosts]]] = []       # teledata_costs[t][prev_idx][curr_idx] 对应从 t 到 t+1 的转移成本
+        for t in range(k - 1):
+            record_prev = mapping_record_list.records[t]
+            record_curr = mapping_record_list.records[t+1]
+            orig_part_prev = record_prev.partition
+            orig_part_curr = record_curr.partition
+            # 构建转移矩阵
+            matrix: list[list[ExecCosts]] = [[ExecCosts()] * num_states for _ in range(num_states)]
+            for prev_idx, perm_prev in enumerate(all_perms):
+                partition_prev = [orig_part_prev[idx] for idx in perm_prev]
+                for curr_idx, perm_curr in enumerate(all_perms):
+                    partition_curr = [orig_part_curr[idx] for idx in perm_curr]
+                    costs = CompilerUtils.evaluate_teledata(partition_prev, partition_curr, network)
+                    matrix[prev_idx][curr_idx] = costs
+            teledata_costs.append(matrix)
+
+        # ---------- 动态规划 ----------
+        # dp[t][idx] 存储到时间片 t 状态 idx 的最小累计成本（元组：(fidelity_loss, num_comms)）
+        # dp: list[list[tuple[float, int]]] = [[(float(inf), 9999999)] * num_states for _ in range(k)]
+        dp: list[list[tuple[float, int]]] = [
+            [(inf, -1) for _ in range(num_states)] for _ in range(k)
+        ]
+        # back[t][idx] 存储达到该状态的最优前一状态索引
+        back: list[list[int]] = [[-1 for _ in range(num_states)] for _ in range(k)]
+
+        # 初始化第一个时间片
+        for idx in range(num_states):
+            cost = telegate_costs[0][idx]
+            dp[0][idx] = (cost.total_fidelity_loss, cost.num_comms)
+            back[0][idx] = -1
+
+        # 递推后续时间片
+        for t in range(1, k):
+            for curr_idx in range(num_states):
+                curr_telegate = telegate_costs[t][curr_idx]
+                curr_telegate_tuple = (curr_telegate.total_fidelity_loss, curr_telegate.num_comms)
+                best_cost = (inf, 0)
+                best_prev = -1
+                for prev_idx in range(num_states):
+                    prev_cost = dp[t-1][prev_idx]
+                    teledata_cost = teledata_costs[t-1][prev_idx][curr_idx]   # 从 t-1 到 t 的转移成本
+                    # assert isinstance(prev_cost, tuple), f"Expected tuple, got {type(prev_cost)}"
+                    # assert isinstance(tel, ExecCosts), f"Expected ExecCosts, got {type(tel)}"
+                    tel_tuple = (teledata_cost.total_fidelity_loss, teledata_cost.num_comms)
+                    total = (prev_cost[0] + curr_telegate_tuple[0] + tel_tuple[0],
+                             prev_cost[1] + curr_telegate_tuple[1] + tel_tuple[1])
+                    if total < best_cost:
+                        best_cost = total
+                        best_prev = prev_idx
+                dp[t][curr_idx] = best_cost
+                back[t][curr_idx] = best_prev
+
+        # ---------- 回溯找到最优路径 ----------
+        best_last = min(range(num_states), key=lambda i: dp[k-1][i])
+        perm_indices = [0] * k
+        perm_indices[k-1] = best_last
+        for t in range(k-2, -1, -1):
+            perm_indices[t] = back[t+1][perm_indices[t+1]]
+
+        # ---------- 更新映射记录 ----------
+        for t in range(k):
+            record = mapping_record_list.records[t]
+            perm = all_perms[perm_indices[t]]
+            original_partition = record.partition
+            best_partition = [original_partition[idx] for idx in perm]
+            record.partition = copy.deepcopy(best_partition)
+
+            # 计算该时间片对应的成本对象
+            record.costs = copy.deepcopy(telegate_costs[t][perm_indices[t]])
+            if t != 0:
+                record.costs += teledata_costs[t-1][perm_indices[t-1]][perm_indices[t]]
+
+        end_time = time.time()
+        print(f"[INFO] DP Mapper completed in {end_time - start_time:.2f} seconds.")
         return mapping_record_list
 
 
@@ -341,7 +446,8 @@ class MapperFactory:
         "direct": "DirectMapper",
         # "link_oriented": "LinkOrientedMapper",
         # "exact": "ExactOptimizationMapper",
-        # "greedy": "GreedyMapper"
+        "greedy": "GreedyMapper",
+        "dp": "DPMapper"
     }
     
     @classmethod

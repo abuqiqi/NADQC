@@ -13,9 +13,9 @@ from QASMBench.interface.qiskit import QASMBenchmark
 # basis_gates = ["cu1", "u3"]
 # basis_gates=["cu1", "rz", "h"] # Pytket-DQC
 # basis_gates = ["crz", "rz", "h"] # AutoComm rebuttal
-two_qubit_gates = ["ecr", "cx", "cz", "cu1", "cp", "crz", "swap"]
+# two_qubit_gates = ["ecr", "cx", "cz", "cu1", "cp", "crz", "swap"]
 
-def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates=["cu1", "u3"]):
+def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gates):
     assert num_qpus == len(qpus), "[ERROR] num_qpus != len(qpus)"
     
     circ = None
@@ -78,7 +78,6 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates=["cu1", "u3"]):
     assert total_gates > 0, "[ERROR] An empty circuit."
     
     # 计算2-qubit门数量
-    # 从basis_gates中筛选出2-qubit门
     two_qubit_gate_counts = {gate: count for gate, count in gate_counts.items() if gate in two_qubit_gates}
     num_2q_gates = sum(two_qubit_gate_counts.values())
 
@@ -100,7 +99,9 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates=["cu1", "u3"]):
         "#2Q Gates": num_2q_gates,
         "#Depth": trans_circ.depth(),
         "#QPUs": num_qpus,
-        "QPUs": qpus
+        "QPUs": qpus,
+        "Basis Gates": basis_gates,
+        "2Q Gate Names": two_qubit_gates
     }
 
     return circ, trans_circ, task_info

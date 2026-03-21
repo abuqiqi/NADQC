@@ -159,6 +159,7 @@ class QiskitBackendImporter:
         self._save_to_excel(basic_df, gate_df, qubit_df, general_df, output_path)
         print(f'已生成 Excel：{output_path}')
 
+
 class Backend:
     def __init__(self, global_config: dict = {}, backend_config: dict = {}):
         # 初始化QPU上的噪声信息
@@ -225,7 +226,7 @@ class Backend:
         if isinstance(self.coupling_map, str): # 字符串转列表
             self.coupling_map = json.loads(self.coupling_map.replace("'", '"'))
         # 初始化basis gate set
-        self.basis_gates = self._get_basis_gates()
+        self.basis_gates, self.two_qubit_gates = self._get_basis_gates()
         return
 
     def _download_backend_data(self, config: dict, backend_name: str, date: datetime.datetime):
@@ -408,8 +409,15 @@ class Backend:
             # 'general_info': self.general_info
         }
 
-    def _get_basis_gates(self) -> list[str]:
+    def _get_basis_gates(self) -> tuple[list[str], set[str]]:
         basis_gates = set()
+        two_qubit_gates = set()
         for gate in self.gate_info:
+            if len(gate['qubits'].split(',')) > 2:
+                print(f"[WARNING] Found gate with more than 2 qubits: {gate['name']} with qubits {gate['qubits']}, skipping it for basis gate set.")
+                continue
             basis_gates.add(gate['gate'])
-        return list(basis_gates)
+            if len(gate['qubits'].split(',')) == 2:
+                two_qubit_gates.add(gate['gate'])
+        return list(basis_gates), two_qubit_gates
+

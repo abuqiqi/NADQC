@@ -6,14 +6,17 @@ import matplotlib.pyplot as plt
 from collections import deque
 import os
 
+from .backend import Backend
+
 class Network:
-    def __init__(self, network_config: dict, backend_list: list):
+    def __init__(self, network_config: dict, backend_list: list[Backend]):
         self.num_backends = len(backend_list)
         self.network_coupling = self._build_network_coupling(network_config)
         self.network_graph = self._build_weighted_network_graph(self.network_coupling)
         self.W_eff, self.Hops, self.optimal_paths = self._compute_effective_fidelity()
         self.backends = backend_list
         self.backend_sizes = [backend.num_qubits for backend in self.backends]
+        self.basis_gates, self.two_qubit_gates = self._get_basis_gates(backend_list)
         return
 
     @property
@@ -316,6 +319,17 @@ class Network:
         server_qubits = {i: qlist for i, qlist in enumerate(server_qubits_list)}
 
         return server_coupling, server_qubits
+
+    def _get_basis_gates(self, backend_list: list[Backend]):
+        # 理论上所有后端用同样的basis gates
+        basis_gates = backend_list[0].basis_gates  # 从第一个后端开始，初始化basis_gates集合
+        two_qubit_gates = backend_list[0].two_qubit_gates  # 从第一个后端开始，初始化two_qubit_gates集合
+        # 从每一个backend中获取basis_gates，假设和basis_gates不同，发出警告
+        for backend in backend_list:
+            if set(backend.basis_gates) != set(basis_gates):
+                print(f"[Warning] Backend {backend.name} has different basis gates: {backend.basis_gates} vs {basis_gates}")
+
+        return basis_gates, two_qubit_gates
 
 """
 # 构建一个全连接网络

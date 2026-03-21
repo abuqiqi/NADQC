@@ -152,6 +152,7 @@ def write_compiler_results_to_csv(
     
     # 1.2 提取所有指标名称（取第一个编译器的指标作为基准，确保所有编译器指标一致）
     first_compiler = compiler_names[0]
+    print(result_info[first_compiler])
     metrics = list(result_info[first_compiler].keys())
     
     # 1.3 整理基础列（circuit_name + task_info的所有键）

@@ -150,7 +150,12 @@ class NAVI(Compiler):
 
         # Step 9: 最终映射 (考虑噪声)
         assert ctx.mapper is not None
-        final_result = ctx.mapper.map(grouped_records, ctx.circuit_layers, ctx.network)
+        final_result = ctx.mapper.map(
+            grouped_records, 
+            ctx.circuit,
+            ctx.circuit_layers, 
+            ctx.network
+        )
 
         end_time = time.time()
         exec_time = end_time - start_time
@@ -254,7 +259,12 @@ class NAVI(Compiler):
         ctx.mapper = MapperFactory.create_mapper(mapper_type)
 
         # 获取评估过总成本的final_records
-        ctx.final_records = ctx.mapper.map(ctx.hybrid_records, ctx.circuit_layers, ctx.network)
+        ctx.final_records = ctx.mapper.map(
+            ctx.hybrid_records, 
+            ctx.circuit,
+            ctx.circuit_layers, 
+            ctx.network
+        )
 
         return ctx
 

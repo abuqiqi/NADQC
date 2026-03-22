@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 import dataclasses
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import networkx as nx
 import json
 import numpy as np
@@ -222,7 +222,7 @@ class MappingRecordList:
         return
 
     @staticmethod
-    def _convert_numpy_types(obj: Any) -> Any: # TODO: remove
+    def _convert_numpy_types(obj: Any) -> Any:
         """
         递归转换所有NumPy类型为原生Python类型
         支持：字典、列表、元组、np.int64/np.float64等

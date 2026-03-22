@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import copy
-from typing import List, Any, Dict
+from typing import Any
 
 
 class Partitioner(ABC):
@@ -9,7 +9,7 @@ class Partitioner(ABC):
     """
     
     @abstractmethod
-    def partition(self, components: List[List[int]]) -> List[List[List[int]]]:
+    def partition(self, components: list[list[int]]) -> list[list[list[int]]]:
         """
         将量子电路组件分配到不同QPU上
         :param components: 量子电路组件列表，每个组件是一个量子比特列表
@@ -25,43 +25,6 @@ class Partitioner(ABC):
         pass
 
 
-class PartitionerFactory:
-    """分区器工厂类"""
-    _registry = {
-        "greedy": "GreedyPartitioner",
-        "dynamic_programming": "DynamicProgrammingPartitioner", 
-        "recursive_dp": "RecursiveDynamicProgrammingPartitioner"
-    }
-    
-    @classmethod
-    def create_partitioner(cls, partitioner_type: str, network, max_options: int = 1) -> Partitioner:
-        partitioner_type = partitioner_type.lower()
-        if partitioner_type not in cls._registry:
-            available = ", ".join(cls._registry.keys())
-            raise ValueError(f"Unknown partitioner: {partitioner_type}, available: {available}")
-        
-        # 从注册表获取类名，然后创建实例
-        partitioner_class_name = cls._registry[partitioner_type]
-        partitioner_class = globals()[partitioner_class_name]
-        return partitioner_class(network, max_options)
-    
-    @classmethod
-    def register_partitioner(cls, name: str, class_name: str):
-        """动态注册新的分区器类型"""
-        cls._registry[name] = class_name
-    
-    @classmethod
-    def unregister_partitioner(cls, name: str):
-        """移除注册的分区器类型"""
-        if name in cls._registry:
-            del cls._registry[name]
-    
-    @classmethod
-    def get_available_partitioners(cls):
-        """获取所有可用的分区器类型"""
-        return list(cls._registry.keys())
-
-
 class BasePartitioner(Partitioner):
     """
     基础K路分区器，提取公共方法和属性
@@ -72,7 +35,7 @@ class BasePartitioner(Partitioner):
         self.max_options = max_options
         self.metrics = {}
 
-    def get_metrics(self) -> Dict[str, float]:
+    def get_metrics(self) -> dict[str, float]:
         """获取分区性能指标"""
         return self.metrics
 
@@ -80,7 +43,9 @@ class BasePartitioner(Partitioner):
         """获取分区器名称"""
         return "Base K-Way Partitioner"
 
-    def _group_components_to(self, target_size: int, component_sizes: List[int]):
+    def _group_components_to(self, 
+                             target_size: int, 
+                             component_sizes: list[int]) -> list[list[int]]:
         """
         找出component_sizes中的元素的组合，使得其和等于target_size
         component_sizes: list[int]，每个连通分量的大小
@@ -100,7 +65,7 @@ class BasePartitioner(Partitioner):
                 dp[i][j] = dp[i][j] or dp[i-1][j]
         return dp
 
-    def _find_target(self, dp: List[List[int]], num_qubits: int, QPU0: int, QPU1: int) -> int:
+    def _find_target(self, dp: list[list[int]], num_qubits: int, QPU0: int, QPU1: int) -> int:
         """
         针对QPU0的容量，找到可行的target值，尽可能多放
         """
@@ -112,7 +77,12 @@ class BasePartitioner(Partitioner):
             j -= 1
         return -1
 
-    def _trace(self, dp: List[List[int]], components: List[List[int]], i: int, j: int, legal_partitions: List[List[List[int]]]):
+    def _trace(self, 
+               dp: list[list[int]], 
+               components: list[list[int]], 
+               i: int, 
+               j: int, 
+               legal_partitions: list[list[int]]):
         def add(component, legal_partitions):
             for partition in legal_partitions:
                 partition.extend(component)
@@ -129,10 +99,9 @@ class BasePartitioner(Partitioner):
         # 考虑是否加入第i个component
         if dp[i-1][j] == 1:  # 不加第i个component
             L0 = self._trace(dp, components, i-1, j, legal_partitions)
-        # TODO: 如果legal_partitions的长度到了self.max_options，不再添加新的分支
+        # 如果legal_partitions的长度到了self.max_options，不再添加新的分支
         if len(L0) >= self.max_options and len(L0[0]) > 0:
             return L0
-        # [NOTE] to speedup the trace, we only backtrack one branch
         elif len(components[i]) <= j and dp[i-1][j-len(components[i])] == 1:  # 加第i个component
             L1 = self._trace(dp, components, i-1, j-len(components[i]), legal_partitions)
             L1 = add(components[i], L1)
@@ -142,14 +111,14 @@ class BasePartitioner(Partitioner):
             return L0
         return L0 + L1
 
-    def _sort_partitions(self, legal_partitions: List[List[List[int]]]) -> List[List[List[int]]]:
+    def _sort_partitions(self, legal_partitions: list[list[int]]) -> list[list[int]]:
         # legal_partitions是一个二维数组，代表多种可以放在QPU0上的合法划分
         for part in legal_partitions:
             part.sort()
         sorted_partitions = sorted(legal_partitions, key=lambda x: ''.join(map(str, x)))
         return sorted_partitions
 
-    def _get_remaining_components(self, components: List[List[int]], partition: List[int]) -> List[List[int]]:
+    def _get_remaining_components(self, components: list[list[int]], partition: list[int]) -> list[list[int]]:
         """
         从components中删除出现在partition里的qubit，返回新的components
         """
@@ -170,7 +139,7 @@ class GreedyPartitioner(BasePartitioner):
     def get_name(self) -> str:
         return "Greedy Partitioner"
 
-    def partition(self, components: List[List[int]]) -> List[List[List[int]]]:
+    def partition(self, components: list[list[int]]) -> list[list[list[int]]]:
         """
         使用贪心策略进行分区
         """
@@ -205,7 +174,7 @@ class DynamicProgrammingPartitioner(BasePartitioner):
     def get_name(self) -> str:
         return "Dynamic Programming Partitioner"
 
-    def partition(self, components: List[List[int]]) -> List[List[List[int]]]:
+    def partition(self, components: list[list[int]]) -> list[list[list[int]]]:
         """
         使用动态规划进行分区
         """
@@ -245,7 +214,7 @@ class RecursiveDynamicProgrammingPartitioner(BasePartitioner):
     def get_name(self) -> str:
         return "Recursive Dynamic Programming Partitioner"
 
-    def partition(self, components: List[List[int]]) -> List[List[List[int]]]:
+    def partition(self, components: list[list[int]]) -> list[list[list[int]]]:
         """
         利用递归和动态规划，返回多种可行的划分
         """
@@ -254,7 +223,7 @@ class RecursiveDynamicProgrammingPartitioner(BasePartitioner):
         self._recursive_partition_helper([], temp_components, 0)
         return self.legal_partitions[:self.max_options]
 
-    def _recursive_partition_helper(self, current_partition: List[List[int]], components: List[List[int]], qpu_idx: int):
+    def _recursive_partition_helper(self, current_partition: list[list[int]], components: list[list[int]], qpu_idx: int):
         """
         递归辅助函数：
         - current_partition: 当前已经分配的划分（每个QPU对应一个划分）
@@ -315,6 +284,44 @@ class RecursiveDynamicProgrammingPartitioner(BasePartitioner):
             current_partition.pop()
 
 
+class PartitionerFactory:
+    """分区器工厂类"""
+    _registry = {
+        "greedy": "GreedyPartitioner",
+        "dynamic_programming": "DynamicProgrammingPartitioner", 
+        "recursive_dp": "RecursiveDynamicProgrammingPartitioner"
+    }
+    
+    @classmethod
+    def create_partitioner(cls, partitioner_type: str, network, max_options: int = 1) -> Partitioner:
+        partitioner_type = partitioner_type.lower()
+        if partitioner_type not in cls._registry:
+            available = ", ".join(cls._registry.keys())
+            raise ValueError(f"Unknown partitioner: {partitioner_type}, available: {available}")
+        
+        # 从注册表获取类名，然后创建实例
+        partitioner_class_name = cls._registry[partitioner_type]
+        partitioner_class = globals()[partitioner_class_name]
+        return partitioner_class(network, max_options)
+    
+    @classmethod
+    def register_partitioner(cls, name: str, class_name: str):
+        """动态注册新的分区器类型"""
+        cls._registry[name] = class_name
+    
+    @classmethod
+    def unregister_partitioner(cls, name: str):
+        """移除注册的分区器类型"""
+        if name in cls._registry:
+            del cls._registry[name]
+    
+    @classmethod
+    def get_available_partitioners(cls):
+        """获取所有可用的分区器类型"""
+        return list(cls._registry.keys())
+
+
+
 # class NoiseAwarePartitioner(BasePartitioner):
 #     """
 #     噪声感知分区器：考虑量子硬件噪声特性的分区算法
@@ -327,7 +334,7 @@ class RecursiveDynamicProgrammingPartitioner(BasePartitioner):
 #     def get_name(self) -> str:
 #         return "Noise-Aware Partitioner"
 
-#     def _calculate_component_weights(self, components: List[List[int]], interaction_graph: Any = None):
+#     def _calculate_component_weights(self, components: list[list[int]], interaction_graph: Any = None):
 #         """
 #         计算组件权重，考虑噪声和交互强度
 #         """
@@ -350,7 +357,7 @@ class RecursiveDynamicProgrammingPartitioner(BasePartitioner):
 #             # 默认按组件大小分配权重
 #             self.component_weights = [len(comp) for comp in components]
 
-#     def partition(self, components: List[List[int]], method: str = "greedy", interaction_graph: Any = None) -> List[List[List[int]]]:
+#     def partition(self, components: list[list[int]], method: str = "greedy", interaction_graph: Any = None) -> list[list[list[int]]]:
 #         """
 #         使用噪声感知策略进行分区
 #         """

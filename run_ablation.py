@@ -128,7 +128,7 @@ class NAVIAblationStudy:
             
             # 提取结果
             if hasattr(ctx, 'final_records') and ctx.final_records is not None:
-                results[combo_name] = ctx.final_records.total_costs.to_dict() # TODO
+                results[combo_name] = ctx.final_records.total_costs.to_dict()
 
         return results
 

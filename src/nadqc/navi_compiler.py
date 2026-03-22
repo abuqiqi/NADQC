@@ -103,7 +103,7 @@ class NAVI(Compiler):
         telegate_partitioner_type = config.get("telegate_partitioner", "direct")
         telegate_partitioner = TelegatePartitionerFactory.create_telegate_partitioner(telegate_partitioner_type)
         
-        mapper_type = config.get("mapper", "simple")
+        mapper_type = config.get("mapper", "dp")
         mapper = MapperFactory.create_mapper(mapper_type)
         
         # 3. 初始化上下文 (Context)

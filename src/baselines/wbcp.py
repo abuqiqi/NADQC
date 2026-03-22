@@ -20,7 +20,7 @@ class WBCP(Compiler):
     """
     WBCP: Window-Based Circuit Partitioning
     """
-    compiler_id = "fgproee"
+    compiler_id = "wbcp"
 
     def __init__(self):
         super().__init__()

@@ -87,7 +87,7 @@ def get_args():
     print(f"[INFO] Backend properties dates: {args.date}")
 
     print(f"[INFO] Name of the network: {args.network}")
-    print(f"[INFO] Basis gate set: {args.gate_set}")
+    # print(f"[INFO] Basis gate set: {args.gate_set}")
     return args
 
 

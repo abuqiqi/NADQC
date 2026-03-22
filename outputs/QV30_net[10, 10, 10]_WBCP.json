@@ -1,781 +1,860 @@
 {
     "total_costs": {
-        "exec_time (sec)": 1.1907598972320557,
-        "num_comms": 439,
-        "remote_hops": 221,
-        "remote_swaps": 218,
-        "fidelity_loss": 8.780000000000006,
-        "fidelity": 0.00014068481667971582
+        "remote_hops": 243,
+        "remote_swaps": 212,
+        "remote_fidelity_loss": 9.100000000000007,
+        "remote_fidelity": 0.00010182734963475161,
+        "local_fidelity_loss": 11.979513013025883,
+        "local_fidelity": 6.181708203626649e-06,
+        "execution_time": 2.9480693340301514,
+        "num_comms": 455,
+        "total_fidelity_loss": 21.07951301302589,
+        "total_fidelity": 6.294669625907031e-10
     },
     "records": [
         {
             "layer_start": 0,
-            "layer_end": 18,
+            "layer_end": 20,
             "partition": [
                 [
-                    10,
                     13,
-                    14,
-                    18,
+                    27,
+                    29,
                     9,
                     0,
                     1,
                     11,
                     17,
-                    15
+                    3,
+                    16
                 ],
                 [
-                    6,
-                    23,
                     26,
                     19,
-                    21,
+                    6,
+                    15,
                     4,
-                    7,
-                    8,
-                    12,
+                    10,
+                    14,
+                    18,
+                    21,
                     28
                 ],
                 [
-                    20,
                     22,
+                    8,
+                    12,
+                    20,
+                    23,
                     24,
-                    25,
                     2,
-                    3,
-                    27,
-                    29,
                     5,
-                    16
+                    7,
+                    25
                 ]
             ],
             "mapping_type": "telegate",
             "costs": {
-                "num_comms": 14,
-                "remote_hops": 14,
+                "remote_hops": 6,
                 "remote_swaps": 0,
-                "fidelity_loss": 0.28000000000000025,
-                "fidelity": 0.7536419414749016
+                "remote_fidelity_loss": 0.1200000000000001,
+                "remote_fidelity": 0.8858423808639998,
+                "local_fidelity_loss": 0.6768968510255418,
+                "local_fidelity": 0.5077754325071819,
+                "execution_time": 0.0,
+                "num_comms": 6,
+                "total_fidelity_loss": 0.7968968510255419,
+                "total_fidelity": 0.4498089980764093
             },
             "extra_info": null
         },
         {
-            "layer_start": 19,
-            "layer_end": 37,
+            "layer_start": 21,
+            "layer_end": 41,
             "partition": [
                 [
-                    25,
-                    15,
-                    1,
-                    5,
-                    16,
-                    17,
-                    11,
-                    14,
-                    19,
-                    21
-                ],
-                [
                     23,
+                    29,
                     12,
-                    9,
-                    13,
-                    2,
+                    27,
+                    3,
                     4,
                     6,
                     18,
-                    8,
-                    10
-                ],
-                [
-                    28,
-                    24,
-                    22,
-                    26,
-                    0,
-                    3,
-                    27,
-                    29,
-                    7,
-                    20
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 14,
-                "remote_hops": 4,
-                "remote_swaps": 10,
-                "fidelity_loss": 0.28000000000000025,
-                "fidelity": 0.7536419414749016
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 38,
-            "layer_end": 56,
-            "partition": [
-                [
-                    14,
-                    25,
-                    29,
-                    15,
-                    2,
-                    4,
-                    5,
-                    9,
                     10,
-                    11
-                ],
-                [
-                    18,
-                    13,
-                    0,
-                    7,
-                    8,
-                    16,
-                    17,
-                    19,
-                    20,
-                    26
-                ],
-                [
-                    24,
-                    22,
-                    12,
-                    28,
-                    1,
-                    3,
-                    23,
-                    27,
-                    6,
-                    21
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 17,
-                "remote_hops": 7,
-                "remote_swaps": 10,
-                "fidelity_loss": 0.3400000000000003,
-                "fidelity": 0.7093217661806455
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 57,
-            "layer_end": 75,
-            "partition": [
-                [
-                    29,
-                    28,
-                    17,
-                    18,
-                    10,
-                    26,
-                    9,
-                    13,
-                    14,
                     20
                 ],
                 [
-                    12,
-                    16,
-                    22,
                     15,
-                    0,
-                    2,
-                    6,
-                    25,
                     11,
+                    1,
+                    2,
+                    8,
+                    9,
+                    13,
+                    14,
+                    17,
                     19
                 ],
                 [
+                    21,
+                    26,
+                    22,
+                    28,
+                    0,
                     5,
-                    24,
-                    1,
-                    3,
-                    23,
-                    27,
-                    4,
                     7,
-                    8,
-                    21
+                    16,
+                    24,
+                    25
                 ]
             ],
             "mapping_type": "telegate",
             "costs": {
-                "num_comms": 23,
-                "remote_hops": 13,
-                "remote_swaps": 10,
-                "fidelity_loss": 0.4600000000000004,
-                "fidelity": 0.6283472821521205
+                "remote_hops": 6,
+                "remote_swaps": 11,
+                "remote_fidelity_loss": 0.3400000000000003,
+                "remote_fidelity": 0.7093217661806456,
+                "local_fidelity_loss": 0.652453131357073,
+                "local_fidelity": 0.5203446652747169,
+                "execution_time": 0.0,
+                "num_comms": 17,
+                "total_fidelity_loss": 0.9924531313570732,
+                "total_fidelity": 0.369091796995339
             },
             "extra_info": null
         },
         {
-            "layer_start": 76,
-            "layer_end": 94,
+            "layer_start": 42,
+            "layer_end": 62,
             "partition": [
                 [
-                    26,
-                    0,
-                    11,
-                    19,
-                    20,
+                    29,
+                    7,
+                    5,
+                    6,
+                    8,
                     22,
-                    23,
-                    21,
-                    24,
+                    11,
+                    20,
+                    14,
                     18
                 ],
                 [
-                    27,
-                    8,
+                    13,
+                    26,
+                    0,
+                    4,
                     9,
-                    3,
-                    5,
+                    15,
+                    10,
+                    16,
+                    17,
+                    19
+                ],
+                [
+                    24,
+                    23,
+                    27,
                     12,
-                    29,
-                    6,
+                    21,
                     28,
+                    1,
+                    2,
+                    3,
                     25
-                ],
-                [
-                    17,
-                    16,
-                    1,
-                    2,
-                    7,
-                    10,
-                    4,
-                    13,
-                    14,
-                    15
                 ]
             ],
             "mapping_type": "telegate",
             "costs": {
-                "num_comms": 29,
-                "remote_hops": 17,
-                "remote_swaps": 12,
-                "fidelity_loss": 0.5800000000000005,
-                "fidelity": 0.5566166524310577
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 95,
-            "layer_end": 113,
-            "partition": [
-                [
-                    24,
-                    19,
-                    10,
-                    5,
-                    2,
-                    11,
-                    14,
-                    23,
-                    15,
-                    20
-                ],
-                [
-                    18,
-                    29,
-                    7,
-                    12,
-                    16,
-                    25,
-                    21,
-                    22,
-                    26,
-                    28
-                ],
-                [
-                    17,
-                    0,
-                    1,
-                    6,
-                    13,
-                    8,
-                    9,
-                    4,
-                    27,
-                    3
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 24,
-                "remote_hops": 11,
-                "remote_swaps": 13,
-                "fidelity_loss": 0.4800000000000004,
-                "fidelity": 0.6157803365090782
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 114,
-            "layer_end": 132,
-            "partition": [
-                [
-                    14,
-                    29,
-                    19,
-                    16,
-                    3,
-                    7,
-                    11,
-                    22,
-                    13,
-                    15
-                ],
-                [
-                    28,
-                    24,
-                    26,
-                    9,
-                    27,
-                    2,
-                    5,
-                    18,
-                    21,
-                    4
-                ],
-                [
-                    12,
-                    0,
-                    1,
-                    6,
-                    17,
-                    8,
-                    23,
-                    10,
-                    25,
-                    20
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 24,
-                "remote_hops": 14,
+                "remote_hops": 4,
                 "remote_swaps": 10,
-                "fidelity_loss": 0.4800000000000004,
-                "fidelity": 0.6157803365090782
+                "remote_fidelity_loss": 0.28000000000000025,
+                "remote_fidelity": 0.7536419414749017,
+                "local_fidelity_loss": 0.6994492712005334,
+                "local_fidelity": 0.49644695013713086,
+                "execution_time": 0.0,
+                "num_comms": 14,
+                "total_fidelity_loss": 0.9794492712005336,
+                "total_fidelity": 0.37414324334064103
             },
             "extra_info": null
         },
         {
-            "layer_start": 133,
-            "layer_end": 151,
+            "layer_start": 63,
+            "layer_end": 83,
             "partition": [
-                [
-                    19,
-                    11,
-                    12,
-                    3,
-                    7,
-                    14,
-                    15,
-                    16,
-                    27,
-                    29
-                ],
-                [
-                    23,
-                    18,
-                    25,
-                    1,
-                    5,
-                    21,
-                    6,
-                    9,
-                    10,
-                    13
-                ],
-                [
-                    26,
-                    4,
-                    28,
-                    22,
-                    0,
-                    2,
-                    8,
-                    17,
-                    20,
-                    24
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 19,
-                "remote_hops": 12,
-                "remote_swaps": 7,
-                "fidelity_loss": 0.38000000000000034,
-                "fidelity": 0.6812326242398921
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 152,
-            "layer_end": 170,
-            "partition": [
-                [
-                    20,
-                    25,
-                    28,
-                    14,
-                    11,
-                    9,
-                    1,
-                    4,
-                    23,
-                    24
-                ],
-                [
-                    21,
-                    22,
-                    19,
-                    0,
-                    3,
-                    5,
-                    8,
-                    10,
-                    18,
-                    29
-                ],
-                [
-                    26,
-                    12,
-                    17,
-                    16,
-                    2,
-                    6,
-                    7,
-                    13,
-                    15,
-                    27
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 25,
-                "remote_hops": 13,
-                "remote_swaps": 12,
-                "fidelity_loss": 0.5000000000000004,
-                "fidelity": 0.6034647297788965
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 171,
-            "layer_end": 189,
-            "partition": [
-                [
-                    11,
-                    7,
-                    0,
-                    1,
-                    2,
-                    16,
-                    20,
-                    22,
-                    6,
-                    23
-                ],
-                [
-                    8,
-                    21,
-                    25,
-                    4,
-                    5,
-                    9,
-                    12,
-                    28,
-                    10,
-                    17
-                ],
                 [
                     29,
-                    26,
-                    27,
-                    3,
-                    15,
-                    19,
-                    13,
                     14,
-                    18,
-                    24
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 33,
-                "remote_hops": 21,
-                "remote_swaps": 12,
-                "fidelity_loss": 0.6600000000000006,
-                "fidelity": 0.5134054775281942
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 190,
-            "layer_end": 208,
-            "partition": [
-                [
-                    3,
-                    26,
-                    29,
-                    25,
-                    27,
-                    13,
-                    0,
-                    4,
-                    5,
-                    8
-                ],
-                [
-                    24,
-                    18,
-                    20,
-                    7,
                     1,
-                    6,
-                    16,
+                    3,
                     23,
-                    19,
+                    27,
+                    4,
+                    7,
+                    5,
                     28
                 ],
                 [
-                    14,
-                    12,
+                    16,
+                    25,
                     2,
-                    9,
-                    10,
-                    21,
+                    8,
+                    18,
+                    24,
                     11,
-                    17,
+                    21,
                     15,
+                    19
+                ],
+                [
+                    12,
+                    17,
+                    20,
+                    26,
+                    13,
+                    10,
+                    0,
+                    6,
+                    9,
                     22
                 ]
             ],
             "mapping_type": "telegate",
             "costs": {
-                "num_comms": 23,
-                "remote_hops": 7,
-                "remote_swaps": 16,
-                "fidelity_loss": 0.4600000000000004,
-                "fidelity": 0.6283472821521204
+                "remote_hops": 12,
+                "remote_swaps": 14,
+                "remote_fidelity_loss": 0.5200000000000005,
+                "remote_fidelity": 0.5913954351833185,
+                "local_fidelity_loss": 0.5852272971451555,
+                "local_fidelity": 0.5565926089706249,
+                "execution_time": 0.0,
+                "num_comms": 26,
+                "total_fidelity_loss": 1.105227297145156,
+                "total_fidelity": 0.3291663282020013
             },
             "extra_info": null
         },
         {
-            "layer_start": 209,
-            "layer_end": 227,
+            "layer_start": 84,
+            "layer_end": 104,
             "partition": [
                 [
-                    15,
-                    21,
-                    28,
-                    24,
-                    6,
-                    26,
+                    25,
+                    0,
                     2,
-                    14,
-                    17,
-                    22
-                ],
-                [
-                    7,
-                    9,
-                    10,
-                    12,
-                    1,
                     3,
-                    8,
+                    7,
+                    12,
+                    19,
                     18,
-                    4,
+                    21,
                     16
                 ],
                 [
-                    27,
-                    19,
-                    20,
-                    25,
-                    29,
-                    0,
-                    5,
-                    11,
-                    13,
-                    23
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 16,
-                "remote_hops": 4,
-                "remote_swaps": 12,
-                "fidelity_loss": 0.3200000000000003,
-                "fidelity": 0.7237977205924956
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 228,
-            "layer_end": 246,
-            "partition": [
-                [
-                    25,
-                    2,
-                    8,
-                    11,
-                    28,
-                    12,
-                    18,
-                    20,
-                    22,
-                    23
-                ],
-                [
-                    5,
-                    19,
-                    0,
-                    1,
-                    14,
-                    26,
-                    7,
-                    9,
-                    16,
-                    29
-                ],
-                [
-                    13,
-                    27,
-                    15,
-                    3,
-                    4,
-                    6,
-                    17,
                     24,
+                    23,
+                    1,
+                    4,
                     10,
-                    21
+                    11,
+                    15,
+                    20,
+                    9,
+                    13
+                ],
+                [
+                    29,
+                    5,
+                    6,
+                    8,
+                    27,
+                    14,
+                    22,
+                    26,
+                    28,
+                    17
                 ]
             ],
             "mapping_type": "telegate",
             "costs": {
-                "num_comms": 30,
-                "remote_hops": 18,
-                "remote_swaps": 12,
-                "fidelity_loss": 0.6000000000000005,
-                "fidelity": 0.5454843193824367
+                "remote_hops": 21,
+                "remote_swaps": 15,
+                "remote_fidelity_loss": 0.7200000000000006,
+                "remote_fidelity": 0.48321312820571627,
+                "local_fidelity_loss": 0.495432005013377,
+                "local_fidelity": 0.6089921830924113,
+                "execution_time": 0.0,
+                "num_comms": 36,
+                "total_fidelity_loss": 1.2154320050133776,
+                "total_fidelity": 0.2942730178449124
             },
             "extra_info": null
         },
         {
-            "layer_start": 247,
-            "layer_end": 265,
+            "layer_start": 105,
+            "layer_end": 125,
             "partition": [
                 [
-                    17,
-                    22,
-                    18,
                     7,
-                    19,
-                    14,
-                    4,
+                    29,
+                    28,
+                    5,
+                    0,
+                    1,
                     6,
-                    15,
-                    21
+                    13,
+                    8,
+                    16
                 ],
                 [
-                    13,
-                    26,
-                    1,
-                    8,
-                    10,
-                    23,
+                    17,
+                    27,
+                    14,
                     2,
-                    12,
-                    16,
+                    3,
+                    9,
+                    15,
+                    10,
+                    24,
                     20
                 ],
                 [
-                    27,
-                    5,
-                    9,
-                    29,
-                    3,
-                    28,
-                    0,
+                    18,
+                    25,
+                    22,
+                    21,
+                    26,
+                    19,
+                    4,
                     11,
+                    12,
+                    23
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 15,
+                "remote_swaps": 10,
+                "remote_fidelity_loss": 0.5000000000000004,
+                "remote_fidelity": 0.6034647297788965,
+                "local_fidelity_loss": 0.5743202905874046,
+                "local_fidelity": 0.5626958358368892,
+                "execution_time": 0.0,
+                "num_comms": 25,
+                "total_fidelity_loss": 1.074320290587405,
+                "total_fidelity": 0.3395670905210187
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 126,
+            "layer_end": 146,
+            "partition": [
+                [
+                    22,
+                    12,
+                    0,
+                    1,
+                    6,
+                    17,
+                    7,
+                    20,
+                    4,
+                    9
+                ],
+                [
+                    16,
+                    29,
+                    14,
+                    15,
+                    3,
+                    8,
+                    10,
+                    11,
+                    13,
+                    19
+                ],
+                [
+                    26,
+                    23,
                     24,
+                    25,
+                    27,
+                    28,
+                    2,
+                    5,
+                    18,
+                    21
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 8,
+                "remote_swaps": 10,
+                "remote_fidelity_loss": 0.3600000000000003,
+                "remote_fidelity": 0.6951353308570326,
+                "local_fidelity_loss": 0.543702191456036,
+                "local_fidelity": 0.5802191712512581,
+                "execution_time": 0.0,
+                "num_comms": 18,
+                "total_fidelity_loss": 0.9037021914560364,
+                "total_fidelity": 0.40333084557733656
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 147,
+            "layer_end": 167,
+            "partition": [
+                [
+                    29,
+                    16,
+                    2,
+                    5,
+                    13,
+                    21,
+                    14,
+                    19,
+                    27,
+                    25
+                ],
+                [
+                    22,
+                    12,
+                    20,
+                    24,
+                    15,
+                    3,
+                    7,
+                    10,
+                    17,
+                    23
+                ],
+                [
+                    0,
+                    4,
+                    11,
+                    28,
+                    18,
+                    26,
+                    1,
+                    6,
+                    8,
+                    9
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 26,
+                "remote_swaps": 12,
+                "remote_fidelity_loss": 0.7600000000000007,
+                "remote_fidelity": 0.46407788832876995,
+                "local_fidelity_loss": 0.5349061740371773,
+                "local_fidelity": 0.5853398225243955,
+                "execution_time": 0.0,
+                "num_comms": 38,
+                "total_fidelity_loss": 1.2949061740371781,
+                "total_fidelity": 0.27164326879185846
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 168,
+            "layer_end": 188,
+            "partition": [
+                [
+                    10,
+                    19,
+                    2,
+                    3,
+                    8,
+                    11,
+                    15,
+                    25,
+                    29,
+                    28
+                ],
+                [
+                    9,
+                    6,
+                    0,
+                    5,
+                    7,
+                    21,
+                    17,
+                    18,
+                    22,
+                    26
+                ],
+                [
+                    14,
+                    13,
+                    1,
+                    4,
+                    23,
+                    24,
+                    20,
+                    27,
+                    12,
+                    16
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 15,
+                "remote_swaps": 12,
+                "remote_fidelity_loss": 0.5400000000000005,
+                "remote_fidelity": 0.5795675264796523,
+                "local_fidelity_loss": 0.49485218110734674,
+                "local_fidelity": 0.6093173455382714,
+                "execution_time": 0.0,
+                "num_comms": 27,
+                "total_fidelity_loss": 1.0348521811073472,
+                "total_fidelity": 0.35314054679476353
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 189,
+            "layer_end": 209,
+            "partition": [
+                [
+                    10,
+                    19,
+                    2,
+                    3,
+                    8,
+                    11,
+                    15,
+                    25,
+                    29,
+                    28
+                ],
+                [
+                    9,
+                    6,
+                    0,
+                    5,
+                    7,
+                    21,
+                    17,
+                    18,
+                    22,
+                    26
+                ],
+                [
+                    14,
+                    13,
+                    1,
+                    4,
+                    23,
+                    24,
+                    20,
+                    27,
+                    12,
+                    16
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 33,
+                "remote_swaps": 0,
+                "remote_fidelity_loss": 0.6600000000000006,
+                "remote_fidelity": 0.5134054775281945,
+                "local_fidelity_loss": 0.5329510667468006,
+                "local_fidelity": 0.5864962693861795,
+                "execution_time": 0.0,
+                "num_comms": 33,
+                "total_fidelity_loss": 1.1929510667468013,
+                "total_fidelity": 0.3011103972527161
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 210,
+            "layer_end": 230,
+            "partition": [
+                [
+                    18,
+                    24,
+                    7,
+                    28,
+                    23,
+                    1,
+                    9,
+                    10,
+                    21,
+                    27
+                ],
+                [
+                    14,
+                    4,
+                    6,
+                    11,
+                    16,
+                    13,
+                    17,
+                    8,
+                    22,
+                    15
+                ],
+                [
+                    26,
+                    19,
+                    0,
+                    2,
+                    5,
+                    12,
+                    20,
+                    25,
+                    3,
+                    29
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 11,
+                "remote_swaps": 13,
+                "remote_fidelity_loss": 0.4800000000000004,
+                "remote_fidelity": 0.6157803365090782,
+                "local_fidelity_loss": 0.6303442011199212,
+                "local_fidelity": 0.5320091984293932,
+                "execution_time": 0.0,
+                "num_comms": 24,
+                "total_fidelity_loss": 1.1103442011199216,
+                "total_fidelity": 0.3276008032347767
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 231,
+            "layer_end": 251,
+            "partition": [
+                [
+                    21,
+                    9,
+                    1,
+                    3,
+                    18,
+                    26,
+                    8,
+                    24,
+                    10,
+                    28
+                ],
+                [
+                    13,
+                    12,
+                    16,
+                    29,
+                    20,
+                    25,
+                    0,
+                    5,
+                    19,
+                    27
+                ],
+                [
+                    23,
+                    15,
+                    2,
+                    4,
+                    6,
+                    7,
+                    11,
+                    14,
+                    17,
+                    22
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 10,
+                "remote_swaps": 10,
+                "remote_fidelity_loss": 0.40000000000000036,
+                "remote_fidelity": 0.6676079717550941,
+                "local_fidelity_loss": 0.6786023678451685,
+                "local_fidelity": 0.5068883074318847,
+                "execution_time": 0.0,
+                "num_comms": 20,
+                "total_fidelity_loss": 1.0786023678451688,
+                "total_fidelity": 0.3384026748309732
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 252,
+            "layer_end": 272,
+            "partition": [
+                [
+                    19,
+                    26,
+                    1,
+                    2,
+                    5,
+                    24,
+                    7,
+                    16,
+                    9,
+                    14
+                ],
+                [
+                    27,
+                    12,
+                    15,
+                    20,
+                    29,
+                    23,
+                    3,
+                    4,
+                    6,
+                    17
+                ],
+                [
+                    11,
+                    13,
+                    0,
+                    8,
+                    21,
+                    28,
+                    10,
+                    22,
+                    18,
                     25
                 ]
             ],
             "mapping_type": "telegate",
             "costs": {
-                "num_comms": 26,
-                "remote_hops": 12,
-                "remote_swaps": 14,
-                "fidelity_loss": 0.5200000000000005,
-                "fidelity": 0.5913954351833183
+                "remote_hops": 4,
+                "remote_swaps": 13,
+                "remote_fidelity_loss": 0.3400000000000003,
+                "remote_fidelity": 0.7093217661806456,
+                "local_fidelity_loss": 0.6351174923680099,
+                "local_fidelity": 0.5294538804908416,
+                "execution_time": 0.0,
+                "num_comms": 17,
+                "total_fidelity_loss": 0.9751174923680102,
+                "total_fidelity": 0.37555316162096025
             },
             "extra_info": null
         },
         {
-            "layer_start": 266,
-            "layer_end": 284,
+            "layer_start": 273,
+            "layer_end": 293,
             "partition": [
                 [
-                    10,
-                    16,
-                    20,
-                    22,
-                    7,
-                    8,
-                    11,
-                    19,
-                    12,
-                    15
-                ],
-                [
-                    29,
-                    18,
-                    0,
-                    3,
+                    15,
+                    27,
                     6,
-                    28,
-                    9,
-                    14,
-                    17,
-                    26
-                ],
-                [
+                    8,
                     21,
                     23,
+                    12,
+                    24,
+                    16,
+                    29
+                ],
+                [
+                    9,
+                    0,
                     1,
                     2,
-                    4,
-                    24,
+                    26,
+                    3,
+                    10,
                     5,
                     13,
+                    20
+                ],
+                [
                     25,
-                    27
+                    22,
+                    18,
+                    11,
+                    14,
+                    17,
+                    4,
+                    7,
+                    19,
+                    28
                 ]
             ],
             "mapping_type": "telegate",
             "costs": {
-                "num_comms": 22,
-                "remote_hops": 10,
+                "remote_hops": 17,
                 "remote_swaps": 12,
-                "fidelity_loss": 0.4400000000000004,
-                "fidelity": 0.6411706960735924
+                "remote_fidelity_loss": 0.5800000000000005,
+                "remote_fidelity": 0.5566166524310581,
+                "local_fidelity_loss": 0.5314556718184579,
+                "local_fidelity": 0.5873735463735156,
+                "execution_time": 0.0,
+                "num_comms": 29,
+                "total_fidelity_loss": 1.1114556718184585,
+                "total_fidelity": 0.3269418971089851
             },
             "extra_info": null
         },
         {
-            "layer_start": 285,
-            "layer_end": 303,
+            "layer_start": 294,
+            "layer_end": 314,
+            "partition": [
+                [
+                    26,
+                    22,
+                    4,
+                    6,
+                    9,
+                    29,
+                    12,
+                    16,
+                    20,
+                    21
+                ],
+                [
+                    11,
+                    8,
+                    28,
+                    25,
+                    3,
+                    7,
+                    10,
+                    15,
+                    13,
+                    19
+                ],
+                [
+                    23,
+                    18,
+                    0,
+                    1,
+                    24,
+                    27,
+                    5,
+                    14,
+                    2,
+                    17
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 5,
+                "remote_swaps": 11,
+                "remote_fidelity_loss": 0.3200000000000003,
+                "remote_fidelity": 0.7237977205924955,
+                "local_fidelity_loss": 0.6404128637733728,
+                "local_fidelity": 0.5266580260545074,
+                "execution_time": 0.0,
+                "num_comms": 16,
+                "total_fidelity_loss": 0.9604128637733731,
+                "total_fidelity": 0.38119387878999555
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 315,
+            "layer_end": 335,
             "partition": [
                 [
                     8,
@@ -790,8 +869,8 @@
                     19
                 ],
                 [
-                    25,
                     17,
+                    25,
                     4,
                     10,
                     11,
@@ -802,280 +881,310 @@
                     28
                 ],
                 [
-                    6,
                     29,
+                    26,
                     5,
                     9,
                     13,
                     22,
                     20,
                     21,
-                    26,
+                    6,
                     27
                 ]
             ],
             "mapping_type": "telegate",
             "costs": {
-                "num_comms": 16,
-                "remote_hops": 5,
-                "remote_swaps": 11,
-                "fidelity_loss": 0.3200000000000003,
-                "fidelity": 0.7237977205924955
+                "remote_hops": 8,
+                "remote_swaps": 15,
+                "remote_fidelity_loss": 0.4600000000000004,
+                "remote_fidelity": 0.6283472821521205,
+                "local_fidelity_loss": 0.7177033457845131,
+                "local_fidelity": 0.48743926859362285,
+                "execution_time": 0.0,
+                "num_comms": 23,
+                "total_fidelity_loss": 1.1777033457845136,
+                "total_fidelity": 0.3062811396350204
             },
             "extra_info": null
         },
         {
-            "layer_start": 304,
-            "layer_end": 322,
+            "layer_start": 336,
+            "layer_end": 356,
             "partition": [
                 [
-                    19,
-                    18,
-                    10,
-                    11,
-                    0,
-                    7,
-                    12,
-                    17,
-                    15,
-                    27
-                ],
-                [
-                    26,
                     14,
+                    0,
                     2,
-                    3,
-                    4,
-                    24,
                     5,
-                    8,
                     9,
-                    20
+                    8,
+                    26,
+                    4,
+                    20,
+                    21
                 ],
                 [
-                    28,
+                    17,
+                    27,
+                    7,
+                    11,
+                    15,
+                    18,
+                    19,
+                    29,
+                    12,
+                    22
+                ],
+                [
                     6,
                     13,
+                    28,
+                    23,
                     25,
                     1,
+                    3,
                     16,
-                    21,
-                    22,
-                    23,
-                    29
+                    24,
+                    10
                 ]
             ],
             "mapping_type": "telegate",
             "costs": {
-                "num_comms": 18,
                 "remote_hops": 8,
-                "remote_swaps": 10,
-                "fidelity_loss": 0.3600000000000003,
-                "fidelity": 0.6951353308570326
+                "remote_swaps": 13,
+                "remote_fidelity_loss": 0.4200000000000004,
+                "remote_fidelity": 0.6542558123199922,
+                "local_fidelity_loss": 0.5924311592595496,
+                "local_fidelity": 0.5526011325474244,
+                "execution_time": 0.0,
+                "num_comms": 21,
+                "total_fidelity_loss": 1.0124311592595499,
+                "total_fidelity": 0.3615425028637628
             },
             "extra_info": null
         },
         {
-            "layer_start": 323,
-            "layer_end": 341,
+            "layer_start": 357,
+            "layer_end": 377,
             "partition": [
                 [
-                    5,
+                    4,
                     21,
-                    18,
-                    24,
+                    20,
+                    5,
                     0,
                     1,
                     6,
                     29,
                     2,
+                    18
+                ],
+                [
+                    28,
+                    23,
+                    24,
+                    27,
+                    16,
+                    3,
+                    8,
+                    11,
+                    19,
+                    9
+                ],
+                [
+                    13,
+                    17,
+                    26,
+                    12,
+                    7,
+                    10,
+                    14,
+                    15,
+                    22,
+                    25
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 12,
+                "remote_swaps": 9,
+                "remote_fidelity_loss": 0.4200000000000004,
+                "remote_fidelity": 0.6542558123199923,
+                "local_fidelity_loss": 0.6516842866374514,
+                "local_fidelity": 0.5207566914856891,
+                "execution_time": 0.0,
+                "num_comms": 21,
+                "total_fidelity_loss": 1.0716842866374519,
+                "total_fidelity": 0.3407080922090412
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 378,
+            "layer_end": 398,
+            "partition": [
+                [
+                    25,
+                    9,
+                    23,
+                    22,
+                    1,
+                    5,
+                    12,
+                    13,
+                    19,
+                    28
+                ],
+                [
+                    24,
+                    18,
+                    21,
+                    6,
+                    8,
+                    20,
+                    0,
+                    2,
+                    3,
+                    17
+                ],
+                [
+                    26,
+                    15,
+                    27,
+                    11,
+                    16,
+                    10,
+                    4,
+                    7,
+                    14,
+                    29
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 7,
+                "remote_swaps": 13,
+                "remote_fidelity_loss": 0.40000000000000036,
+                "remote_fidelity": 0.6676079717550941,
+                "local_fidelity_loss": 0.48981107409054303,
+                "local_fidelity": 0.6123891803651228,
+                "execution_time": 0.0,
+                "num_comms": 20,
+                "total_fidelity_loss": 0.8898110740905434,
+                "total_fidelity": 0.40883589862832415
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 399,
+            "layer_end": 419,
+            "partition": [
+                [
+                    8,
+                    23,
+                    28,
+                    25,
+                    3,
+                    9,
+                    12,
+                    17,
+                    22,
+                    29
+                ],
+                [
+                    19,
+                    11,
+                    1,
+                    2,
+                    4,
+                    18,
+                    10,
+                    14,
+                    13,
                     16
                 ],
                 [
-                    23,
-                    3,
-                    4,
-                    9,
-                    20,
-                    13,
-                    26,
-                    14,
-                    28,
-                    12
-                ],
-                [
-                    17,
-                    11,
-                    15,
-                    25,
-                    7,
-                    8,
-                    10,
-                    19,
-                    22,
-                    27
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 28,
-                "remote_hops": 15,
-                "remote_swaps": 13,
-                "fidelity_loss": 0.5600000000000005,
-                "fidelity": 0.5679761759500591
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 342,
-            "layer_end": 360,
-            "partition": [
-                [
-                    29,
-                    20,
-                    3,
+                    27,
+                    5,
+                    0,
                     6,
+                    15,
+                    20,
                     7,
-                    8,
-                    19,
+                    24,
                     21,
-                    23,
-                    24
-                ],
+                    26
+                ]
+            ],
+            "mapping_type": "telegate",
+            "costs": {
+                "remote_hops": 15,
+                "remote_swaps": 9,
+                "remote_fidelity_loss": 0.4800000000000004,
+                "remote_fidelity": 0.6157803365090782,
+                "local_fidelity_loss": 0.6217600906524531,
+                "local_fidelity": 0.5365914820660382,
+                "execution_time": 0.0,
+                "num_comms": 24,
+                "total_fidelity_loss": 1.1017600906524536,
+                "total_fidelity": 0.33042248339453
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 420,
+            "layer_end": 420,
+            "partition": [
                 [
-                    26,
-                    18,
-                    0,
-                    1,
-                    17,
+                    8,
+                    23,
+                    28,
                     25,
-                    15,
-                    28,
-                    2,
-                    13
-                ],
-                [
-                    16,
-                    22,
-                    4,
-                    5,
-                    10,
-                    12,
-                    9,
-                    27,
-                    11,
-                    14
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 18,
-                "remote_hops": 7,
-                "remote_swaps": 11,
-                "fidelity_loss": 0.3600000000000003,
-                "fidelity": 0.6951353308570326
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 361,
-            "layer_end": 379,
-            "partition": [
-                [
-                    19,
-                    4,
-                    1,
-                    6,
-                    20,
-                    22,
-                    8,
-                    12,
-                    13,
-                    25
-                ],
-                [
-                    23,
-                    16,
                     3,
-                    7,
-                    14,
-                    27,
+                    9,
+                    12,
                     17,
-                    26,
-                    28,
+                    22,
                     29
                 ],
                 [
-                    10,
-                    0,
-                    2,
-                    15,
-                    18,
-                    9,
-                    11,
-                    24,
-                    5,
-                    21
-                ]
-            ],
-            "mapping_type": "telegate",
-            "costs": {
-                "num_comms": 20,
-                "remote_hops": 9,
-                "remote_swaps": 11,
-                "fidelity_loss": 0.40000000000000036,
-                "fidelity": 0.6676079717550941
-            },
-            "extra_info": null
-        },
-        {
-            "layer_start": 380,
-            "layer_end": 381,
-            "partition": [
-                [
                     19,
-                    4,
-                    1,
-                    6,
-                    20,
-                    22,
-                    8,
-                    12,
-                    13,
-                    25
-                ],
-                [
-                    23,
-                    16,
-                    3,
-                    7,
-                    14,
-                    27,
-                    17,
-                    26,
-                    28,
-                    29
-                ],
-                [
-                    10,
-                    0,
-                    2,
-                    15,
-                    18,
-                    9,
                     11,
-                    24,
+                    1,
+                    2,
+                    4,
+                    18,
+                    10,
+                    14,
+                    13,
+                    16
+                ],
+                [
+                    27,
                     5,
-                    21
+                    0,
+                    6,
+                    15,
+                    20,
+                    7,
+                    24,
+                    21,
+                    26
                 ]
             ],
             "mapping_type": "telegate",
             "costs": {
-                "num_comms": 0,
                 "remote_hops": 0,
                 "remote_swaps": 0,
-                "fidelity_loss": 0,
-                "fidelity": 1
+                "remote_fidelity_loss": 0.0,
+                "remote_fidelity": 1.0,
+                "local_fidelity_loss": 0.0,
+                "local_fidelity": 1.0,
+                "execution_time": 0.0,
+                "num_comms": 0,
+                "total_fidelity_loss": 0.0,
+                "total_fidelity": 1.0
             },
             "extra_info": null
         }

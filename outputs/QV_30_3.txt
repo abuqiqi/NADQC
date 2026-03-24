@@ -5,598 +5,99 @@
 [INFO] 3 QPUs: [10, 10, 10]
 
 
-[INFO] 成功注册编译器: fgproee -> FGPrOEE
-[INFO] 成功注册编译器: staticoee -> StaticOEE
-[INFO] 成功注册编译器: wbcp -> WBCP
-[INFO] 成功注册编译器: navi -> NAVI
-Registered compiler IDs: ['fgproee', 'staticoee', 'wbcp', 'navi']
-Compiler: [FGP-rOEE]
-Compiling with [FGP-rOEE]...
-[DEBUG] num_depths: 421
-✅ 成功保存 421 条映射记录到 JSON 文件：./outputs/QV30_net[10, 10, 10]_FGP-rOEE.json
-[DEBUG] Total swaps: 0, Total gates: 0
-[DEBUG] Total comms: 0
-
-ExecCosts(comms=351, fidelity=0.0000, loss=33.5237, time=13.58)
-Compiler: [Static OEE]
-Compiling with [Static OEE]...
-✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QV30_net[10, 10, 10]_Static OEE.json
-ExecCosts(comms=738, fidelity=0.0000, loss=21.0504, time=0.79)
-Compiler: [WBCP]
-Compiling with [WBCP]...
-Set parameter Username
-Set parameter LicenseID to value 2789005
-Academic license - for non-commercial use only - expires 2027-03-09
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 92 rows, 45 columns and 234 nonzeros (Min)
-Model fingerprint: 0x2a1b8041
-Model has 12 linear objective coefficients
-Variable types: 0 continuous, 45 integer (45 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [2e-01, 3e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 48 rows and 21 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0x7a244a19
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [2e-01, 2e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 92 rows, 45 columns and 234 nonzeros (Min)
-Model fingerprint: 0x20cd3042
-Model has 12 linear objective coefficients
-Variable types: 0 continuous, 45 integer (45 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [2e-01, 2e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 48 rows and 21 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0x2f5a2e3a
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [2e-01, 6e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0xd18467e5
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [2e-01, 7e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0xea8b7b69
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [4e-01, 4e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0xb4ba0c4e
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [2e-01, 3e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 92 rows, 45 columns and 234 nonzeros (Min)
-Model fingerprint: 0x438a28a8
-Model has 12 linear objective coefficients
-Variable types: 0 continuous, 45 integer (45 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [8e-01, 1e+00]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 48 rows and 21 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0x1a2935e0
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [8e-02, 1e+00]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0xac23251b
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [4e-01, 9e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0xc68524d2
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [8e-02, 7e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0xa8016311
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [2e-01, 5e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 92 rows, 45 columns and 234 nonzeros (Min)
-Model fingerprint: 0x042a0194
-Model has 12 linear objective coefficients
-Variable types: 0 continuous, 45 integer (45 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [2e-01, 2e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 48 rows and 21 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0x3e984218
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [2e-01, 9e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0x9dfa9d66
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [8e-02, 2e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 92 rows, 45 columns and 234 nonzeros (Min)
-Model fingerprint: 0xff5b6a53
-Model has 12 linear objective coefficients
-Variable types: 0 continuous, 45 integer (45 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [3e-01, 3e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 48 rows and 21 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 49 rows, 27 columns and 126 nonzeros (Min)
-Model fingerprint: 0x073a6821
-Model has 6 linear objective coefficients
-Variable types: 0 continuous, 27 integer (27 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [6e-01, 6e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 24 rows and 14 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0x7e505f0c
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [2e-01, 6e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0xa6166d0a
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [8e-02, 2e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-Set parameter OutputFlag to value 1
-Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
-
-CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
-
-Optimize a model with 135 rows, 63 columns and 342 nonzeros (Min)
-Model fingerprint: 0xcbe9f370
-Model has 18 linear objective coefficients
-Variable types: 0 continuous, 63 integer (63 binary)
-Coefficient statistics:
-  Matrix range     [1e+00, 1e+00]
-  Objective range  [4e-01, 4e-01]
-  Bounds range     [1e+00, 1e+00]
-  RHS range        [1e+00, 1e+00]
-
-Presolve removed 72 rows and 46 columns
-Presolve time: 0.00s
-
-Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
-Thread count was 1 (of 96 available processors)
-
-Solution count 0
-
-Model is infeasible
-Best objective -, best bound -, gap -
-Warning: Physical mapping optimization failed. Falling back to sequential assignment.
-✅ 成功保存 21 条映射记录到 JSON 文件：./outputs/QV30_net[10, 10, 10]_WBCP.json
-ExecCosts(comms=455, fidelity=0.0000, loss=21.0795, time=2.95)
-Compiler: [NAVI]
-Compiling with [NAVI]...
+Starting Full Combination Study: 1 x 1 x 1 x 4
 [INFO] gate_density: 0.9264449722882027
 [INFO] cu1_density: 0.0
 [build_partition_table]
 [build_partition_table] Partition calculation times: 1733.
-[build_partition_table] Time: 0.16539907455444336 seconds
-[build_slicing_table] Time: 0.0051572322845458984 seconds
-[group_shallow_subcircuits] Time: 1.9311904907226562e-05 seconds
-[INFO] DP Mapper completed in 5.31 seconds.
-✅ 成功保存 30 条映射记录到 JSON 文件：./outputs/QV30_net[10, 10, 10]_NAVI.json
-ExecCosts(comms=238, fidelity=0.0000, loss=19.7359, time=5.69)
-{'remote_hops': 95, 'remote_swaps': 256, 'remote_fidelity_loss': 7.020000000000002, 'remote_fidelity': 0.0008324392860412631, 'local_fidelity_loss': 26.503674130032913, 'local_fidelity': 2.9900728928296245e-12, 'execution_time': 13.582261085510254, 'num_comms': 351, 'total_fidelity_loss': 33.523674130032916, 'total_fidelity': 2.4890541441184268e-15}
-✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+[build_partition_table] Time: 0.2404775619506836 seconds
+[build_slicing_table] Time: 0.0053501129150390625 seconds
+[group_shallow_subcircuits] Time: 1.9550323486328125e-05 seconds
+[NOTE] Found a permutation with lower fidelity loss but higher communication cost: 8 vs 8
+[NOTE] Found a permutation with lower fidelity loss but higher communication cost: 14 vs 14
+[NOTE] Found a permutation with lower fidelity loss but higher communication cost: 8 vs 8
+[INFO] [Time] Greedy Mapper completed in 7.23 seconds.
+[INFO] [Time] DP Mapper completed in 6.78 seconds.
+[INFO] [Time] Link-Oriented DP Mapper 完成，耗时 1.20 秒
+Context Type: <class 'src.nadqc.navi_compiler.CompilationContext'>
+Context Attributes: dict_keys(['circuit', 'network', 'config', 'dag', 'circuit_layers', 'multiq_layers', 'map_to_circuit_layer', 'gate_density', 'cu1_density', 'min_depth', 'P_table', 'subc_ranges', 'partition_candidates', 'partition_plan', 'hybrid_records', 'final_records', 'num_comms', 'num_gates', 'swap_prefix_sums', 'partitioner', 'partition_assigner', 'telegate_partitioner', 'mapper', 'preprocessed', 'partition_planned', 'telegate_optimized'])
+Final records type in context: <class 'src.compiler.base.MappingRecordList'>
+Context Type: <class 'src.nadqc.navi_compiler.CompilationContext'>
+Context Attributes: dict_keys(['circuit', 'network', 'config', 'dag', 'circuit_layers', 'multiq_layers', 'map_to_circuit_layer', 'gate_density', 'cu1_density', 'min_depth', 'P_table', 'subc_ranges', 'partition_candidates', 'partition_plan', 'hybrid_records', 'final_records', 'num_comms', 'num_gates', 'swap_prefix_sums', 'partitioner', 'partition_assigner', 'telegate_partitioner', 'mapper', 'preprocessed', 'partition_planned', 'telegate_optimized'])
+Final records type in context: <class 'src.compiler.base.MappingRecordList'>
+Context Type: <class 'src.nadqc.navi_compiler.CompilationContext'>
+Context Attributes: dict_keys(['circuit', 'network', 'config', 'dag', 'circuit_layers', 'multiq_layers', 'map_to_circuit_layer', 'gate_density', 'cu1_density', 'min_depth', 'P_table', 'subc_ranges', 'partition_candidates', 'partition_plan', 'hybrid_records', 'final_records', 'num_comms', 'num_gates', 'swap_prefix_sums', 'partitioner', 'partition_assigner', 'telegate_partitioner', 'mapper', 'preprocessed', 'partition_planned', 'telegate_optimized'])
+Final records type in context: <class 'src.compiler.base.MappingRecordList'>
+Context Type: <class 'src.nadqc.navi_compiler.CompilationContext'>
+Context Attributes: dict_keys(['circuit', 'network', 'config', 'dag', 'circuit_layers', 'multiq_layers', 'map_to_circuit_layer', 'gate_density', 'cu1_density', 'min_depth', 'P_table', 'subc_ranges', 'partition_candidates', 'partition_plan', 'hybrid_records', 'final_records', 'num_comms', 'num_gates', 'swap_prefix_sums', 'partitioner', 'partition_assigner', 'telegate_partitioner', 'mapper', 'preprocessed', 'partition_planned', 'telegate_optimized'])
+Final records type in context: <class 'src.compiler.base.MappingRecordList'>
+task_info:
+{'#2Q Gates': 1350,
+ '#Depth': 421,
+ '#Gates': 10351,
+ '#QPUs': 3,
+ '#Qubits': 30,
+ '2Q Gate Names': {'rzz', 'cz'},
+ 'Basis Gates': ['sx', 'rzz', 'cz', 'reset', 'id', 'rx', 'rz', 'x'],
+ 'Circuit': 'QV',
+ 'QPUs': [10, 10, 10]}
+Final Ablation Results:
+{'recursive_dp_global_max_match_direct_direct': {'execution_time': 0.0,
+                                                 'local_fidelity': 1.0,
+                                                 'local_fidelity_loss': 0.0,
+                                                 'num_comms': 242,
+                                                 'remote_fidelity': 7.040083734805692e-05,
+                                                 'remote_fidelity_loss': 9.364375569611802,
+                                                 'remote_hops': 0,
+                                                 'remote_swaps': 242,
+                                                 'total_fidelity': 7.040083734805692e-05,
+                                                 'total_fidelity_loss': 9.364375569611802},
+ 'recursive_dp_global_max_match_direct_dp': {'execution_time': 0.0,
+                                             'local_fidelity': 1.0,
+                                             'local_fidelity_loss': 0.0,
+                                             'num_comms': 242,
+                                             'remote_fidelity': 7.040083734805692e-05,
+                                             'remote_fidelity_loss': 9.364375569611802,
+                                             'remote_hops': 0,
+                                             'remote_swaps': 242,
+                                             'total_fidelity': 7.040083734805692e-05,
+                                             'total_fidelity_loss': 9.364375569611802},
+ 'recursive_dp_global_max_match_direct_greedy': {'execution_time': 0.0,
+                                                 'local_fidelity': 1.0,
+                                                 'local_fidelity_loss': 0.0,
+                                                 'num_comms': 242,
+                                                 'remote_fidelity': 7.040083734805692e-05,
+                                                 'remote_fidelity_loss': 9.364375569611802,
+                                                 'remote_hops': 0,
+                                                 'remote_swaps': 242,
+                                                 'total_fidelity': 7.040083734805692e-05,
+                                                 'total_fidelity_loss': 9.364375569611802},
+ 'recursive_dp_global_max_match_direct_linkdp': {'execution_time': 0.0,
+                                                 'local_fidelity': 1.0,
+                                                 'local_fidelity_loss': 0.0,
+                                                 'num_comms': 242,
+                                                 'remote_fidelity': 7.040083734805692e-05,
+                                                 'remote_fidelity_loss': 9.364375569611802,
+                                                 'remote_hops': 0,
+                                                 'remote_swaps': 242,
+                                                 'total_fidelity': 7.040083734805692e-05,
+                                                 'total_fidelity_loss': 9.364375569611802}}
+{'remote_hops': 0, 'remote_swaps': 242, 'remote_fidelity_loss': 9.364375569611802, 'remote_fidelity': 7.040083734805692e-05, 'local_fidelity_loss': 0.0, 'local_fidelity': 1.0, 'execution_time': 0.0, 'num_comms': 242, 'total_fidelity_loss': 9.364375569611802, 'total_fidelity': 7.040083734805692e-05}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/navi_ablation_results.csv
 📊 本次写入数据预览:
-  Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs  ... 2Q Gate Names               Metrics      FGP-rOEE    Static OEE          WBCP          NAVI
-0      QV       30   10351       1350     421      3  ...     {rzz, cz}           remote_hops  9.500000e+01  7.380000e+02  2.430000e+02  0.000000e+00
-1      QV       30   10351       1350     421      3  ...     {rzz, cz}          remote_swaps  2.560000e+02  0.000000e+00  2.120000e+02  2.380000e+02
-2      QV       30   10351       1350     421      3  ...     {rzz, cz}  remote_fidelity_loss  7.020000e+00  1.476000e+01  9.100000e+00  4.760000e+00
-3      QV       30   10351       1350     421      3  ...     {rzz, cz}       remote_fidelity  8.324393e-04  3.348450e-07  1.018273e-04  8.162177e-03
-4      QV       30   10351       1350     421      3  ...     {rzz, cz}   local_fidelity_loss  2.650367e+01  6.290411e+00  1.197951e+01  1.497590e+01
-5      QV       30   10351       1350     421      3  ...     {rzz, cz}        local_fidelity  2.990073e-12  1.841240e-03  6.181708e-06  3.076494e-07
-6      QV       30   10351       1350     421      3  ...     {rzz, cz}        execution_time  1.358226e+01  7.922077e-01  2.948069e+00  5.688092e+00
-7      QV       30   10351       1350     421      3  ...     {rzz, cz}             num_comms  3.510000e+02  7.380000e+02  4.550000e+02  2.380000e+02
-8      QV       30   10351       1350     421      3  ...     {rzz, cz}   total_fidelity_loss  3.352367e+01  2.105041e+01  2.107951e+01  1.973590e+01
-9      QV       30   10351       1350     421      3  ...     {rzz, cz}        total_fidelity  2.489054e-15  6.165300e-10  6.294670e-10  2.511089e-09
+  Circuit  #Qubits  #Gates  ...  recursive_dp_global_max_match_direct_greedy  recursive_dp_global_max_match_direct_dp  recursive_dp_global_max_match_direct_linkdp
+0      QV       30   10351  ...                                     0.000000                                 0.000000                                     0.000000
+1      QV       30   10351  ...                                   242.000000                               242.000000                                   242.000000
+2      QV       30   10351  ...                                     9.364376                                 9.364376                                     9.364376
+3      QV       30   10351  ...                                     0.000070                                 0.000070                                     0.000070
+4      QV       30   10351  ...                                     0.000000                                 0.000000                                     0.000000
+5      QV       30   10351  ...                                     1.000000                                 1.000000                                     1.000000
+6      QV       30   10351  ...                                     0.000000                                 0.000000                                     0.000000
+7      QV       30   10351  ...                                   242.000000                               242.000000                                   242.000000
+8      QV       30   10351  ...                                     9.364376                                 9.364376                                     9.364376
+9      QV       30   10351  ...                                     0.000070                                 0.000070                                     0.000070
 
 [10 rows x 14 columns]
-[Total Runtime] 23.884154796600342 seconds
+[Total Runtime] 19.55465006828308 seconds
 
 

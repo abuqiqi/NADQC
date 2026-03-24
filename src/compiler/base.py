@@ -60,6 +60,12 @@ class ExecCosts:
             f"comms={self.num_comms}, "
             f"fidelity={self.total_fidelity:.4f}, "
             f"loss={self.total_fidelity_loss:.4f}, "
+            f"rhops={self.remote_hops}, "
+            f"rswaps={self.remote_swaps}, "
+            f"remote_fidelity_loss={self.remote_fidelity_loss}, "
+            f"remote_fidelity={self.remote_fidelity}, "
+            f"local_fidelity_loss={self.local_fidelity_loss}, "
+            f"local_fidelity={self.local_fidelity}, "
             f"time={self.execution_time:.2f})"
         )
     
@@ -371,6 +377,115 @@ class CompilerUtils:
         return remote_hops
 
     @staticmethod
+    def evaluate_local_and_telegate(
+        arg: MappingRecord | list[list[int]],  # 兼容两种类型：record / partition
+        circuit: QuantumCircuit, 
+        network: Network,
+        optimization_level: int = 3
+    ) -> ExecCosts:
+        """
+        评估在给定划分和后端分配下执行线路的总体保真度
+        @param record: 包含划分和映射信息的记录
+        @param circuit: 量子线路
+        @param network: 网络信息
+        @return: 更新后的记录，包含评估的成本信息
+        """
+        partition = None
+
+        if isinstance(arg, MappingRecord):
+            record = arg
+            partition = record.partition
+        else:
+            # arg is a list of lists representing the partition
+            partition = arg
+
+        # 建立每个分区对应的子线路
+        subcircuits = [QuantumCircuit(len(group)) for group in partition]
+
+        # 建立一个反向索引，用于快速查询每个量子比特属于哪个分区
+        qubit_to_partition = {}
+        for idx, group in enumerate(partition):
+            for qubit in group:
+                qubit_to_partition[qubit] = idx
+
+        # 对每个分区内，要将量子比特编号映射到0,1,...,len(group)-1，以便构建子线路
+        # 例如，如果分区是 [0,2,5]，则子线路中的量子比特0对应原线路的0，量子比特1对应原线路的2，量子比特2对应原线路的5
+        qubit_to_subcircuit = {}
+        for group in partition:
+            mapping = {original_qubit: idx for idx, original_qubit in enumerate(group)}
+            qubit_to_subcircuit.update(mapping)
+
+        # 初始化噪声
+        costs = ExecCosts()
+
+        # 遍历circuit上的每个操作，如果操作完全属于某个group，则添加到对应的subcircuit；如果操作跨越多个group，则记录为telegate操作
+        for instruction in circuit:
+            qubits = [qubit._index for qubit in instruction.qubits]
+            if qubits[0] == None:
+                qubits = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
+
+            # 检查操作涉及的量子比特属于哪个分区
+            involved_partitions = set()
+            for qubit in qubits:
+                involved_partitions.add(qubit_to_partition[qubit])
+
+            if len(involved_partitions) == 1:
+                # 操作完全属于一个分区，添加到对应的subcircuit
+                partition_idx = involved_partitions.pop()
+                # 更新操作中的量子比特编号为子线路中的编号
+                mapped_qubits = [qubit_to_subcircuit[qubit] for qubit in qubits]
+                subcircuits[partition_idx].append(instruction.operation, mapped_qubits)
+                # print(f"[DEBUG] Added instruction {instruction.operation.name} on qubits {mapped_qubits} to subcircuit {partition_idx}")
+            else: # 操作跨越多个分区，为telegate操作
+                # 对qubits里的每一对相邻qubits，算作一组remote_hop
+                # 直接统计跨分区的telegate保真度损失
+                for i in range(len(qubits) - 1):
+                    q1, q2 = qubits[i], qubits[i + 1]
+                    p1, p2 = qubit_to_partition[q1], qubit_to_partition[q2]
+                    if p1 != p2:
+                        costs.remote_hops += network.Hops[p1][p2]
+                        costs.remote_fidelity_loss += 1 - network.W_eff[p1][p2]
+                        costs.remote_fidelity *= network.W_eff[p1][p2]
+                        # print(f"[DEBUG] evaluate_local_and_telegate remote: {costs}")
+
+        # 遍历每个子线路
+        assert len(subcircuits) == len(network.backends)
+        for idx in range(len(subcircuits)):
+            # 获取每个分区单独的保真度损失
+            subcircuit = subcircuits[idx]
+            backend = network.backends[idx]
+
+            transpiled_circuit = transpile(
+                subcircuit,
+                coupling_map=backend.coupling_map,
+                basis_gates=backend.basis_gates,
+                optimization_level=optimization_level
+            )
+
+            # 统计每个量子门的保真度损失
+            for instruction in transpiled_circuit:
+                # 获取操作名字
+                gate_name = instruction.operation.name
+                qubits = [transpiled_circuit.qubits.index(qubit) for qubit in instruction.qubits]
+                assert qubits[0] is not None, f"Qubit index is None for instruction: {instruction}"
+                gate_key = f"{gate_name}{'_'.join(map(str, qubits))}"
+                
+                # 获取操作保真度
+                gate_error = backend.gate_dict.get(gate_key, {}).get("gate_error_value", None)
+                # print(f"[DEBUG] {gate_key}: {gate_error}")
+                assert gate_error is not None, f"Gate error not found for gate_key: {gate_key} in backend.gate_dict"
+                costs.local_fidelity_loss += gate_error
+                # print(f"[DEBUG] costs.local_fidelity_loss: {costs.local_fidelity_loss}")
+                costs.local_fidelity *= (1 - gate_error)
+                # print(f"[DEBUG] evaluate_local_and_telegate local: {costs}")
+
+        if isinstance(arg, MappingRecord):
+            # 更新record的costs
+            arg.costs += costs
+
+        return costs
+
+    @staticmethod
     def evaluate_teledata(
         arg1: MappingRecord | list[list[int]],  # 兼容两种类型：prev_record / prev_partition
         arg2: MappingRecord | list[list[int]],  # 兼容两种类型：curr_record / curr_partition
@@ -486,7 +601,7 @@ class CompilerUtils:
         # 获取剩余的边
         remaining_edges = G.edges(data=True)
         for u, v, data in remaining_edges:
-            path_len = 2 * network.Hops[u][v] - 1
+            path_len = network.Hops[u][v]
             num_rswaps = path_len * data['weight']
             costs.remote_swaps += num_rswaps
             costs.remote_fidelity_loss += (1 - network.W_eff[u][v]) * num_rswaps
@@ -499,117 +614,213 @@ class CompilerUtils:
 
         return costs
 
+
+    # ---------------- 新增：第一阶段 - 预计算逻辑切换图结构 ----------------
+    @staticmethod
+    def preprocess_teledata_graph(
+        prev_partition: list[list[int]],
+        curr_partition: list[list[int]]
+    ) -> dict:
+        """
+        预计算原始逻辑QPU间的切换图结构（仅需运行1次 per 时间片转移）
+        返回：包含抵消边、环、剩余边的图结构字典
+        """
+        # 1. 记录每个qubit在prev和curr的逻辑QPU号
+        qubit_mapping = {}
+        for pno, part in enumerate(prev_partition):
+            for qubit in part:
+                qubit_mapping[qubit] = [pno, -1]
+        for pno, part in enumerate(curr_partition):
+            for qubit in part:
+                qubit_mapping[qubit][1] = pno
+
+        # 2. 构建有向图并处理边抵消
+        G = nx.DiGraph()
+        G.add_nodes_from(range(len(prev_partition)))
+        cancel_edges = []  # 存储2节点环的信息：(u_logical, v_logical, weight)
+
+        for prev_logical, curr_logical in qubit_mapping.values():
+            assert prev_logical != -1 and curr_logical != -1
+
+            # 处理边抵消（形成2节点环的情况）
+            if G.has_edge(curr_logical, prev_logical):
+                # 记录抵消边的逻辑QPU对和权重（固定为1）
+                cancel_edges.append((curr_logical, prev_logical, 1))
+                # 更新图
+                if G[curr_logical][prev_logical]['weight'] > 1:
+                    G[curr_logical][prev_logical]['weight'] -= 1
+                else:
+                    G.remove_edge(curr_logical, prev_logical)
+            else:
+                # 添加新边
+                if G.has_edge(prev_logical, curr_logical):
+                    G[prev_logical][curr_logical]['weight'] += 1
+                else:
+                    G.add_edge(prev_logical, curr_logical, weight=1)
+
+        # 3. 检测并处理长度>=3的环
+        cycles = []  # 存储环的信息：(cycle_logical_nodes, weight)
+        all_cycles = nx.simple_cycles(G)
+        cycles_by_length = defaultdict(list)
+
+        # 收集长度大于2的环（TODO: 漏了自环）
+        for cycle in all_cycles:
+            length = len(cycle)
+            if 3 <= length <= len(prev_partition):
+                cycles_by_length[length].append(cycle)
+
+        for length in sorted(cycles_by_length.keys()):
+            for cycle in cycles_by_length[length]:
+                # 检查环是否存在并计算最小权重
+                exist = True
+                min_weight = float('inf')
+                for i in range(length):
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    if not G.has_edge(u, v):
+                        exist = False
+                        break
+                    min_weight = min(min_weight, G[u][v]['weight'])
+                if not exist: # 当前环不存在了
+                    continue
+
+                # 记录环的信息
+                cycles.append((cycle, min_weight))
+
+                # 从图中移除环
+                for i in range(length):
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    if G[u][v]['weight'] > min_weight:
+                        G[u][v]['weight'] -= min_weight
+                    else:
+                        G.remove_edge(u, v)
+
+        # 4. 收集剩余边
+        remaining_edges = []
+        for u, v, data in G.edges(data=True):
+            remaining_edges.append((u, v, data['weight']))
+
+        # 返回完整的图结构
+        return {
+            "cancel_edges": cancel_edges,
+            "cycles": cycles,
+            "remaining_edges": remaining_edges,
+            "num_prev_logical": len(prev_partition),
+            "num_curr_logical": len(curr_partition)
+        }
+
+    # ---------------- 新增：第二阶段 - 根据图结构和物理映射快速计算开销 ----------------
     # @staticmethod
-    # def evaluate_total_costs(mapping_record_list: MappingRecordList) -> MappingRecordList:
-    #     mapping_record_list.summarize_total_costs()
-    #     return mapping_record_list
-    #     # mapping_record_list.add_cost_sum("num_comms")
-    #     # mapping_record_list.add_cost_sum("remote_hops")
-    #     # mapping_record_list.add_cost_sum("remote_swaps")
-    #     # mapping_record_list.add_cost_sum("fidelity_loss")
-    #     # mapping_record_list.add_cost_mul("fidelity")
-    #     # return mapping_record_list
+    # def compute_teledata_from_graph(
+    #     graph_struct: dict,
+    #     perm_prev: tuple[int, ...],  # 逻辑QPU→物理QPU的排列（prev）
+    #     perm_curr: tuple[int, ...],  # 逻辑QPU→物理QPU的排列（curr）
+    #     network: Network
+    # ) -> ExecCosts:
+    #     """
+    #     根据预计算的图结构和物理映射，快速计算teledata开销
+    #     """
+    #     costs = ExecCosts()
+    #     # 构建逻辑QPU→物理QPU的映射字典
+    #     prev_logical_to_phys = {logical: phys for logical, phys in enumerate(perm_prev)}
+    #     curr_logical_to_phys = {logical: phys for logical, phys in enumerate(perm_curr)}
+
+    #     # 1. 处理抵消边（2节点环）
+    #     for u_logical, v_logical, weight in graph_struct["cancel_edges"]:
+    #         u_phys = prev_logical_to_phys[u_logical]
+    #         v_phys = curr_logical_to_phys[v_logical]
+    #         # 计算开销（与原evaluate_teledata逻辑一致）
+    #         num_rswaps = (2 * network.Hops[u_phys][v_phys] - 1) * weight
+    #         costs.remote_swaps += num_rswaps
+    #         costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
+    #         costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
+
+    #     # 2. 处理长度>=3的环
+    #     for cycle_logical, weight in graph_struct["cycles"]:
+    #         cycle_length = len(cycle_logical)
+    #         for i in range(cycle_length):
+    #             u_logical = cycle_logical[i]
+    #             v_logical = cycle_logical[(i + 1) % cycle_length]
+    #             u_phys = prev_logical_to_phys[u_logical]
+    #             v_phys = curr_logical_to_phys[v_logical]
+    #             # 计算开销
+    #             num_rswaps = (2 * network.Hops[u_phys][v_phys] - 1) * weight
+    #             costs.remote_swaps += num_rswaps
+    #             costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
+    #             costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
+
+    #     # 3. 处理剩余边
+    #     for u_logical, v_logical, weight in graph_struct["remaining_edges"]:
+    #         u_phys = prev_logical_to_phys[u_logical]
+    #         v_phys = curr_logical_to_phys[v_logical]
+    #         # 计算开销
+    #         path_len = network.Hops[u_phys][v_phys]
+    #         num_rswaps = path_len * weight
+    #         costs.remote_swaps += num_rswaps
+    #         costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
+    #         costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
+
+    #     return costs
 
     @staticmethod
-    def evaluate_local_and_telegate(
-        arg: MappingRecord | list[list[int]],  # 兼容两种类型：record / partition
-        circuit: QuantumCircuit, 
+    def compute_teledata_from_graph(
+        graph_struct: dict,
+        perm_prev: tuple[int, ...],  # 物理QPU→原始逻辑QPU的排列（和原函数一致）
+        perm_curr: tuple[int, ...],  # 物理QPU→原始逻辑QPU的排列（和原函数一致）
         network: Network
     ) -> ExecCosts:
         """
-        评估在给定划分和后端分配下执行线路的总体保真度
-        @param record: 包含划分和映射信息的记录
-        @param circuit: 量子线路
-        @param network: 网络信息
-        @return: 更新后的记录，包含评估的成本信息
+        根据预计算的图结构和物理映射，快速计算teledata开销（严格对齐原函数逻辑）
         """
-        partition = None
-
-        if isinstance(arg, MappingRecord):
-            record = arg
-            partition = record.partition
-        else:
-            # arg is a list of lists representing the partition
-            partition = arg
-
-        # 建立每个分区对应的子线路
-        subcircuits = [QuantumCircuit(len(group)) for group in partition]
-
-        # 建立一个反向索引，用于快速查询每个量子比特属于哪个分区
-        qubit_to_partition = {}
-        for idx, group in enumerate(partition):
-            for qubit in group:
-                qubit_to_partition[qubit] = idx
-
-        # 对每个分区内，要将量子比特编号映射到0,1,...,len(group)-1，以便构建子线路
-        # 例如，如果分区是 [0,2,5]，则子线路中的量子比特0对应原线路的0，量子比特1对应原线路的2，量子比特2对应原线路的5
-        qubit_to_subcircuit = {}
-        for group in partition:
-            mapping = {original_qubit: idx for idx, original_qubit in enumerate(group)}
-            qubit_to_subcircuit.update(mapping)
-
-        # 初始化噪声
         costs = ExecCosts()
+        
+        # 【核心修正】构建映射：原始逻辑QPU → 物理QPU
+        # 原函数中，perm_prev是物理QPU→原始逻辑QPU的映射（物理QPU i 对应原始逻辑QPU perm_prev[i]）
+        # 所以我们需要构建逆映射：原始逻辑QPU l → 物理QPU i（其中 perm_prev[i] = l）
+        orig_logical_to_phys_prev = {orig_logical: phys for phys, orig_logical in enumerate(perm_prev)}
+        orig_logical_to_phys_curr = {orig_logical: phys for phys, orig_logical in enumerate(perm_curr)}
 
-        # 遍历circuit上的每个操作，如果操作完全属于某个group，则添加到对应的subcircuit；如果操作跨越多个group，则记录为telegate操作
-        for instruction in circuit:
-            qubits = [qubit._index for qubit in instruction.qubits]
-            if qubits[0] == None:
-                qubits = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
+        # 1. 处理抵消边（2节点环）：严格对齐原函数的 2*Hops -1
+        for u_orig, v_orig, weight in graph_struct["cancel_edges"]:
+            # u_orig是原始逻辑QPU（curr侧），v_orig是原始逻辑QPU（prev侧）
+            # 映射到物理QPU
+            u_phys = orig_logical_to_phys_curr[u_orig]
+            v_phys = orig_logical_to_phys_prev[v_orig]
+            
+            # 严格对齐原函数逻辑
+            num_rswaps = (2 * network.Hops[u_phys][v_phys] - 1) * weight
+            costs.remote_swaps += num_rswaps
+            costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
+            costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
 
-            # 检查操作涉及的量子比特属于哪个分区
-            involved_partitions = set()
-            for qubit in qubits:
-                involved_partitions.add(qubit_to_partition[qubit])
-
-            if len(involved_partitions) == 1:
-                # 操作完全属于一个分区，添加到对应的subcircuit
-                partition_idx = involved_partitions.pop()
-                # 更新操作中的量子比特编号为子线路中的编号
-                mapped_qubits = [qubit_to_subcircuit[qubit] for qubit in qubits]
-                subcircuits[partition_idx].append(instruction.operation, mapped_qubits)
-                # print(f"[DEBUG] Added instruction {instruction.operation.name} on qubits {mapped_qubits} to subcircuit {partition_idx}")
-            else: # 操作跨越多个分区，为telegate操作
-                # 对qubits里的每一对相邻qubits，算作一组remote_hop
-                # 直接统计跨分区的telegate保真度损失
-                for i in range(len(qubits) - 1):
-                    q1, q2 = qubits[i], qubits[i + 1]
-                    p1, p2 = qubit_to_partition[q1], qubit_to_partition[q2]
-                    if p1 != p2:
-                        costs.remote_hops += network.Hops[p1][p2]
-                        costs.remote_fidelity_loss += 1 - network.W_eff[p1][p2]
-                        costs.remote_fidelity *= network.W_eff[p1][p2]
-
-        # 遍历每个子线路
-        assert len(subcircuits) == len(network.backends)
-        for idx in range(len(subcircuits)):
-            # 获取每个分区单独的保真度损失
-            subcircuit = subcircuits[idx]
-            backend = network.backends[idx]
-
-            transpiled_circuit = transpile(
-                subcircuit,
-                coupling_map=backend.coupling_map,
-                basis_gates=backend.basis_gates,
-                optimization_level=0
-            )
-
-            # 统计每个量子门的保真度损失
-            for instruction in transpiled_circuit:
-                # 获取操作名字
-                gate_name = instruction.operation.name
-                qubits = [transpiled_circuit.qubits.index(qubit) for qubit in instruction.qubits]
-                assert qubits[0] is not None, f"Qubit index is None for instruction: {instruction}"
-                gate_key = f"{gate_name}{'_'.join(map(str, qubits))}"
+        # 2. 处理长度≥3的环：严格对齐原函数的 2*Hops -1
+        for cycle_orig, weight in graph_struct["cycles"]:
+            cycle_length = len(cycle_orig)
+            for i in range(cycle_length):
+                u_orig = cycle_orig[i]
+                v_orig = cycle_orig[(i + 1) % cycle_length]
+                # 映射到物理QPU
+                u_phys = orig_logical_to_phys_prev[u_orig]
+                v_phys = orig_logical_to_phys_curr[v_orig]
                 
-                # 获取操作保真度
-                gate_error = backend.gate_dict.get(gate_key, {}).get("gate_error_value", None)
-                assert gate_error is not None, f"Gate error not found for gate_key: {gate_key} in backend.gate_dict"
-                costs.local_fidelity_loss += gate_error
-                costs.local_fidelity *= (1 - gate_error)
+                # 严格对齐原函数逻辑
+                num_rswaps = (2 * network.Hops[u_phys][v_phys] - 1) * weight
+                costs.remote_swaps += num_rswaps
+                costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
+                costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
 
-        if isinstance(arg, MappingRecord):
-            # 更新record的costs
-            arg.costs += costs
+        # 3. 处理剩余边：严格对齐原函数的 Hops（没有减1和乘2）
+        for u_orig, v_orig, weight in graph_struct["remaining_edges"]:
+            # 映射到物理QPU
+            u_phys = orig_logical_to_phys_prev[u_orig]
+            v_phys = orig_logical_to_phys_curr[v_orig]
+            
+            # 严格对齐原函数逻辑：直接用 Hops，没有 2*...-1
+            path_len = network.Hops[u_phys][v_phys]
+            num_rswaps = path_len * weight
+            costs.remote_swaps += num_rswaps
+            costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
+            costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
 
         return costs

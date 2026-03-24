@@ -5,16 +5,25 @@ import datetime
 import os
 import pandas as pd
 import random
-from typing import Any
+from typing import Any, Optional
 import json
+import ast
+import glob
 
 class QiskitBackendImporter:
-    def __init__(self, token, instance, proxies):
-        QiskitRuntimeService.save_account(token, instance=instance, overwrite=True, proxies=proxies)
-        self.service = QiskitRuntimeService()
+    def __init__(self, token=None, instance=None, proxies=None):
+        # 初始化时 token 变为可选，如果只是为了转 pkl，不需要登录
+        if token:
+            QiskitRuntimeService.save_account(token, instance=instance, overwrite=True, proxies=proxies)
+            self.service = QiskitRuntimeService()
+        else:
+            self.service = None
         return
 
     def download_backend_info(self, backend_name, start_date, end_date, folder):
+        if not self.service:
+            raise RuntimeError("Service not initialized. Please provide token when creating the instance.")
+        
         backend = self.service.backend(backend_name)
         self._print_backend(backend)
         config = backend.configuration() # type: ignore
@@ -46,8 +55,85 @@ class QiskitBackendImporter:
         return
 
     def download_all_backend_info(self, start_date, end_date, folder):
+        if not self.service:
+            raise RuntimeError("Service not initialized. Please provide token when creating the instance.")
         for backend in self.service.backends():
             self.download_backend_info(backend.name, start_date, end_date, folder)
+        return
+
+    def convert_pkl_to_xlsx(self, input_path: str, output_folder: Optional[str] = None):
+        """
+        新增：将本地 pkl(.data) 文件批量转换为 Excel。
+        
+        参数:
+            input_path: 可以是单个 .data 文件路径，也可以是包含 .data 文件的文件夹路径
+            output_folder: 输出文件夹，默认为 None (与输入文件同目录)
+        """
+        if os.path.isfile(input_path):
+            # 单个文件模式
+            print(f"Processing single file: {input_path}")
+            self._convert_single_pkl(input_path, output_folder)
+        elif os.path.isdir(input_path):
+            # 文件夹模式：递归查找所有 .data 文件
+            print(f"Processing folder: {input_path}")
+            # 也可以查找子文件夹，用 recursive=True
+            pkl_files = glob.glob(os.path.join(input_path, "*.data")) 
+            
+            if not pkl_files:
+                # 尝试在子文件夹中找 (比如 folder/backend_name/file.data)
+                pkl_files = glob.glob(os.path.join(input_path, "**", "*.data"), recursive=True)
+
+            if not pkl_files:
+                print(f"No .data files found in {input_path}.")
+                return
+
+            print(f"Found {len(pkl_files)} files.")
+            for f in pkl_files:
+                try:
+                    # 保持目录结构：如果 input_path 是根目录，output_folder 也需要对应
+                    # 这里简单处理：如果指定了 output_folder，都放那里；否则放在原文件旁边
+                    specific_out = output_folder
+                    if not specific_out:
+                        specific_out = os.path.dirname(f)
+                    
+                    self._convert_single_pkl(f, specific_out)
+                except Exception as e:
+                    print(f"Failed to process {f}: {e}")
+        else:
+            print(f"Path not found: {input_path}")
+        return
+
+    def _convert_single_pkl(self, pkl_path: str, output_folder: str | None = None):
+        """内部方法：转换单个 pkl 文件"""
+        print(f"Reading: {pkl_path} ...")
+        
+        # 1. 读取 Pickle
+        with open(pkl_path, 'rb') as f:
+            properties, config = pkl.load(f)
+
+        # 2. 构造字典 (复用下载时的逻辑)
+        data_dict = {
+            **properties.to_dict(),
+            'coupling_map': config.coupling_map
+        }
+
+        # 3. 确定输出路径
+        if not output_folder:
+            output_folder = os.path.dirname(pkl_path)
+        
+        os.makedirs(output_folder, exist_ok=True)
+        
+        # 生成输出文件名：替换后缀为 .xlsx
+        filename = os.path.basename(pkl_path)
+        if filename.endswith('.data'):
+            filename = filename[:-5] + '.xlsx'
+        else:
+            filename = filename + '.xlsx'
+            
+        out_path = os.path.join(output_folder, filename)
+
+        # 4. 写入 Excel (复用现有的 _to_xlsx 方法)
+        self._to_xlsx(data_dict, out_path)
         return
 
     def _print_backend(self, backend):
@@ -67,9 +153,9 @@ class QiskitBackendImporter:
         row = {
             'backend_name': data.get('backend_name'),
             'backend_version': data.get('backend_version'),
-            'general_qlists': data.get('general_qlists'),
+            'general_qlists': json.dumps(data.get('general_qlists')),
             'last_update_date': self._to_iso(data.get('last_update_date')),
-            'coupling_map': data.get('coupling_map')
+            'coupling_map': json.dumps(data.get('coupling_map'))
         }
         return pd.DataFrame([row])
 
@@ -83,7 +169,7 @@ class QiskitBackendImporter:
             }
             # qubits 列：保存为逗号分隔字符串（也可改为列表）
             qubits = g.get('qubits', [])
-            row['qubits'] = ','.join(map(str, qubits)) if isinstance(qubits, list) else qubits
+            row['qubits'] = json.dumps(qubits)
 
             # 展开 parameters 列表 -> {param_name}_value/unit/date
             params = g.get('parameters', [])
@@ -207,27 +293,81 @@ class Backend:
         basic_df = pd.read_excel(filepath, sheet_name='basic_info')
         gate_df = pd.read_excel(filepath, sheet_name='gate_info')
         qubit_df = pd.read_excel(filepath, sheet_name='qubit_info')
-        # general_df = pd.read_excel(filepath, sheet_name='general_info')
 
-        # 初始化basic_info
+        # --- 核心修复：类型强制清洗与转换 ---
+        
+        # 1. 初始化 basic_info
         self.basic_info = basic_df.to_dict(orient='records')[0]
         self.name = self.basic_info.get('backend_name', 'unknown')
         self.date = date
-        # 初始化gate_info
+        
+        # 清洗 coupling_map: JSON str -> list[list[int]]
+        self.coupling_map = self._safe_parse_json(self.basic_info.get('coupling_map', '[]'))
+        
+        # 清洗 general_qlists: JSON str -> list
+        self.basic_info['general_qlists'] = self._safe_parse_json(self.basic_info.get('general_qlists', '[]'))
+
+        # 2. 初始化 gate_info
         self.gate_info = gate_df.to_dict(orient='records')
+        for gate in self.gate_info:
+            # 清洗 qubits: JSON str -> list[int]
+            # 无论 Excel 里存的是 "[0,1]" 还是 "0" 还是 0，这里统一变成 list[int]
+            gate['qubits'] = self._parse_qubits_list(gate.get('qubits', '[]'))
+        
         self.gate_dict = {gate['name']: gate for gate in self.gate_info}
-        # 初始化qubit_info
+
+        # 3. 初始化 qubit_info
         self.qubit_info = qubit_df.to_dict(orient='records')
+        # 确保 qubit_id 是 int
+        for q in self.qubit_info:
+            if 'qubit_id' in q and not pd.isna(q['qubit_id']):
+                q['qubit_id'] = int(q['qubit_id'])
+        
         self.num_qubits = len(self.qubit_info)
-        # 初始化general_info
-        # self.general_info = general_df.to_dict(orient='records')
-        # 初始化coupling_map
-        self.coupling_map = self.basic_info.get('coupling_map', [])
-        if isinstance(self.coupling_map, str): # 字符串转列表
-            self.coupling_map = json.loads(self.coupling_map.replace("'", '"'))
-        # 初始化basis gate set
+
+        # 4. 初始化 basis gates
         self.basis_gates, self.two_qubit_gates = self._get_basis_gates()
         return
+
+    def _safe_parse_json(self, data_str):
+        """安全解析 JSON，处理 NaN 和 Excel 读取的奇怪类型"""
+        if pd.isna(data_str):
+            return []
+        if isinstance(data_str, list):
+            return data_str
+        if isinstance(data_str, str):
+            try:
+                return json.loads(data_str)
+            except json.JSONDecodeError:
+                # 备用：如果是 "[1, 2]" 格式 json 失败，试试 ast.literal_eval
+                try:
+                    return ast.literal_eval(data_str)
+                except:
+                    return []
+        return []
+
+    def _parse_qubits_list(self, val) -> list[int]:
+        """专门用于解析 gate['qubits']，确保返回 list[int]"""
+        if isinstance(val, list):
+            return [int(x) for x in val]
+        if isinstance(val, int):
+            return [val]
+        if pd.isna(val):
+            return []
+        
+        val_str = str(val).strip()
+        # 情况 A: JSON 格式 "[0, 1]"
+        if val_str.startswith('['):
+            parsed = self._safe_parse_json(val_str)
+            return [int(x) for x in parsed]
+        # 情况 B: 逗号分隔 "0,1" (兼容旧数据)
+        elif ',' in val_str:
+            parts = val_str.split(',')
+            return [int(x.strip()) for x in parts if x.strip().isdigit()]
+        # 情况 C: 单个数字字符串 "0"
+        elif val_str.isdigit():
+            return [int(val_str)]
+        return []
 
     def _download_backend_data(self, config: dict, backend_name: str, date: datetime.datetime):
         backend_importer = QiskitBackendImporter(token=config["ibm_quantum_token"],
@@ -288,11 +428,12 @@ class Backend:
 
             # 重映射 gate_info 中的 qubits
             for gate in new_gate_info:
-                orig_qubits = gate['qubits']
+                # 这里现在直接是 list[int] 了，不需要 split
+                orig_qubits = gate['qubits'] 
                 new_qubits = [qubit_map[q] for q in orig_qubits]
                 # 更新gate_name
                 gate['name'] = f"{gate['gate']}{'_'.join(map(str, new_qubits))}"
-                gate['qubits'] = ','.join(map(str, new_qubits))
+                gate['qubits'] = new_qubits # 保持 list[int]
 
             # 重映射 general_qlists
             remapped_general_qlists = []
@@ -317,8 +458,16 @@ class Backend:
         self.qubit_info = new_qubit_info
         self.num_qubits = num_qubits
 
+        # --- 保存前准备：把 list 转回 JSON 字符串以便存入 Excel ---
         basic_df = pd.DataFrame([sampled['basic_info']])
+        # 转回 JSON 字符串
+        basic_df['coupling_map'] = basic_df['coupling_map'].apply(json.dumps)
+        basic_df['general_qlists'] = basic_df['general_qlists'].apply(json.dumps)
+
         gate_df = pd.DataFrame(new_gate_info)
+        # 把 qubits list 转回 JSON 字符串
+        gate_df['qubits'] = gate_df['qubits'].apply(json.dumps)
+
         qubit_df = pd.DataFrame(new_qubit_info)
         # general_df = pd.DataFrame(sampled['general_info'])  # 可选：也可过滤或留空
 
@@ -339,62 +488,76 @@ class Backend:
     def _sample_subsystem(self, num_qubits: int) -> dict[str, Any]:
         """内部方法：采样子系统，不重映射，返回原始 qubit 编号的数据。
         优先从 general_qlists 中按长度降序提取连通分量，直到满足 n 个 qubits。
+        确保最终采样的 n 个 qubit 是连通的，且优先选择 read_out_error 小的 qubit。
         """
         if num_qubits > self.num_qubits:
             raise ValueError(f"Requested {num_qubits} qubits, but backend only has {self.num_qubits}.")
         if num_qubits <= 0:
             raise ValueError("Number of qubits must be positive.")
 
-        # 获取真实的量子比特编号
+        # 1. 提取所有 qubit 的 read_out_error（核心：噪声数据）
+        qubit_noise = self._get_qubit_readout_error()
+        # 2. 获取所有 qubit 编号和连通分量
         all_qubit_ids = [q['qubit_id'] for q in self.qubit_info]
+        # 从耦合图获取所有连通分量（按大小降序排列）
+        connected_components = self._get_connected_components()
+        if not connected_components:
+            raise RuntimeError("No connected components found in backend coupling map.")
 
         selected_qubits = set()
         general_qlists = self.basic_info.get('general_qlists', [])
-        # 把general_qlists从json字符串转成list
-        if isinstance(general_qlists, str):
-            general_qlists = json.loads(general_qlists.replace("'", '"'))
 
-        # Step 1: 尝试直接从general_qlists里找到符合要求的一组量子比特
+        # Step 1: 优先从 general_qlists 中找符合条件的连通 qubit 列表（选总噪声最小的）
+        candidate_lists = []
         for item in general_qlists:
             qlist = item.get('qubits', [])
-            if len(qlist) == num_qubits:
-                selected_qubits = set(qlist)
-                break
+            # 筛选：长度等于 num_qubits 且连通
+            if len(qlist) == num_qubits and self._is_connected(qlist):
+                # 计算该列表的总 read_out_error（越小越好）
+                total_error = sum(qubit_noise.get(q, float('inf')) for q in qlist)
+                candidate_lists.append((total_error, qlist))
+        
+        # 选总噪声最小的候选列表
+        if candidate_lists:
+            candidate_lists.sort(key=lambda x: x[0])  # 按总噪声升序
+            selected_qubits = set(candidate_lists[0][1])
 
-        # Step 2: 如果还不够，从剩余 qubit 中随机补充
+        # Step 2: 如果 Step1 没找到，从最大连通分量中采样低噪声的连通 qubit
         if len(selected_qubits) < num_qubits:
-            remaining = [q for q in all_qubit_ids if q not in selected_qubits]
-            need = num_qubits - len(selected_qubits)
-            if len(remaining) < need:
-                raise RuntimeError(f"Not enough qubits available to sample {num_qubits}. "
-                                f"Available: {len(remaining) + len(selected_qubits)}")
-            selected_qubits.update(random.sample(remaining, need))
+            # 找第一个能容纳 num_qubits 的连通分量
+            target_component = None
+            for component in connected_components:
+                if len(component) >= num_qubits:
+                    target_component = component
+                    break
+            
+            if not target_component:
+                max_size = len(connected_components[0]) if connected_components else 0
+                raise RuntimeError(
+                    f"Cannot sample {num_qubits} connected qubits. "
+                    f"Largest connected component has only {max_size} qubits."
+                )
+
+            # 从目标连通分量中采样：优先选 read_out_error 小的连通 qubit
+            selected_qubits = self._sample_low_noise_connected_subset(
+                target_component, num_qubits, qubit_noise
+            )
 
         selected_qubits = sorted(selected_qubits)
 
-        # Step 3: Filter qubit_info
-        new_qubit_info = [self.qubit_info[q] for q in selected_qubits]
-
-        # Step 4: Filter gate_info
+        # Step 3: 过滤 qubit_info/gate_info/general_qlists/coupling_map（逻辑不变）
+        new_qubit_info = [q.copy() for q in self.qubit_info if q['qubit_id'] in selected_qubits]
         new_gate_info = []
         for gate in self.gate_info:
-            gate_qubits = [int(q) for q in gate['qubits'].split(',')]
-            gate['qubits'] = gate_qubits
+            gate_qubits = gate['qubits']
             if all(q in selected_qubits for q in gate_qubits):
-                new_gate_info.append(gate)
-
-        # Step 5: Update general_qlists (保留与 selected_qubits 有交集的路径)
+                new_gate_info.append(gate.copy())
         new_general_qlists = [{'name': f'lf_{len(selected_qubits)}', 'qubits': selected_qubits}]
-
-        # Step 6: Update coupling_map (保留与 selected_qubits 相关的连接)
-        # 把coupling map从json字符串转成list
-        coupling_map = self.basic_info.get('coupling_map', [])
-        if isinstance(coupling_map, str):
-            coupling_map = json.loads(coupling_map.replace("'", '"'))
+        coupling_map = self.coupling_map
         new_coupling_map = []
         for u, v in coupling_map:
             if u in selected_qubits and v in selected_qubits:
-                new_coupling_map.append((u, v))
+                new_coupling_map.append([u, v])
 
         return {
             'selected_qubits': selected_qubits,
@@ -413,11 +576,159 @@ class Backend:
         basis_gates = set()
         two_qubit_gates = set()
         for gate in self.gate_info:
-            if len(gate['qubits'].split(',')) > 2:
-                print(f"[WARNING] Found gate with more than 2 qubits: {gate['name']} with qubits {gate['qubits']}, skipping it for basis gate set.")
+            # 修复：直接访问 list，不需要 split
+            qubits_list = gate['qubits'] 
+            n_qubits = len(qubits_list)
+            
+            if n_qubits > 2:
+                print(f"[WARNING] Found gate with more than 2 qubits: {gate['name']} with qubits {qubits_list}, skipping it for basis gate set.")
+                continue
+            # 跳过measure
+            if gate['gate'] == 'measure':
                 continue
             basis_gates.add(gate['gate'])
-            if len(gate['qubits'].split(',')) == 2:
+            if n_qubits == 2:
                 two_qubit_gates.add(gate['gate'])
         return list(basis_gates), two_qubit_gates
 
+    # ------------------------------ 新增/修改的辅助函数 ------------------------------
+    def _get_qubit_readout_error(self) -> dict[int, float]:
+        """提取每个 qubit 的 read_out_error 数值，返回 {qubit_id: read_out_error} 字典。
+        如果某个 qubit 没有 read_out_error 数据，默认设为无穷大（最后选）。
+        """
+        qubit_noise = {}
+        for q_info in self.qubit_info:
+            qid = q_info['qubit_id']
+            # 从 qubit_info 中读取 read_out_error 的值（注意字段名是 read_out_error_value）
+            readout_error = q_info.get('read_out_error_value', float('inf'))
+            # 处理空值/异常值
+            if pd.isna(readout_error) or not isinstance(readout_error, (int, float)):
+                readout_error = float('inf')
+            qubit_noise[qid] = readout_error
+        return qubit_noise
+
+    def _sample_low_noise_connected_subset(
+        self, 
+        component: list[int], 
+        num_qubits: int, 
+        qubit_noise: dict[int, float]
+    ) -> set[int]:
+        """从连通分量中采样 num_qubits 个连通的 qubit，优先选 read_out_error 小的。
+        步骤：
+        1. 选分量内 read_out_error 最小的 qubit 作为起始点；
+        2. BFS 扩展时，优先遍历噪声更小的邻居，保证整体噪声最低。
+        """
+        if len(component) == num_qubits:
+            return set(component)
+        
+        # 1. 构建分量内的邻接表（只保留分量内的耦合）
+        adj = {}
+        for q in component:
+            adj[q] = set()
+        for u, v in self.coupling_map:
+            if u in adj and v in adj:
+                adj[u].add(v)
+                adj[v].add(u)
+        
+        # 2. 选分量内 read_out_error 最小的 qubit 作为起始点（核心：低噪声优先）
+        component_sorted = sorted(component, key=lambda q: qubit_noise.get(q, float('inf')))
+        start_qubit = component_sorted[0]  # 噪声最小的 qubit 作为起始点
+        
+        # 3. BFS 扩展：优先访问噪声更小的邻居（保证选到的 qubit 整体噪声低）
+        visited = set()
+        # 用优先队列（按噪声升序）替代普通队列，优先处理低噪声邻居
+        import heapq
+        heap = []
+        heapq.heappush(heap, (qubit_noise[start_qubit], start_qubit))
+        visited.add(start_qubit)
+        
+        while heap and len(visited) < num_qubits:
+            # 取出当前噪声最小的 qubit
+            current_noise, current_q = heapq.heappop(heap)
+            # 遍历邻居：按噪声升序排序后加入优先队列
+            neighbors = list(adj[current_q])
+            # 邻居按 read_out_error 升序排序（低噪声优先）
+            neighbors_sorted = sorted(neighbors, key=lambda q: qubit_noise.get(q, float('inf')))
+            
+            for neighbor in neighbors_sorted:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    heapq.heappush(heap, (qubit_noise[neighbor], neighbor))
+                    # 达到目标数量就停止
+                    if len(visited) == num_qubits:
+                        break
+        
+        if len(visited) < num_qubits:
+            raise RuntimeError(f"Failed to sample {num_qubits} connected qubits from component of size {len(component)}.")
+        
+        return visited
+
+    # ------------------------------ 原有辅助函数（不变） ------------------------------
+    def _get_connected_components(self) -> list[list[int]]:
+        """基于 coupling_map 计算所有连通分量，按分量大小降序排列。
+        使用并查集（Union-Find）算法，高效求解图的连通分量。
+        """
+        # 初始化并查集
+        parent = {qid: qid for qid in [q['qubit_id'] for q in self.qubit_info]}
+        
+        def find(x):
+            """查找根节点（带路径压缩）"""
+            if parent[x] != x:
+                parent[x] = find(parent[x])
+            return parent[x]
+        
+        def union(x, y):
+            """合并两个节点"""
+            root_x = find(x)
+            root_y = find(y)
+            if root_x != root_y:
+                parent[root_y] = root_x
+
+        # 遍历耦合图，合并相连的 qubit
+        for u, v in self.coupling_map:
+            union(u, v)
+
+        # 按根节点分组，得到连通分量
+        components = {}
+        for qid in parent:
+            root = find(qid)
+            if root not in components:
+                components[root] = []
+            components[root].append(qid)
+
+        # 按分量大小降序排列，且每个分量内的 qubit 排序
+        sorted_components = sorted(components.values(), key=lambda x: len(x), reverse=True)
+        # 对每个分量内的 qubit 编号排序（可选，提升可读性）
+        sorted_components = [sorted(comp) for comp in sorted_components]
+        return sorted_components
+
+    def _is_connected(self, qubit_list: list[int]) -> bool:
+        """验证给定的 qubit 列表是否构成连通子图"""
+        if len(qubit_list) <= 1:
+            return True  # 单个/空 qubit 天然连通
+        
+        # 构建子图的耦合关系
+        sub_coupling = {}
+        for q in qubit_list:
+            sub_coupling[q] = set()
+        # 从全局耦合图中提取子图的边
+        for u, v in self.coupling_map:
+            if u in sub_coupling and v in sub_coupling:
+                sub_coupling[u].add(v)
+                sub_coupling[v].add(u)
+        
+        # 广度优先搜索（BFS）验证连通性
+        visited = set()
+        start = qubit_list[0]
+        queue = [start]
+        visited.add(start)
+        
+        while queue:
+            current = queue.pop(0)
+            for neighbor in sub_coupling[current]:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+        
+        # 所有 qubit 都被访问到 = 连通
+        return len(visited) == len(qubit_list)

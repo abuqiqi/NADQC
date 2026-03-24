@@ -1,1 +1,1 @@
-python ablation.py -cname QV -nq 90 -core 3 -cap 30
+python ablation.py -cname QV -nq 90 -core 3 -cap 30 -net mesh_grid

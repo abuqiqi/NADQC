@@ -1,0 +1,45 @@
+[INFO] QFT #Qubits: 20
+[INFO] QFT #Depths: 104
+[INFO] QFT #Gates: 720
+[INFO] QFT #2Q Gates: 220
+[INFO] 2 QPUs: [10, 10]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+Registered compiler IDs: ['staticoee', 'navi']
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QFT20_net[10, 10]_Static OEE.json
+ExecCosts(comms=100, fidelity=0.0221, loss=3.7891, time=0.14)
+Compiler: [NAVI]
+Compiling with [NAVI]...
+[INFO] gate_density: 0.4519230769230769
+[INFO] cu1_density: 0.0
+[build_partition_table]
+[build_partition_table] Partition calculation times: 3306.
+[build_partition_table] Time: 0.18612170219421387 seconds
+[build_slicing_table] Time: 0.006442070007324219 seconds
+[group_shallow_subcircuits] Time: 2.002716064453125e-05 seconds
+[INFO] DP Mapper completed in 0.79 seconds.
+✅ 成功保存 16 条映射记录到 JSON 文件：./outputs/QFT20_net[10, 10]_NAVI.json
+ExecCosts(comms=41, fidelity=0.0046, loss=5.3764, time=1.00)
+{'remote_hops': 100, 'remote_swaps': 0, 'remote_fidelity_loss': 2.0000000000000018, 'remote_fidelity': 0.132619555894753, 'local_fidelity_loss': 1.7891192662466087, 'local_fidelity': 0.16673801753109424, 'execution_time': 0.14277148246765137, 'num_comms': 100, 'total_fidelity_loss': 3.7891192662466104, 'total_fidelity': 0.022112721835745256}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+  Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs      QPUs                          Basis Gates 2Q Gate Names               Metrics  Static OEE       NAVI
+0     QFT       20     720        220     104      2  [10, 10]  [rz, sx, cz, reset, id, x, rzz, rx]     {rzz, cz}           remote_hops  100.000000   0.000000
+1     QFT       20     720        220     104      2  [10, 10]  [rz, sx, cz, reset, id, x, rzz, rx]     {rzz, cz}          remote_swaps    0.000000  41.000000
+2     QFT       20     720        220     104      2  [10, 10]  [rz, sx, cz, reset, id, x, rzz, rx]     {rzz, cz}  remote_fidelity_loss    2.000000   0.820000
+3     QFT       20     720        220     104      2  [10, 10]  [rz, sx, cz, reset, id, x, rzz, rx]     {rzz, cz}       remote_fidelity    0.132620   0.436786
+4     QFT       20     720        220     104      2  [10, 10]  [rz, sx, cz, reset, id, x, rzz, rx]     {rzz, cz}   local_fidelity_loss    1.789119   4.556390
+5     QFT       20     720        220     104      2  [10, 10]  [rz, sx, cz, reset, id, x, rzz, rx]     {rzz, cz}        local_fidelity    0.166738   0.010442
+6     QFT       20     720        220     104      2  [10, 10]  [rz, sx, cz, reset, id, x, rzz, rx]     {rzz, cz}        execution_time    0.142771   1.004069
+7     QFT       20     720        220     104      2  [10, 10]  [rz, sx, cz, reset, id, x, rzz, rx]     {rzz, cz}             num_comms  100.000000  41.000000
+8     QFT       20     720        220     104      2  [10, 10]  [rz, sx, cz, reset, id, x, rzz, rx]     {rzz, cz}   total_fidelity_loss    3.789119   5.376390
+9     QFT       20     720        220     104      2  [10, 10]  [rz, sx, cz, reset, id, x, rzz, rx]     {rzz, cz}        total_fidelity    0.022113   0.004561
+[Total Runtime] 1.756840705871582 seconds
+
+

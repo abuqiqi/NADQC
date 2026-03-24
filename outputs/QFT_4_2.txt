@@ -1,0 +1,47 @@
+Sampling backend from ibm_torino for ibm_torino_sampled_2q ...
+Sampled subsystem saved to: /home/xls/project/NADQC/data/device_properties/ibm/ibm_torino_sampled_2q/ibm_torino_sampled_2q_2025-11-09.xlsx
+[INFO] QFT #Qubits: 4
+[INFO] QFT #Depths: 24
+[INFO] QFT #Gates: 48
+[INFO] QFT #2Q Gates: 12
+[INFO] 2 QPUs: [2, 2]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+Registered compiler IDs: ['staticoee', 'navi']
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QFT4_net[2, 2]_Static OEE.json
+ExecCosts(comms=4, fidelity=0.8958, loss=0.1092, time=0.04)
+Compiler: [NAVI]
+Compiling with [NAVI]...
+[INFO] gate_density: 0.625
+[INFO] cu1_density: 0.0
+[build_partition_table]
+[build_partition_table] Partition calculation times: 23.
+[build_partition_table] Time: 0.002079486846923828 seconds
+[build_slicing_table] Time: 0.00012564659118652344 seconds
+[group_shallow_subcircuits] Time: 1.0728836059570312e-05 seconds
+[INFO] DP Mapper completed in 0.13 seconds.
+✅ 成功保存 6 条映射记录到 JSON 文件：./outputs/QFT4_net[2, 2]_NAVI.json
+ExecCosts(comms=5, fidelity=0.8726, loss=0.1352, time=0.14)
+{'remote_hops': 4, 'remote_swaps': 0, 'remote_fidelity_loss': 0.08000000000000007, 'remote_fidelity': 0.9223681599999999, 'local_fidelity_loss': 0.029201962620707473, 'local_fidelity': 0.9711855581493655, 'execution_time': 0.038034677505493164, 'num_comms': 4, 'total_fidelity_loss': 0.10920196262070754, 'total_fidelity': 0.8957906362888031}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+  Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs    QPUs                          Basis Gates 2Q Gate Names               Metrics  Static OEE      NAVI
+0     QFT        4      48         12      24      2  [2, 2]  [reset, rx, id, rz, cz, sx, x, rzz]     {cz, rzz}           remote_hops    4.000000  0.000000
+1     QFT        4      48         12      24      2  [2, 2]  [reset, rx, id, rz, cz, sx, x, rzz]     {cz, rzz}          remote_swaps    0.000000  5.000000
+2     QFT        4      48         12      24      2  [2, 2]  [reset, rx, id, rz, cz, sx, x, rzz]     {cz, rzz}  remote_fidelity_loss    0.080000  0.100000
+3     QFT        4      48         12      24      2  [2, 2]  [reset, rx, id, rz, cz, sx, x, rzz]     {cz, rzz}       remote_fidelity    0.922368  0.903921
+4     QFT        4      48         12      24      2  [2, 2]  [reset, rx, id, rz, cz, sx, x, rzz]     {cz, rzz}   local_fidelity_loss    0.029202  0.035240
+5     QFT        4      48         12      24      2  [2, 2]  [reset, rx, id, rz, cz, sx, x, rzz]     {cz, rzz}        local_fidelity    0.971186  0.965329
+6     QFT        4      48         12      24      2  [2, 2]  [reset, rx, id, rz, cz, sx, x, rzz]     {cz, rzz}        execution_time    0.038035  0.140386
+7     QFT        4      48         12      24      2  [2, 2]  [reset, rx, id, rz, cz, sx, x, rzz]     {cz, rzz}             num_comms    4.000000  5.000000
+8     QFT        4      48         12      24      2  [2, 2]  [reset, rx, id, rz, cz, sx, x, rzz]     {cz, rzz}   total_fidelity_loss    0.109202  0.135240
+9     QFT        4      48         12      24      2  [2, 2]  [reset, rx, id, rz, cz, sx, x, rzz]     {cz, rzz}        total_fidelity    0.895791  0.872581
+[Total Runtime] 0.9627542495727539 seconds
+
+

@@ -81,13 +81,6 @@ class NAVIAblationStudy:
                 new_pool.append((ctx_new, {**trace, 
                                            "telegate_partitioner": tp_type, 
                                            "telegate_time (sec)": time.time() - start_time}))
-                # 输出每个ctx下的hybrid_records的total_costs，便于调试
-                # if hasattr(ctx_new, 'hybrid_records') and ctx_new.hybrid_records is not None:
-                #     print(f"Trace: {trace}, Hybrid Records:")
-                #     for record in ctx_new.hybrid_records.records:
-                #         print(record.costs)
-                # else:
-                #     print(f"Trace: {trace}, No hybrid records found.")
         ctx_pool = new_pool
 
         # --- Phase 4: Mapper ---
@@ -105,19 +98,6 @@ class NAVIAblationStudy:
         # --- Phase 5: 统一收集结果 ---
         results = {}
 
-        # debug: 展开每个ctx里面的total_costs
-        assert len(ctx_pool) == len(partitioners) * len(partition_assigners) * len(telegate_partitioners) * len(mappers), "Context pool size mismatch with expected combinations"
-        for ctx, trace in ctx_pool:
-            # 输出ctx的类型
-            print(f"Context Type: {type(ctx)}")
-            # 输出ctx所有的属性
-            print(f"Context Attributes: {ctx.__dict__.keys()}")
-            print(f"Final records type in context: {type(ctx.final_records)}")
-            # if hasattr(ctx, 'final_records') and ctx.final_records is not None:
-            #     print(f"Trace: {trace}, Total Costs: {ctx.final_records}")
-            # else:
-            #     print(f"Trace: {trace}, No final records found.")
-        
         for ctx, trace in ctx_pool:
             combo_name = "_".join([
                 trace.get("partitioner", "default"),
@@ -128,7 +108,31 @@ class NAVIAblationStudy:
             
             # 提取结果
             if hasattr(ctx, 'final_records') and ctx.final_records is not None:
-                results[combo_name] = ctx.final_records.total_costs.to_dict()
+                
+                # 1. 提取各阶段时间（兜底缺失值为0，避免KeyError）
+                partition_time = trace.get("partition_time (sec)", 0.0)
+                assign_time = trace.get("assign_time (sec)", 0.0)
+                telegate_time = trace.get("telegate_time (sec)", 0.0)
+                mapper_time = trace.get("mapper_time (sec)", 0.0)
+                
+                # 2. 计算总耗时（各阶段之和，不含预处理）
+                total_stage_time = partition_time + assign_time + telegate_time + mapper_time
+                
+                # 3. 构建结果字典（成本 + 时间 + 配置）
+                
+                results[combo_name] = {
+                    # 核心成本指标（来自final_records）
+                    **ctx.final_records.total_costs.to_dict(),
+
+                    # 各阶段耗时（规范化命名，单位：秒）
+                    "partition_time_sec": round(partition_time, 4),
+                    "assign_time_sec": round(assign_time, 4),
+                    "telegate_time_sec": round(telegate_time, 4),
+                    "mapper_time_sec": round(mapper_time, 4),
+                    
+                    # 总耗时（各阶段之和）
+                    "total_stage_time_sec": round(total_stage_time, 4)
+                }
 
         return results
 
@@ -145,7 +149,7 @@ def ablation(args):
         backend = Backend(global_config, backend_config)
         backend_list.append(backend)
 
-    network_config = global_config.get('network', {})
+    network_config = global_config.get('network', {'type': args.network})
 
     network = Network(network_config, backend_list)
 
@@ -168,9 +172,9 @@ def ablation(args):
     # telegate_partitioners = ["direct"]
     # mappers = ["direct", "greedy", "dp"]
     partitioner = ["recursive_dp"]
-    partition_assigners = ["direct", "max_match", "global_max_match"]
+    partition_assigners = ["global_max_match"]
     telegate_partitioners = ["direct"]
-    mappers = ["direct", "greedy", "dp"]
+    mappers = ["direct", "dp", "newdp", "linkdp"]
 
     ablation = NAVIAblationStudy(NAVI())
 
@@ -187,11 +191,14 @@ def ablation(args):
     print("task_info:")
     pprint(task_info)
 
+    print("network_info:")
+    pprint(network.info())
+
     print("Final Ablation Results:")
     pprint(result_info)
 
     # Write results to CSV
-    write_compiler_results_to_csv(task_info, result_info, f"{global_config.get('output_folder')}navi_ablation_results.csv")
+    write_compiler_results_to_csv({**task_info, **network.info()}, result_info, f"{global_config.get('output_folder')}navi_ablation_results.csv")
 
     return
 

@@ -22,6 +22,7 @@ def main(args):
     network_config = global_config.get('network', {})
 
     network = Network(network_config, backend_list)
+    network.print_info()
 
     # 获取basis gate set
     basis_gates = network.basis_gates
@@ -41,6 +42,7 @@ def main(args):
     result_info = {}
 
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
+    # compiler_ids = ["staticoee", "wbcp", "navi"]
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
     for compiler_id in compiler_ids:

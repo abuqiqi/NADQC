@@ -266,6 +266,8 @@ class NAVI(Compiler):
             ctx.network
         )
 
+        ctx.final_records.summarize_total_costs()
+
         return ctx
 
     # =========================================================================

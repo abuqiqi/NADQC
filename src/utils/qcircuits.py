@@ -69,8 +69,8 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
             qpu_capacity += 1
         qpus = [qpu_capacity] * num_qpus
 
-    # 将线路转换到basis gates
-    trans_circ = transpile(circ, basis_gates=basis_gates, optimization_level=0)
+    # 将线路转换到basis gates TODO: 改optimization_level
+    trans_circ = transpile(circ, basis_gates=basis_gates, optimization_level=3)
     # print(trans_circ)
     # 输出线路和QPU信息
     gate_counts = trans_circ.count_ops()

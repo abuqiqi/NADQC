@@ -23,10 +23,15 @@ class Network:
     def name(self):
         return f"net{self.backend_sizes}"
 
+    def info(self):
+        return {
+            "net_type": self.net_type
+        }
+
     def _build_network_coupling(self, network_config: dict) -> dict:
         self.net_type = network_config.get('type', 'all_to_all')
         self.size = network_config.get('size', (self.num_backends, 1))
-        self.fidelity_range = network_config.get('fidelity_range', [0.98, 0.98])
+        self.fidelity_range = network_config.get('fidelity_range', [0.95, 0.98])
 
         # 验证保真度范围
         if not (0 < self.fidelity_range[0] <= self.fidelity_range[1] < 1):
@@ -280,7 +285,8 @@ class Network:
         return
 
     def print_info(self):
-        print(f"Network with {self.num_backends} backends")
+        print("========== Network Info ==========")
+        print(f"Network with {self.num_backends} backends ({self.net_type})")
         print("Network Coupling (edges with fidelities):")
         for (u, v), fidelity in self.network_coupling.items():
             print(f"  Backend {u} <-> Backend {v}: Fidelity = {fidelity:.4f}")

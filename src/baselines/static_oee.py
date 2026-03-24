@@ -31,7 +31,7 @@ class StaticOEE(Compiler):
         print(f"Compiling with [{self.name}]...")
         
         start_time = time.time()
-        iteration_count = config.get("iteration", 10) if config else 10
+        iteration_count = config.get("iteration", 50) if config else 50
         circuit_name = config.get("circuit_name", "circ") if config else "circ"
 
         partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network) # initialize partition

@@ -4,8 +4,7 @@ from pprint import pprint
 def test_backend_sample():
     """测试 Backend 类初始化"""
     try:
-        from utils import get_config
-        from nadqc import Backend
+        from utils import get_config, Backend
 
         global_config = get_config()
         backend_config = {

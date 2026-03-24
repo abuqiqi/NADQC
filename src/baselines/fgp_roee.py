@@ -46,8 +46,6 @@ class FGPrOEE(Compiler):
         
         end_time = time.time()
 
-        # mapping_record_list.add_cost("exec_time (sec)", end_time - start_time)
-        # mapping_record_list = CompilerUtils.evaluate_total_costs(mapping_record_list)
         mapping_record_list.summarize_total_costs()
         mapping_record_list.update_total_costs(execution_time = end_time - start_time)
         mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")

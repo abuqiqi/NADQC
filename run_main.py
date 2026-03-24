@@ -2,6 +2,7 @@ import sys
 import time
 import datetime
 from pprint import pprint
+import numpy as np
 
 from src.utils import get_args, get_config, select_circuit, write_compiler_results_to_csv, Backend, Network
 from src.compiler import Compiler, CompilerFactory
@@ -19,7 +20,11 @@ def main(args):
         backend = Backend(global_config, backend_config)
         backend_list.append(backend)
 
-    network_config = global_config.get('network', {})
+    network_config = {
+        **global_config.get('network_config', {}),
+        'type': args.network,
+        'fidelity_range': [0.95, 0.98]
+    }
 
     network = Network(network_config, backend_list)
     network.print_info()
@@ -42,7 +47,7 @@ def main(args):
     result_info = {}
 
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
-    # compiler_ids = ["staticoee", "wbcp", "navi"]
+    # compiler_ids = ["staticoee", "wbcp", "navi"] # 
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
     for compiler_id in compiler_ids:
@@ -52,19 +57,23 @@ def main(args):
         print(f"Compiler: [{compiler.name}]")
         result = compiler.compile(trans_circ, network, {"circuit_name": f"{args.circuit_name}{args.qubit_count}"})
         pprint(result.total_costs)
-        result_info[compiler.name] = result.total_costs.to_dict()
+        result_info[compiler.name] = {
+            "F_eff": np.exp(result.total_costs.total_fidelity_log_sum / task_info["#Depth"]),
+            **result.total_costs.to_dict()
+        }
 
     # Write results to CSV
-    write_compiler_results_to_csv(task_info, result_info, f"{global_config.get('output_folder')}compiler_results.csv")
+    write_compiler_results_to_csv({**task_info, **network.info()}, result_info, f"{global_config.get('output_folder')}compiler_results.csv")
 
     return
 
 if __name__ == "__main__":
     # 获取全局配置
     args = get_args()
-    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}"
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"
     original_stdout = sys.stdout
-    with open(f'outputs/{filename}.txt', 'w') as f:
+    with open(f'outputs/{filename}.txt', 'w', buffering=1) as f:
         sys.stdout = f
         start_time = time.time()
         main(args)

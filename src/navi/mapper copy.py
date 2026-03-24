@@ -85,7 +85,7 @@ class Mapper(ABC):
         :param mapping_next: 下一映射
         :return: (switch_cost, switch_fidelity)
         """
-        W_eff = network.W_eff
+        move_fidelity = network.move_fidelity
         
         mapping_score = 0.0
         fidelity_loss = 0.0
@@ -98,9 +98,9 @@ class Mapper(ABC):
                 if demand > 0:
                     from_physical = mapping_current[i]
                     to_physical = mapping_next[j]
-                    mapping_score += W_eff[from_physical][to_physical] * demand
-                    fidelity_loss += (1 - W_eff[from_physical][to_physical]) * demand
-                    fidelity *= W_eff[from_physical][to_physical] ** demand
+                    mapping_score += move_fidelity[from_physical][to_physical] * demand
+                    fidelity_loss += (1 - move_fidelity[from_physical][to_physical]) * demand
+                    fidelity *= move_fidelity[from_physical][to_physical] ** demand
 
         return {
             "mapping_score": mapping_score,
@@ -115,20 +115,20 @@ class Mapper(ABC):
         :param D_total: 总通信需求矩阵
         :return: 映射得分
         """
-        W_eff = network.W_eff
-        # pprint(W_eff)
+        move_fidelity = network.move_fidelity
+        # pprint(move_fidelity)
         mapping_score = 0.0
         for i in range(D_total.shape[0]):
             for j in range(D_total.shape[1]):
                 from_physical = mapping[i]
                 to_physical = mapping[j]
-                mapping_score += W_eff[from_physical][to_physical] * D_total[i][j]
+                mapping_score += move_fidelity[from_physical][to_physical] * D_total[i][j]
         return mapping_score
 
     def _validate_network_attributes(self, network):
         """验证网络对象是否具有必要属性"""
-        if not hasattr(network, 'num_backends') or not hasattr(network, 'W_eff'):
-            raise AttributeError("Network must have 'num_backends' and 'W_eff' attributes")
+        if not hasattr(network, 'num_backends') or not hasattr(network, 'move_fidelity'):
+            raise AttributeError("Network must have 'num_backends' and 'move_fidelity' attributes")
 
     def _build_partition_plan(self, partition_plan, mapping_sequence):
         
@@ -271,7 +271,7 @@ class LinkOrientedMapper(Mapper):
         m_physical = self.network.num_backends
         
         # 获取有效保真度矩阵
-        W_eff = self.network.W_eff
+        move_fidelity = self.network.move_fidelity
         
         # 1. 计算下一时间片中每个逻辑QPU的重要性
         logical_importance = np.zeros(num_logical_next)
@@ -314,7 +314,7 @@ class LinkOrientedMapper(Mapper):
                 for qubit, (from_logical, to_logical) in qubit_movements.items():
                     if to_logical == logical_next:
                         current_physical = current_mapping[from_logical]
-                        fidelity_sum += W_eff[current_physical][physical]
+                        fidelity_sum += move_fidelity[current_physical][physical]
                         count += 1
                 
                 if count > 0:
@@ -711,7 +711,7 @@ class ExactOptimizationMapper(Mapper):
                 if num_logical_current <= 10:  # 使用精确算法
                     # 提取当前时间片对应的子矩阵
                     D_sub = D_total[:num_logical_current, :num_logical_current]
-                    W_sub = self.network.W_eff[:m_physical, :m_physical]
+                    W_sub = self.network.move_fidelity[:m_physical, :m_physical]
                     
                     # 如果逻辑QPU数量小于物理QPU数量，需要扩展W矩阵
                     if num_logical_current <= m_physical:
@@ -742,7 +742,7 @@ class ExactOptimizationMapper(Mapper):
                     
                     # 创建当前时间片的子矩阵
                     D_sub = np.zeros((num_logical_current, num_logical_current))
-                    W_sub = self.network.W_eff[:m_physical, :m_physical]
+                    W_sub = self.network.move_fidelity[:m_physical, :m_physical]
                     
                     # 通过枚举所有可能的映射来找到最优映射
                     best_mapping = None
@@ -809,7 +809,7 @@ class ExactOptimizationMapper(Mapper):
         """
         评估特定映射的切换得分
         """
-        W_eff = self.network.W_eff
+        move_fidelity = self.network.move_fidelity
         total_score = 0.0
         
         for i in range(D_switch.shape[0]):
@@ -818,7 +818,7 @@ class ExactOptimizationMapper(Mapper):
                 if demand > 0:
                     from_physical = prev_mapping[i]
                     to_physical = current_mapping[j]
-                    score = W_eff[from_physical][to_physical] * demand
+                    score = move_fidelity[from_physical][to_physical] * demand
                     total_score += score
         
         return total_score
@@ -942,7 +942,7 @@ class Mapper(ABC):
         :param mapping_next: 下一逻辑 QPU 到物理 QPU 的映射
         :return: ExecCosts 对象
         """
-        W_eff = network.W_eff
+        move_fidelity = network.move_fidelity
         
         fidelity_loss = 0.0
         num_comms = 0
@@ -956,8 +956,8 @@ class Mapper(ABC):
                     to_physical = mapping_next[j]
                     # 累加通信次数
                     num_comms += int(demand)
-                    # 累加保真度损失 (1 - W_eff) * demand
-                    fidelity_loss += (1 - W_eff[from_physical][to_physical]) * demand
+                    # 累加保真度损失 (1 - move_fidelity) * demand
+                    fidelity_loss += (1 - move_fidelity[from_physical][to_physical]) * demand
 
         return ExecCosts(
             total_fidelity_loss=fidelity_loss,
@@ -1376,7 +1376,7 @@ class Mapper(ABC):
         :return: 封装后的成本对象
         """
         self._validate_network_attributes(network)
-        W_eff = network.W_eff  # 物理QPU间的有效保真度/权重矩阵
+        move_fidelity = network.move_fidelity  # 物理QPU间的有效保真度/权重矩阵
         
         total_fidelity_loss = 0.0
         num_comms = 0
@@ -1396,11 +1396,11 @@ class Mapper(ABC):
                 physical_j = perm[j]
                 
                 # 防护：确保物理索引合法
-                if physical_i >= len(W_eff) or physical_j >= len(W_eff):
+                if physical_i >= len(move_fidelity) or physical_j >= len(move_fidelity):
                     raise IndexError(f"物理QPU索引 {physical_i}/{physical_j} 超出范围")
                 
                 # 计算成本
-                w = W_eff[physical_i][physical_j]
+                w = move_fidelity[physical_i][physical_j]
                 mapping_score += w * hop_count
                 fidelity_loss = (1 - w) * hop_count
                 total_fidelity_loss += fidelity_loss
@@ -1424,7 +1424,7 @@ class Mapper(ABC):
         :return: 封装后的成本对象
         """
         self._validate_network_attributes(network)
-        W_eff = network.W_eff
+        move_fidelity = network.move_fidelity
         
         mapping_score = 0.0
         total_fidelity_loss = 0.0
@@ -1443,11 +1443,11 @@ class Mapper(ABC):
                 physical_j = mapping_next[j]
                 
                 # 防护：确保物理索引合法
-                if physical_i >= len(W_eff) or physical_j >= len(W_eff):
+                if physical_i >= len(move_fidelity) or physical_j >= len(move_fidelity):
                     raise IndexError(f"物理QPU索引 {physical_i}/{physical_j} 超出范围")
                 
                 # 计算切换成本
-                w = W_eff[physical_i][physical_j]
+                w = move_fidelity[physical_i][physical_j]
                 mapping_score += w * switch_count
                 fidelity_loss = (1 - w) * switch_count
                 total_fidelity_loss += fidelity_loss
@@ -1463,13 +1463,13 @@ class Mapper(ABC):
 
     def _validate_network_attributes(self, network: Network) -> None:
         """验证网络对象是否具有必要属性，防止运行时错误"""
-        required_attrs = ['num_backends', 'W_eff']
+        required_attrs = ['num_backends', 'move_fidelity']
         for attr in required_attrs:
             if not hasattr(network, attr):
                 raise AttributeError(f"Network 对象缺少必要属性: {attr}")
-        # 验证 W_eff 是二维矩阵
-        if not isinstance(network.W_eff, (np.ndarray, list)) or len(np.shape(network.W_eff)) != 2:
-            raise ValueError("Network.W_eff 必须是二维矩阵")
+        # 验证 move_fidelity 是二维矩阵
+        if not isinstance(network.move_fidelity, (np.ndarray, list)) or len(np.shape(network.move_fidelity)) != 2:
+            raise ValueError("Network.move_fidelity 必须是二维矩阵")
 
 
 class LinkOrientedDPMapper(Mapper):

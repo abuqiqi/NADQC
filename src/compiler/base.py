@@ -16,11 +16,16 @@ from ..utils import Network
 class ExecCosts:
     remote_hops: int = 0
     remote_swaps: int = 0
+    epairs: int = 0
     remote_fidelity_loss: float = 0.0
+    remote_fidelity_log_sum: float = 0.0
     remote_fidelity: float = 1.0
     local_fidelity_loss: float = 0.0
+    local_fidelity_log_sum: float = 0.0
     local_fidelity: float = 1.0
     execution_time: float = 0.0
+
+    local_gate_num: int = 0    # 本地量子门总个数
     
     # 只读属性（实时计算）
     @property
@@ -32,8 +37,31 @@ class ExecCosts:
         return self.remote_fidelity_loss + self.local_fidelity_loss
     
     @property
+    def total_fidelity_log_sum(self) -> float:
+        return self.local_fidelity_log_sum + self.remote_fidelity_log_sum
+    
+    @property
     def total_fidelity(self) -> float:
         return self.remote_fidelity * self.local_fidelity
+    
+    @property
+    def geometric_mean_fidelity(self) -> float:
+        """
+        计算多QPU系统几何平均保真度（顶会论文标准用法）
+        满足：越大越好，保留连乘物理意义，无数值下溢
+        """
+        # 总门数量
+        total_gate_num = self.local_gate_num + self.num_comms
+        
+        # 边界保护：没有门时返回1.0
+        if total_gate_num == 0:
+            return 1.0
+
+        # 几何平均保真度（核心公式，论文标准）
+        total_log = self.local_fidelity_log_sum + self.remote_fidelity_log_sum
+        geo_mean_fidelity = np.exp(total_log / total_gate_num)
+
+        return geo_mean_fidelity
 
     def update(self, **kwargs):
         """批量更新字段"""
@@ -42,31 +70,26 @@ class ExecCosts:
                 setattr(self, key, value)
             else:
                 raise AttributeError(f"ExecCosts 没有属性 {key}")
-
-    # 重置方法
-    def reset(self) -> None:
-        self.remote_hops = 0
-        self.remote_swaps = 0
-        self.remote_fidelity_loss = 0.0
-        self.remote_fidelity = 1.0
-        self.local_fidelity_loss = 0.0
-        self.local_fidelity = 1.0
-        self.execution_time = 0.0
     
     # 字符串表示
     def __str__(self) -> str:
         return (
             f"ExecCosts("
             f"comms={self.num_comms}, "
+            f"epairs={self.epairs}, "
+            f"geo_mean_fidelity={self.geometric_mean_fidelity}, "
             f"fidelity={self.total_fidelity:.4f}, "
             f"loss={self.total_fidelity_loss:.4f}, "
             f"rhops={self.remote_hops}, "
             f"rswaps={self.remote_swaps}, "
             f"remote_fidelity_loss={self.remote_fidelity_loss}, "
+            f"remote_fidelity_log_sum={self.remote_fidelity_log_sum}, "
             f"remote_fidelity={self.remote_fidelity}, "
             f"local_fidelity_loss={self.local_fidelity_loss}, "
+            f"local_fidelity_log_sum={self.local_fidelity_log_sum}, "
             f"local_fidelity={self.local_fidelity}, "
-            f"time={self.execution_time:.2f})"
+            f"time={self.execution_time:.2f}), "
+            f"local_gate_num={self.local_gate_num}"
         )
     
     def __repr__(self) -> str:
@@ -79,26 +102,67 @@ class ExecCosts:
         
         self.remote_hops += other.remote_hops
         self.remote_swaps += other.remote_swaps
+        self.epairs += other.epairs
         self.remote_fidelity_loss += other.remote_fidelity_loss
+        self.remote_fidelity_log_sum += other.remote_fidelity_log_sum
         self.local_fidelity_loss += other.local_fidelity_loss
+        self.local_fidelity_log_sum += other.local_fidelity_log_sum
         self.execution_time += other.execution_time
         self.remote_fidelity *= other.remote_fidelity
         self.local_fidelity *= other.local_fidelity
-        
+        self.local_gate_num += other.local_gate_num
+
         return self
 
+    # def to_dict(self) -> dict:
+    #     """将 ExecCosts 转为字典，包含所有字段 + property 计算属性"""
+    #     # 先获取默认的字段字典（真实字段）
+    #     base_dict = dataclasses.asdict(self)
+    #     # 手动添加 property 字段
+    #     base_dict.update({
+    #         "num_comms": self.num_comms,
+    #         "total_fidelity_loss": self.total_fidelity_loss,
+    #         "total_fidelity": self.total_fidelity
+    #     })
+    #     return base_dict
+
     def to_dict(self) -> dict:
-        """将 ExecCosts 转为字典，包含所有字段 + property 计算属性"""
-        # 先获取默认的字段字典（真实字段）
+        """将 ExecCosts 转为字典，包含所有字段 + 排序Key（学术规范版）"""
         base_dict = dataclasses.asdict(self)
-        # 手动添加 property 字段
+        # 添加计算属性
         base_dict.update({
             "num_comms": self.num_comms,
+            "total_fidelity_log_sum": self.total_fidelity_log_sum,
             "total_fidelity_loss": self.total_fidelity_loss,
-            "total_fidelity": self.total_fidelity
+            "geo_mean_fidelity": self.geometric_mean_fidelity,
+            "total_fidelity": self.total_fidelity,
         })
-        return base_dict
 
+        # 自定义固定排序顺序（按逻辑分组，整洁美观）
+        sorted_keys = [
+            "num_comms",
+            "epairs",
+            "total_fidelity_log_sum",
+            "total_fidelity_loss",
+            "geo_mean_fidelity",
+            "total_fidelity",
+            "execution_time",
+            # 通信开销
+            "remote_hops",
+            "remote_swaps",
+            # 保真度
+            "local_fidelity",
+            "remote_fidelity",
+            "local_fidelity_loss",
+            "remote_fidelity_loss",
+            "local_fidelity_log_sum",
+            "remote_fidelity_log_sum",
+            # 门数量
+            "local_gate_num"
+        ]
+
+        # 生成有序字典
+        return {key: base_dict[key] for key in sorted_keys if key in base_dict}
 
 @dataclass
 class MappingRecord:
@@ -213,7 +277,7 @@ class MappingRecordList:
             "records": records_dict
         }
         # data_dict = dataclasses.asdict(self)
-        # data_dict = self._convert_numpy_types(data_dict)
+        data_dict = self._convert_numpy_types(data_dict)
 
         # 按格式保存
         with open(filename, 'w', encoding='utf-8') as f:
@@ -372,8 +436,8 @@ class CompilerUtils:
             qpu_v = node_to_partition[v]
             if qpu_u != qpu_v:
                 remote_hops += network.Hops[qpu_u][qpu_v] * qig[u][v]['weight']
-                # fidelity_loss += (1 - network.W_eff[qpu_u][qpu_v]) * qig[u][v]['weight']
-                # fidelity *= network.W_eff[qpu_u][qpu_v] ** qig[u][v]['weight']
+                # fidelity_loss += (1 - network.move_fidelity[qpu_u][qpu_v]) * qig[u][v]['weight']
+                # fidelity *= network.move_fidelity[qpu_u][qpu_v] ** qig[u][v]['weight']
         return remote_hops
 
     @staticmethod
@@ -443,9 +507,14 @@ class CompilerUtils:
                     q1, q2 = qubits[i], qubits[i + 1]
                     p1, p2 = qubit_to_partition[q1], qubit_to_partition[q2]
                     if p1 != p2:
-                        costs.remote_hops += network.Hops[p1][p2]
-                        costs.remote_fidelity_loss += 1 - network.W_eff[p1][p2]
-                        costs.remote_fidelity *= network.W_eff[p1][p2]
+                        costs = CompilerUtils.update_remote_move_costs(
+                            costs, p1, p2, 1, network
+                        )
+                        # costs.remote_hops += network.Hops[p1][p2]
+                        # costs.epairs += network.Hops[p1][p2]
+                        # costs.remote_fidelity_loss += network.move_fidelity_loss[p1][p2]
+                        # costs.remote_fidelity *= network.move_fidelity[p1][p2]
+                        # costs.remote_fidelity_log_sum += np.log(network.move_fidelity[p1][p2])
                         # print(f"[DEBUG] evaluate_local_and_telegate remote: {costs}")
 
         # 遍历每个子线路
@@ -472,12 +541,14 @@ class CompilerUtils:
                 
                 # 获取操作保真度
                 gate_error = backend.gate_dict.get(gate_key, {}).get("gate_error_value", None)
-                # print(f"[DEBUG] {gate_key}: {gate_error}")
+                if gate_error == 1:
+                    print(f"[DEBUG] {gate_key}: {gate_error}")
+                    exit(1)
                 assert gate_error is not None, f"Gate error not found for gate_key: {gate_key} in backend.gate_dict"
+                costs.local_gate_num += 1
                 costs.local_fidelity_loss += gate_error
-                # print(f"[DEBUG] costs.local_fidelity_loss: {costs.local_fidelity_loss}")
                 costs.local_fidelity *= (1 - gate_error)
-                # print(f"[DEBUG] evaluate_local_and_telegate local: {costs}")
+                costs.local_fidelity_log_sum += np.log(1 - gate_error)
 
         if isinstance(arg, MappingRecord):
             # 更新record的costs
@@ -521,9 +592,6 @@ class CompilerUtils:
         G = nx.DiGraph() # 初始化有向图
         G.add_nodes_from(range(len(prev_partition))) # 每个partition对应一个节点
 
-        # remote_swaps = 0
-        # fidelity_loss = 0
-        # fidelity = 1
         costs = ExecCosts()
 
         # 记录每个qubit在prev和curr的分区号
@@ -544,12 +612,19 @@ class CompilerUtils:
                 # 如果存在，则说明形成了环
                 # 因为每次只加一条边，所以抵消掉一条就行
                 if G.has_edge(curr_part, prev_part):
-                    num_rswaps = 2 * network.Hops[curr_part][prev_part] - 1
+                    # hops = network.Hops[curr_part][prev_part]
+                    # num_rswaps = 2 * hops - 1
                     
-                    costs.remote_swaps += num_rswaps
-                    costs.remote_fidelity_loss += (1 - network.W_eff[prev_part][curr_part]) * num_rswaps
-                    costs.remote_fidelity *= network.W_eff[prev_part][curr_part] ** num_rswaps
+                    # costs.remote_swaps += num_rswaps
+                    # costs.epairs += 2 * num_rswaps
+                    # costs.remote_fidelity_loss += network.swap_fidelity_loss[prev_part][curr_part] * hops
+                    # costs.remote_fidelity *= network.swap_fidelity[prev_part][curr_part] ** hops
+                    # costs.remote_fidelity_log_sum += hops * np.log(network.swap_fidelity[prev_part][curr_part])
                     
+                    costs = CompilerUtils.update_remote_swap_costs(
+                        costs, prev_part, curr_part, 1, network
+                    )
+
                     # 更新边权重
                     if G[curr_part][prev_part]['weight'] > 1:
                         G[curr_part][prev_part]['weight'] -= 1
@@ -592,20 +667,31 @@ class CompilerUtils:
                     else:
                         G.remove_edge(u, v)
                     # 对环中的每一条边，计算通信开销
-                    num_rswaps = (2 * network.Hops[u][v] - 1) * weight
+                    # hops = network.Hops[u][v]
+                    # num_rswaps = (2 * hops - 1) * weight
                     
-                    costs.remote_swaps += num_rswaps
-                    costs.remote_fidelity_loss += (1 - network.W_eff[u][v]) * num_rswaps
-                    costs.remote_fidelity *= network.W_eff[u][v] ** num_rswaps
+                    # costs.remote_swaps += num_rswaps
+                    # costs.epairs += 2 * num_rswaps
+                    # costs.remote_fidelity_loss += network.swap_fidelity_loss[u][v] * hops
+                    # costs.remote_fidelity *= network.swap_fidelity[u][v] ** hops
+                    # costs.remote_fidelity_log_sum += hops * np.log(network.swap_fidelity[u][v])
 
+                    costs = CompilerUtils.update_remote_swap_costs(
+                        costs, u, v, weight, network
+                    )
         # 获取剩余的边
         remaining_edges = G.edges(data=True)
         for u, v, data in remaining_edges:
-            path_len = network.Hops[u][v]
-            num_rswaps = path_len * data['weight']
-            costs.remote_swaps += num_rswaps
-            costs.remote_fidelity_loss += (1 - network.W_eff[u][v]) * num_rswaps
-            costs.remote_fidelity *= network.W_eff[u][v] ** num_rswaps
+            # path_len = network.Hops[u][v]
+            # num_rmoves = path_len * data['weight']
+            # costs.remote_swaps += num_rmoves
+            # costs.epairs += num_rmoves
+            # costs.remote_fidelity_loss += network.move_fidelity_loss[u][v] * num_rmoves
+            # costs.remote_fidelity *= network.move_fidelity[u][v] ** num_rmoves
+            # costs.remote_fidelity_log_sum += num_rmoves * np.log(network.move_fidelity[u][v])
+            costs = CompilerUtils.update_remote_move_costs(
+                costs, u, v, data['weight'], network
+            )
 
         if isinstance(arg2, MappingRecord):
             # 更新costs
@@ -614,213 +700,33 @@ class CompilerUtils:
 
         return costs
 
-
-    # ---------------- 新增：第一阶段 - 预计算逻辑切换图结构 ----------------
     @staticmethod
-    def preprocess_teledata_graph(
-        prev_partition: list[list[int]],
-        curr_partition: list[list[int]]
-    ) -> dict:
-        """
-        预计算原始逻辑QPU间的切换图结构（仅需运行1次 per 时间片转移）
-        返回：包含抵消边、环、剩余边的图结构字典
-        """
-        # 1. 记录每个qubit在prev和curr的逻辑QPU号
-        qubit_mapping = {}
-        for pno, part in enumerate(prev_partition):
-            for qubit in part:
-                qubit_mapping[qubit] = [pno, -1]
-        for pno, part in enumerate(curr_partition):
-            for qubit in part:
-                qubit_mapping[qubit][1] = pno
+    def update_remote_move_costs(costs: ExecCosts, src: int, dst: int, weight: int, network: Network):
+        if src == dst:
+            return costs
 
-        # 2. 构建有向图并处理边抵消
-        G = nx.DiGraph()
-        G.add_nodes_from(range(len(prev_partition)))
-        cancel_edges = []  # 存储2节点环的信息：(u_logical, v_logical, weight)
-
-        for prev_logical, curr_logical in qubit_mapping.values():
-            assert prev_logical != -1 and curr_logical != -1
-
-            # 处理边抵消（形成2节点环的情况）
-            if G.has_edge(curr_logical, prev_logical):
-                # 记录抵消边的逻辑QPU对和权重（固定为1）
-                cancel_edges.append((curr_logical, prev_logical, 1))
-                # 更新图
-                if G[curr_logical][prev_logical]['weight'] > 1:
-                    G[curr_logical][prev_logical]['weight'] -= 1
-                else:
-                    G.remove_edge(curr_logical, prev_logical)
-            else:
-                # 添加新边
-                if G.has_edge(prev_logical, curr_logical):
-                    G[prev_logical][curr_logical]['weight'] += 1
-                else:
-                    G.add_edge(prev_logical, curr_logical, weight=1)
-
-        # 3. 检测并处理长度>=3的环
-        cycles = []  # 存储环的信息：(cycle_logical_nodes, weight)
-        all_cycles = nx.simple_cycles(G)
-        cycles_by_length = defaultdict(list)
-
-        # 收集长度大于2的环（TODO: 漏了自环）
-        for cycle in all_cycles:
-            length = len(cycle)
-            if 3 <= length <= len(prev_partition):
-                cycles_by_length[length].append(cycle)
-
-        for length in sorted(cycles_by_length.keys()):
-            for cycle in cycles_by_length[length]:
-                # 检查环是否存在并计算最小权重
-                exist = True
-                min_weight = float('inf')
-                for i in range(length):
-                    u = cycle[i]
-                    v = cycle[(i + 1) % length]
-                    if not G.has_edge(u, v):
-                        exist = False
-                        break
-                    min_weight = min(min_weight, G[u][v]['weight'])
-                if not exist: # 当前环不存在了
-                    continue
-
-                # 记录环的信息
-                cycles.append((cycle, min_weight))
-
-                # 从图中移除环
-                for i in range(length):
-                    u = cycle[i]
-                    v = cycle[(i + 1) % length]
-                    if G[u][v]['weight'] > min_weight:
-                        G[u][v]['weight'] -= min_weight
-                    else:
-                        G.remove_edge(u, v)
-
-        # 4. 收集剩余边
-        remaining_edges = []
-        for u, v, data in G.edges(data=True):
-            remaining_edges.append((u, v, data['weight']))
-
-        # 返回完整的图结构
-        return {
-            "cancel_edges": cancel_edges,
-            "cycles": cycles,
-            "remaining_edges": remaining_edges,
-            "num_prev_logical": len(prev_partition),
-            "num_curr_logical": len(curr_partition)
-        }
-
-    # ---------------- 新增：第二阶段 - 根据图结构和物理映射快速计算开销 ----------------
-    # @staticmethod
-    # def compute_teledata_from_graph(
-    #     graph_struct: dict,
-    #     perm_prev: tuple[int, ...],  # 逻辑QPU→物理QPU的排列（prev）
-    #     perm_curr: tuple[int, ...],  # 逻辑QPU→物理QPU的排列（curr）
-    #     network: Network
-    # ) -> ExecCosts:
-    #     """
-    #     根据预计算的图结构和物理映射，快速计算teledata开销
-    #     """
-    #     costs = ExecCosts()
-    #     # 构建逻辑QPU→物理QPU的映射字典
-    #     prev_logical_to_phys = {logical: phys for logical, phys in enumerate(perm_prev)}
-    #     curr_logical_to_phys = {logical: phys for logical, phys in enumerate(perm_curr)}
-
-    #     # 1. 处理抵消边（2节点环）
-    #     for u_logical, v_logical, weight in graph_struct["cancel_edges"]:
-    #         u_phys = prev_logical_to_phys[u_logical]
-    #         v_phys = curr_logical_to_phys[v_logical]
-    #         # 计算开销（与原evaluate_teledata逻辑一致）
-    #         num_rswaps = (2 * network.Hops[u_phys][v_phys] - 1) * weight
-    #         costs.remote_swaps += num_rswaps
-    #         costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
-    #         costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
-
-    #     # 2. 处理长度>=3的环
-    #     for cycle_logical, weight in graph_struct["cycles"]:
-    #         cycle_length = len(cycle_logical)
-    #         for i in range(cycle_length):
-    #             u_logical = cycle_logical[i]
-    #             v_logical = cycle_logical[(i + 1) % cycle_length]
-    #             u_phys = prev_logical_to_phys[u_logical]
-    #             v_phys = curr_logical_to_phys[v_logical]
-    #             # 计算开销
-    #             num_rswaps = (2 * network.Hops[u_phys][v_phys] - 1) * weight
-    #             costs.remote_swaps += num_rswaps
-    #             costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
-    #             costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
-
-    #     # 3. 处理剩余边
-    #     for u_logical, v_logical, weight in graph_struct["remaining_edges"]:
-    #         u_phys = prev_logical_to_phys[u_logical]
-    #         v_phys = curr_logical_to_phys[v_logical]
-    #         # 计算开销
-    #         path_len = network.Hops[u_phys][v_phys]
-    #         num_rswaps = path_len * weight
-    #         costs.remote_swaps += num_rswaps
-    #         costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
-    #         costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
-
-    #     return costs
-
-    @staticmethod
-    def compute_teledata_from_graph(
-        graph_struct: dict,
-        perm_prev: tuple[int, ...],  # 物理QPU→原始逻辑QPU的排列（和原函数一致）
-        perm_curr: tuple[int, ...],  # 物理QPU→原始逻辑QPU的排列（和原函数一致）
-        network: Network
-    ) -> ExecCosts:
-        """
-        根据预计算的图结构和物理映射，快速计算teledata开销（严格对齐原函数逻辑）
-        """
-        costs = ExecCosts()
+        hops = network.Hops[src][dst]
         
-        # 【核心修正】构建映射：原始逻辑QPU → 物理QPU
-        # 原函数中，perm_prev是物理QPU→原始逻辑QPU的映射（物理QPU i 对应原始逻辑QPU perm_prev[i]）
-        # 所以我们需要构建逆映射：原始逻辑QPU l → 物理QPU i（其中 perm_prev[i] = l）
-        orig_logical_to_phys_prev = {orig_logical: phys for phys, orig_logical in enumerate(perm_prev)}
-        orig_logical_to_phys_curr = {orig_logical: phys for phys, orig_logical in enumerate(perm_curr)}
+        costs.remote_hops += hops * weight
+        costs.epairs += hops * weight
+        costs.remote_fidelity_loss += network.move_fidelity_loss[src][dst] * weight
+        costs.remote_fidelity *= network.move_fidelity[src][dst] ** weight
+        costs.remote_fidelity_log_sum += np.log(network.move_fidelity[src][dst]) * weight
 
-        # 1. 处理抵消边（2节点环）：严格对齐原函数的 2*Hops -1
-        for u_orig, v_orig, weight in graph_struct["cancel_edges"]:
-            # u_orig是原始逻辑QPU（curr侧），v_orig是原始逻辑QPU（prev侧）
-            # 映射到物理QPU
-            u_phys = orig_logical_to_phys_curr[u_orig]
-            v_phys = orig_logical_to_phys_prev[v_orig]
-            
-            # 严格对齐原函数逻辑
-            num_rswaps = (2 * network.Hops[u_phys][v_phys] - 1) * weight
-            costs.remote_swaps += num_rswaps
-            costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
-            costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
+        return costs
 
-        # 2. 处理长度≥3的环：严格对齐原函数的 2*Hops -1
-        for cycle_orig, weight in graph_struct["cycles"]:
-            cycle_length = len(cycle_orig)
-            for i in range(cycle_length):
-                u_orig = cycle_orig[i]
-                v_orig = cycle_orig[(i + 1) % cycle_length]
-                # 映射到物理QPU
-                u_phys = orig_logical_to_phys_prev[u_orig]
-                v_phys = orig_logical_to_phys_curr[v_orig]
-                
-                # 严格对齐原函数逻辑
-                num_rswaps = (2 * network.Hops[u_phys][v_phys] - 1) * weight
-                costs.remote_swaps += num_rswaps
-                costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
-                costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
-
-        # 3. 处理剩余边：严格对齐原函数的 Hops（没有减1和乘2）
-        for u_orig, v_orig, weight in graph_struct["remaining_edges"]:
-            # 映射到物理QPU
-            u_phys = orig_logical_to_phys_prev[u_orig]
-            v_phys = orig_logical_to_phys_curr[v_orig]
-            
-            # 严格对齐原函数逻辑：直接用 Hops，没有 2*...-1
-            path_len = network.Hops[u_phys][v_phys]
-            num_rswaps = path_len * weight
-            costs.remote_swaps += num_rswaps
-            costs.remote_fidelity_loss += (1 - network.W_eff[u_phys][v_phys]) * num_rswaps
-            costs.remote_fidelity *= network.W_eff[u_phys][v_phys] ** num_rswaps
+    @staticmethod
+    def update_remote_swap_costs(costs: ExecCosts, src: int, dst: int, weight: int, network: Network):
+        if src == dst:
+            return costs
+        
+        hops = network.Hops[src][dst]
+        rswaps = 2 * hops - 1
+        
+        costs.remote_swaps += rswaps * weight
+        costs.epairs += 2 * rswaps * weight
+        costs.remote_fidelity_loss += network.swap_fidelity_loss[src][dst] * weight
+        costs.remote_fidelity *= network.swap_fidelity[src][dst] ** weight
+        costs.remote_fidelity_log_sum += np.log(network.swap_fidelity[src][dst]) * weight
 
         return costs

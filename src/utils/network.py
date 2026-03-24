@@ -13,7 +13,10 @@ class Network:
         self.num_backends = len(backend_list)
         self.network_coupling = self._build_network_coupling(network_config)
         self.network_graph = self._build_weighted_network_graph(self.network_coupling)
-        self.W_eff, self.Hops, self.optimal_paths = self._compute_effective_fidelity()
+        # 计算telegate的保真度和跳数
+        self.move_fidelity, self.move_fidelity_loss, self.Hops, self.optimal_paths = self._compute_effective_fidelity()
+        # 计算量子比特交换的保真度和损失
+        self.swap_fidelity, self.swap_fidelity_loss = self._compute_swap_fidelity()
         self.backends = backend_list
         self.backend_sizes = [backend.num_qubits for backend in self.backends]
         self.basis_gates, self.two_qubit_gates = self._get_basis_gates(backend_list)
@@ -40,7 +43,6 @@ class Network:
         network_coupling = {}
 
         if self.net_type == 'all_to_all':
-            # TODO: check，现在是单向边，会不会有问题
             network_coupling = {
                 (i, j): random.uniform(self.fidelity_range[0], self.fidelity_range[1])
                 for i in range(self.num_backends)
@@ -56,6 +58,7 @@ class Network:
             for row in range(n_rows - 1):
                 for col in range(n_cols):
                     network_coupling[(row * n_cols + col, (row + 1) * n_cols + col)] = random.uniform(self.fidelity_range[0], self.fidelity_range[1])
+        # TODO: chain
         elif self.net_type == 'self_defined':
             network_coupling = network_config.get('network_coupling', {})
             self.fidelity_range = [
@@ -117,22 +120,24 @@ class Network:
         """
         计算有效保真度、跳数和最优路径
         :return:
-            W_eff: m x m 矩阵，有效保真度
+            move_fidelity: m x m 矩阵，有效保真度
             Hops: m x m 矩阵，最优跳数
             optimal_paths: m x m 列表，optimal_paths[i][j] = 从i到j的最优路径节点列表
         """
         m = self.num_backends
         
         # 初始化矩阵
-        # W_eff = np.zeros((m, m))
+        # move_fidelity = np.zeros((m, m))
         # Hops = np.zeros((m, m), dtype=int)
-        W_eff = [[0.0 for _ in range(m)] for __ in range(m)]
+        move_fidelity = [[0.0 for _ in range(m)] for __ in range(m)]
+        move_fidelity_loss = [[0.0 for _ in range(m)] for __ in range(m)]
         Hops = [[0 for _ in range(m)] for __ in range(m)]
+        
         optimal_paths = [[[] for _ in range(m)] for __ in range(m)]  # m x m 空列表
         
         # 自环设置
         for i in range(m):
-            W_eff[i][i] = 1.0
+            move_fidelity[i][i] = 1.0
             Hops[i][i] = 0
             optimal_paths[i][i] = [i]  # 自环路径
 
@@ -157,35 +162,92 @@ class Network:
                 if target in lengths:
                     # 获取路径
                     path = paths[target]  # 节点列表 [source, ..., target]
-                    optimal_paths[source][target] = path
+                    optimal_paths[source][target] = path.copy()
                     
                     # 计算跳数（边数 = 节点数 - 1）
                     Hops[source][target] = len(path) - 1
 
                     # 计算总保真度成本
                     total_fidelity_cost = 1.0
+                    total_fidelity_loss = 0.0
                     # 遍历路径上的每条边
                     for k in range(len(path) - 1):
                         u, v = path[k], path[k+1]
                         edge_data = self.network_graph.get_edge_data(u, v)
-                        if edge_data:
-                            # 元组权重 (hop, fidelity_cost)
-                            fidelity_cost = edge_data['fidelity']
-                            total_fidelity_cost *= fidelity_cost
-                    W_eff[source][target] = total_fidelity_cost
+                        # if edge_data: # 必须有data，没有报错
+                        # 元组权重 (hop, fidelity_cost)
+                        fidelity_cost = edge_data['fidelity']
+                        total_fidelity_cost *= fidelity_cost
+                        total_fidelity_loss += (1 - fidelity_cost)
+                    move_fidelity[source][target] = total_fidelity_cost
+                    move_fidelity_loss[source][target] = total_fidelity_loss
                 else:
                     # 不可达
-                    W_eff[source][target] = 0.0
-                    Hops[source][target] = -1
-                    optimal_paths[source][target] = []  # 空路径
+                    # move_fidelity[source][target] = 0.0
+                    # Hops[source][target] = -1
+                    # optimal_paths[source][target] = []  # 空路径
+                    # 报错
+                    raise RuntimeError(f"[ERROR] Cannot reach from {source} to {target}.")
         
-        return W_eff, Hops, optimal_paths
+        return move_fidelity, move_fidelity_loss, Hops, optimal_paths
+
+    # === 新增：计算量子比特交换的保真度和损失 ===
+    def _compute_swap_fidelity(self) -> tuple:
+        """
+        计算任意两个节点之间交换量子比特的总保真度和保真度损失
+        原理：对于最短路径 [v0, v1, ..., vk]，需执行 (2k-1) 次 SWAP 操作
+             操作序列：(v0,v1) → (v1,v2) → ... → (vk-1,vk) → (vk-2,vk-1) → ... → (v0,v1)
+        :return:
+            swap_fidelity: m x m 矩阵，swap_fidelity[i][j] 表示交换i和j上量子比特的总保真度
+            swap_fidelity_loss: m x m 矩阵，swap_fidelity_loss[i][j] = 1 - swap_fidelity[i][j]
+        """
+        m = self.num_backends
+        swap_fidelity = [[0.0 for _ in range(m)] for __ in range(m)]
+        swap_fidelity_loss = [[0.0 for _ in range(m)] for __ in range(m)]
+
+        for i in range(m):
+            swap_fidelity[i][i] = 1.0
+            swap_fidelity_loss[i][i] = 0.0
+            for j in range(m):
+                if i == j:
+                    continue
+                path = self.optimal_paths[i][j]
+                if not path:
+                    # 不可达
+                    swap_fidelity[i][j] = 0.0
+                    swap_fidelity_loss[i][j] = 1.0
+                    continue
+                k = len(path) - 1  # 跳数（边数）
+                # 生成 SWAP 操作的边序列
+                swap_edges = []
+                # 第一阶段：从 path[0] 到 path[k]
+                for idx in range(k):
+                    u = path[idx]
+                    v = path[idx + 1]
+                    swap_edges.append((u, v))
+                # 第二阶段：从 path[k-2] 回到 path[0]
+                for idx in range(k-2, -1, -1):
+                    u = path[idx]
+                    v = path[idx + 1]
+                    swap_edges.append((u, v))
+                # 计算总保真度（所有 SWAP 边保真度的乘积）和总保真度损失
+                total_fid = 1.0
+                total_fid_loss = 0.0
+                for (u, v) in swap_edges:
+                    edge_data = self.network_graph.get_edge_data(u, v)
+                    fid = edge_data['fidelity']
+                    total_fid *= fid
+                    total_fid_loss += (1 - fid)
+
+                swap_fidelity[i][j] = total_fid
+                swap_fidelity_loss[i][j] = total_fid_loss
+        return swap_fidelity, swap_fidelity_loss
 
     def get_effective_fidelity(self, src: int, dst: int) -> float:
         """获取两点间有效保真度 (安全访问)"""
         if not (0 <= src < self.num_backends and 0 <= dst < self.num_backends):
             raise IndexError(f"Backend index out of range: ({src}, {dst})")
-        return self.W_eff[src][dst]
+        return self.move_fidelity[src][dst]
     
     def get_hop_count(self, src: int, dst: int) -> int:
         """获取两点间最优跳数 (安全访问)"""
@@ -212,7 +274,8 @@ class Network:
 
     def get_backend_qubit_counts(self) -> list[int]:
         """获取每个后端的qubit容量，从大到小排序"""
-        return sorted([backend.num_qubits for backend in self.backends], reverse=True)
+        # return sorted([backend.num_qubits for backend in self.backends], reverse=True)
+        return self.backend_sizes
 
     def draw_network_graph(self, filename="network_graph", seed=42, highlight_path=None):
         """

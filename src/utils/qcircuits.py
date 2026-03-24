@@ -7,6 +7,7 @@ import os
 import sys
 from qiskit.quantum_info import Pauli
 from QASMBench.interface.qiskit import QASMBenchmark
+from qiskit.converters import circuit_to_dag
 
 # basis_gates = ["rx", "ry", "rxx"]
 # basis_gates = ["ecr", "u3"]
@@ -69,8 +70,14 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
             qpu_capacity += 1
         qpus = [qpu_capacity] * num_qpus
 
-    # 将线路转换到basis gates TODO: 改optimization_level
+    # 将线路转换到basis gates
     trans_circ = transpile(circ, basis_gates=basis_gates, optimization_level=3)
+    MAX_ALLOWED_DEPTH = 1000
+    if trans_circ.depth() > MAX_ALLOWED_DEPTH:
+        print(f"[INFO] Circuit depth ({circ.depth()}) exceeds threshold ({MAX_ALLOWED_DEPTH}). Truncating...")
+        trans_circ = truncate_circuit_by_depth(trans_circ, MAX_ALLOWED_DEPTH)
+        print(f"[INFO] Truncated circuit depth: {trans_circ.depth()}")
+
     # print(trans_circ)
     # 输出线路和QPU信息
     gate_counts = trans_circ.count_ops()
@@ -105,6 +112,56 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
     }
 
     return circ, trans_circ, task_info
+
+def truncate_circuit_by_depth(original_circuit: QuantumCircuit, max_depth: int) -> QuantumCircuit:
+    """
+    截断量子线路，仅保留前 max_depth 层 (不使用 dag_to_circuit)。
+    """
+    # 0. 如果不需要截断，直接返回副本
+    if original_circuit.depth() <= max_depth:
+        return original_circuit
+
+    # 1. 完美复制原电路的寄存器结构
+    qregs = original_circuit.qregs
+    cregs = original_circuit.cregs
+    new_circ = QuantumCircuit(*qregs, *cregs)
+
+    # 2. 建立「原比特对象」到「新电路比特对象」的映射
+    # 通过索引匹配，这是最稳健的方式
+    q_map = {old_q: new_q for old_q, new_q in zip(original_circuit.qubits, new_circ.qubits)}
+    c_map = {old_c: new_c for old_c, new_c in zip(original_circuit.clbits, new_circ.clbits)}
+
+    # 3. 仅使用 DAG 来获取层级信息 (不做反向转换)
+    dag = circuit_to_dag(original_circuit)
+
+    # 4. 遍历层级，手动 append 到新电路
+    for i, layer in enumerate(dag.layers()):
+        if i >= max_depth:
+            break
+        
+        # layer['graph'] 是该层的子 DAG，遍历其所有操作节点
+        for node in layer['graph'].op_nodes():
+            # 跳过 barrier 等非门操作（可选，如果想保留 barrier 可以去掉这行）
+            if node.op.name in ['barrier']:
+                continue
+                
+            # 映射比特
+            new_qargs = [q_map[q] for q in node.qargs]
+            new_cargs = [c_map[c] for c in node.cargs]
+            
+            # 追加指令
+            new_circ.append(node.op, new_qargs, new_cargs)
+
+    return new_circ
+
+def truncate_circuit_by_instructions(original_circuit: QuantumCircuit, max_instructions: int) -> QuantumCircuit:
+    """
+    简单截断：直接保留前 N 个指令门。
+    """
+    new_circ = original_circuit.copy()
+    # 清空 data，然后只把前 N 个加回来
+    new_circ.data = new_circ.data[:max_instructions]
+    return new_circ
 
 def load_circ_from_qasm(path, circ_name=None):
     if circ_name == None:

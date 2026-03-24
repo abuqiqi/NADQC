@@ -1,0 +1,30 @@
+========== Network Info ==========
+Network with 3 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9776
+  Backend 0 <-> Backend 2: Fidelity = 0.9780
+  Backend 1 <-> Backend 2: Fidelity = 0.9501
+Hop weight: 0.15387988316265172
+Fidelity range: [0.95, 0.98]
+[INFO] QAOA #Qubits: 90
+[INFO] QAOA #Depths: 3
+[INFO] QAOA #Gates: 270
+[INFO] QAOA #2Q Gates: 0
+[INFO] 3 QPUs: [30, 30, 30]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+Registered compiler IDs: ['staticoee', 'wbcp', 'navi']
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QAOA90_net[30, 30, 30]_Static OEE.json
+ExecCosts(comms=0, epairs=0, geo_mean_fidelity=0.999897677209075, fidelity=0.9727, loss=0.0276, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.027623713569794765, local_fidelity_log_sum=-0.02762856708990708, local_fidelity=0.9727496109268935, time=0.22), local_gate_num=270
+Compiler: [WBCP]
+Compiling with [WBCP]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QAOA90_net[30, 30, 30]_WBCP.json
+ExecCosts(comms=0, epairs=0, geo_mean_fidelity=0.999897677209075, fidelity=0.9727, loss=0.0276, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.027623713569794765, local_fidelity_log_sum=-0.02762856708990708, local_fidelity=0.9727496109268935, time=0.14), local_gate_num=270
+Compiler: [NAVI]
+Compiling with [NAVI]...

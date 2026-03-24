@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import defaultdict
 import time
 import numpy as np
 import itertools
@@ -6,6 +7,7 @@ from typing import Any, Optional
 import copy
 from math import inf
 from pprint import pprint
+import networkx as nx
 
 from qiskit import QuantumCircuit
 
@@ -87,14 +89,14 @@ class Mapper(ABC):
         return D_hop
 
     def _compute_move_demand(self, 
-                               current_partition: list[list[int]], 
-                               next_partition: list[list[int]]
-        ) -> tuple[np.ndarray, dict]:
+                             current_partition: list[list[int]], 
+                             next_partition: list[list[int]]
+        ) -> np.ndarray:
         """
         计算单次切换的通信需求
         :param current_partition: 当前时间片的分区
         :param next_partition: 下一时间片的分区
-        :return: (D_move, qubit_movements)
+        :return: D_move
         """
         # 创建量子比特到逻辑QPU的映射
         current_qubit_to_logical = {}
@@ -113,17 +115,17 @@ class Mapper(ABC):
         D_move = np.zeros((m_logical_current, m_logical_next), dtype=int)
         
         # 记录每个量子比特的移动
-        qubit_movements = {}
+        # qubit_movements = {}
         
         # 计算需求
         num_qubits = len(current_qubit_to_logical)
         for qubit in range(num_qubits):
             curr_logical = current_qubit_to_logical[qubit]
             next_logical = next_qubit_to_logical[qubit]
-            qubit_movements[qubit] = (curr_logical, next_logical)
+            # qubit_movements[qubit] = (curr_logical, next_logical)
             D_move[curr_logical][next_logical] += 1
 
-        return D_move, qubit_movements
+        return D_move #, qubit_movements
 
     def _evaluate_hop_cost(self, 
                            network: Network,
@@ -135,7 +137,8 @@ class Mapper(ABC):
         :param perm: 逻辑QPU到物理QPU的排列（映射）
         :return: 封装后的成本对象
         """
-        W_eff = network.W_eff  # 物理QPU间的有效保真度/权重矩阵
+        move_fidelity = network.move_fidelity  # 物理QPU间的有效保真度/权重矩阵
+        move_fidelity_loss = network.move_fidelity_loss
         Hops  = network.Hops
 
         costs = ExecCosts()
@@ -154,12 +157,18 @@ class Mapper(ABC):
                 physical_j = perm[j]
                 
                 # 计算成本
-                w = W_eff[physical_i][physical_j]
-                d = Hops[physical_i][physical_j]
+                # w_loss = move_fidelity_loss[physical_i][physical_j]
+                # w = move_fidelity[physical_i][physical_j]
+                # d = Hops[physical_i][physical_j]
                 
-                costs.remote_fidelity_loss += (1 - w) * hop_count
-                costs.remote_fidelity *= (w ** hop_count)
-                costs.remote_hops += d * hop_count
+                # costs.remote_fidelity_loss += w_loss * hop_count
+                # costs.remote_fidelity_log_sum += hop_count * np.log(w)
+                # costs.remote_fidelity *= (w ** hop_count)
+                # costs.remote_hops += d * hop_count
+                # costs.epairs += d * hop_count
+                costs = CompilerUtils.update_remote_move_costs(
+                    costs, physical_i, physical_j, hop_count, network
+                )
 
         return costs
 
@@ -175,7 +184,7 @@ class Mapper(ABC):
         :param mapping_next: 下一映射
         :return: ExecCosts
         """
-        W_eff = network.W_eff
+        move_fidelity = network.move_fidelity
         Hops  = network.Hops
         
         costs = ExecCosts()
@@ -189,15 +198,161 @@ class Mapper(ABC):
                     to_physical = mapping_next[j]
 
                     # 计算切换成本
-                    w = W_eff[from_physical][to_physical]
-                    d = Hops[from_physical][to_physical]
+                    # w = move_fidelity[from_physical][to_physical]
+                    # d = Hops[from_physical][to_physical]
 
-                    costs.remote_fidelity_loss += (1 - w) * demand
-                    costs.remote_fidelity *= (w ** demand)
-                    costs.remote_swaps += d * demand
+                    # costs.remote_fidelity_loss += (1 - w) * demand
+                    # costs.remote_fidelity_log_sum += demand * np.log(w)
+                    # costs.remote_fidelity *= (w ** demand)
+                    # costs.remote_swaps += d * demand
+                    # costs.epairs += d * demand
+                    costs = CompilerUtils.update_remote_move_costs(
+                        costs, from_physical, to_physical, demand, network
+                    )
 
         return costs
-    
+
+    def _fast_evaluate_teledata(
+        self,
+        logical_move_count: np.ndarray,
+        perm_prev: tuple[int, ...],  # 物理QPU→逻辑prev QPU的排列
+        perm_curr: tuple[int, ...],  # 物理QPU→逻辑curr QPU的排列
+        network: Network
+    ) -> ExecCosts:
+        """
+        基于预计算的逻辑移动计数，快速计算teledata成本
+        完全复刻原函数的图处理、抵消、环计算逻辑，结果100%一致
+        """
+        costs = ExecCosts()
+
+        # 1. 构建逆映射：逻辑QPU→物理QPU
+        # perm_prev[p] = A → 物理QPU p对应逻辑prev QPU A → 逻辑A对应物理p
+        inv_prev = {A: p for p, A in enumerate(perm_prev)}
+        inv_curr = {B: p for p, B in enumerate(perm_curr)}
+
+        # 2. 生成物理QPU间的移动计数（无需遍历量子比特，仅矩阵映射）
+        n_phys = network.num_backends
+        phys_count = np.zeros((n_phys, n_phys), dtype=int)
+        m_prev, m_curr = logical_move_count.shape
+        for A in range(m_prev):
+            for B in range(m_curr):
+                cnt = logical_move_count[A][B]
+                if cnt == 0:
+                    continue
+                u = inv_prev[A]  # 逻辑A→物理u
+                v = inv_curr[B]  # 逻辑B→物理v
+                phys_count[u][v] += cnt
+
+        # 3. 1:1复刻原函数的图处理逻辑
+        G = nx.DiGraph()
+        G.add_nodes_from(range(n_phys))
+
+        # 3.1 处理边抵消（2节点环）
+        for u in range(n_phys):
+            for v in range(n_phys):
+                cnt = phys_count[u][v]
+                if cnt == 0 or u == v:
+                    continue
+                
+                # 检查反向边是否存在
+                if G.has_edge(v, u):
+                    # 可抵消的数量
+                    cancel_num = min(cnt, G[v][u]['weight'])
+                    if cancel_num == 0:
+                        continue
+                    
+                    # 1:1复刻原函数的抵消成本计算
+                    # num_rswaps = (2 * network.Hops[v][u] - 1) * cancel_num
+                    # w = network.move_fidelity[u][v]
+                    # costs.remote_swaps += num_rswaps
+                    # costs.epairs += 2 * num_rswaps
+                    # costs.remote_fidelity_loss += (1 - w) * num_rswaps
+                    # costs.remote_fidelity *= w ** num_rswaps
+                    # costs.remote_fidelity_log_sum += num_rswaps * np.log(w)
+                    costs = CompilerUtils.update_remote_swap_costs(
+                        costs, u, v, cancel_num, network
+                    )
+
+                    # 更新图的边权重
+                    if G[v][u]['weight'] > cancel_num:
+                        G[v][u]['weight'] -= cancel_num
+                    else:
+                        G.remove_edge(v, u)
+                    
+                    # 剩余未抵消的数量
+                    cnt -= cancel_num
+                    if cnt == 0:
+                        continue
+                
+                # 添加剩余的边到图中
+                if G.has_edge(u, v):
+                    G[u][v]['weight'] += cnt
+                else:
+                    G.add_edge(u, v, weight=cnt)
+
+        # 3.2 处理长度≥3的环（1:1复刻原函数）
+        all_cycles = nx.simple_cycles(G)
+        cycles_by_length = defaultdict(list)
+        for cycle in all_cycles:
+            length = len(cycle)
+            if 3 <= length <= network.num_backends:
+                cycles_by_length[length].append(cycle)
+
+        for length in sorted(cycles_by_length.keys()):
+            for cycle in cycles_by_length[length]:
+                exist = True
+                min_weight = float('inf')
+                for i in range(length):
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    if not G.has_edge(u, v):
+                        exist = False
+                        break
+                    min_weight = min(min_weight, G[u][v]['weight'])
+                if not exist:
+                    continue
+
+                # 计算环的成本
+                for i in range(length):
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    # num_rswaps = (2 * network.Hops[u][v] - 1) * min_weight
+                    # w = network.move_fidelity[u][v]
+                    # costs.remote_swaps += num_rswaps
+                    # costs.epairs += 2 * num_rswaps
+                    # costs.remote_fidelity_loss += (1 - w) * num_rswaps
+                    # costs.remote_fidelity *= w ** num_rswaps
+                    # costs.remote_fidelity_log_sum += num_rswaps * np.log(w)
+                    costs = CompilerUtils.update_remote_swap_costs(
+                        costs, u, v, int(min_weight), network
+                    )
+
+                # 更新图的边权重
+                for i in range(length):
+                    u = cycle[i]
+                    v = cycle[(i + 1) % length]
+                    if G[u][v]['weight'] > min_weight:
+                        G[u][v]['weight'] -= min_weight
+                    else:
+                        G.remove_edge(u, v)
+
+        # 3.3 处理剩余边（1:1复刻原函数）
+        remaining_edges = G.edges(data=True)
+        for u, v, data in remaining_edges:
+            # path_len = network.Hops[u][v]
+            # num_rswaps = path_len * data['weight']
+            # w = network.move_fidelity[u][v]
+            # costs.remote_swaps += num_rswaps
+            # costs.epairs += num_rswaps
+            # costs.remote_fidelity_loss += (1 - w) * num_rswaps
+            # costs.remote_fidelity *= w ** num_rswaps
+            # costs.remote_fidelity_log_sum += num_rswaps * np.log(w)
+            costs = CompilerUtils.update_remote_move_costs(
+                costs, u, v, data['weight'], network
+            )
+
+        return costs
+
     # def _evaluate_initial_mapping(self, network: Network, mapping: list[int], D_total: np.ndarray) -> float:
     #     """
     #     评估初始映射的质量
@@ -205,20 +360,20 @@ class Mapper(ABC):
     #     :param D_total: 总通信需求矩阵
     #     :return: 映射得分
     #     """
-    #     W_eff = network.W_eff
-    #     # pprint(W_eff)
+    #     move_fidelity = network.move_fidelity
+    #     # pprint(move_fidelity)
     #     mapping_score = 0.0
     #     for i in range(D_total.shape[0]):
     #         for j in range(D_total.shape[1]):
     #             from_physical = mapping[i]
     #             to_physical = mapping[j]
-    #             mapping_score += W_eff[from_physical][to_physical] * D_total[i][j]
+    #             mapping_score += move_fidelity[from_physical][to_physical] * D_total[i][j]
     #     return mapping_score
 
     # def _validate_network_attributes(self, network):
     #     """验证网络对象是否具有必要属性"""
-    #     if not hasattr(network, 'num_backends') or not hasattr(network, 'W_eff'):
-    #         raise AttributeError("Network must have 'num_backends' and 'W_eff' attributes")
+    #     if not hasattr(network, 'num_backends') or not hasattr(network, 'move_fidelity'):
+    #         raise AttributeError("Network must have 'num_backends' and 'move_fidelity' attributes")
 
     # def _build_partition_plan(self, partition_plan, mapping_sequence):
         
@@ -443,8 +598,8 @@ class DPMapper(Mapper):
                     partition_curr = [orig_part_curr[idx] for idx in perm_curr]
                     costs = CompilerUtils.evaluate_teledata(partition_prev, partition_curr, network)
                     matrix[prev_idx][curr_idx] = costs
-            print(f"[DEBUG] t: {t}, matrix: ")
-            pprint(matrix)
+            # print(f"[DEBUG] t: {t}, matrix: ")
+            # pprint(matrix)
             teledata_costs.append(matrix)
 
         # ---------- 动态规划 ----------
@@ -580,19 +735,17 @@ class NewDPMapper(Mapper):
             orig_part_curr = record_curr.partition
 
             # 【核心优化1】仅对原始分区运行1次图结构预计算
-            graph_struct = CompilerUtils.preprocess_teledata_graph(orig_part_prev, orig_part_curr)
+            D_move = self._compute_move_demand(orig_part_prev, orig_part_curr)
 
             # 【核心优化2】对每个排列，仅通过映射快速计算开销
             matrix: list[list[ExecCosts]] = [[ExecCosts()] * num_states for _ in range(num_states)]
             for prev_idx, perm_prev in enumerate(all_perms):
                 for curr_idx, perm_curr in enumerate(all_perms):
                     # 快速计算：图结构 + 物理映射 → 开销
-                    costs = CompilerUtils.compute_teledata_from_graph(
-                        graph_struct, perm_prev, perm_curr, network
-                    )
+                    costs = self._fast_evaluate_teledata(D_move, perm_prev, perm_curr, network)
                     matrix[prev_idx][curr_idx] = costs
-            print(f"[DEBUG] t: {t}, matrix: ")
-            pprint(matrix)
+            # print(f"[DEBUG] t: {t}, matrix: ")
+            # pprint(matrix)
             teledata_costs.append(matrix)
 
         # ---------- 动态规划 ----------
@@ -744,7 +897,7 @@ class LinkOrientedDPMapper(Mapper):
             record_next = mapping_record_list.records[t + 1]
             
             # 计算D_move
-            D_move, _ = self._compute_move_demand(
+            D_move = self._compute_move_demand(
                 record_current.partition,  # 原始分区（未排列）
                 record_next.partition     # 原始分区（未排列）
             )

@@ -17,7 +17,7 @@ class Network:
         self.network_graph = self._build_weighted_graph()
         
         # 预计算基础指标
-        self.W_eff_base, self.Hops_base, self.optimal_paths_base = self.compute_effective_fidelity()
+        self.move_fidelity_base, self.Hops_base, self.optimal_paths_base = self.compute_effective_fidelity()
         
         # 初始化负载感知指标
         self.reset_load_aware_metrics()
@@ -47,7 +47,7 @@ class Network:
     def reset_load_aware_metrics(self):
         """重置负载相关指标（用于新映射）"""
         self.current_load = np.zeros((self.num_backends, self.num_backends))
-        self.W_eff_loaded = self.W_eff_base.copy()  # 负载感知保真度
+        self.move_fidelity_loaded = self.move_fidelity_base.copy()  # 负载感知保真度
         self.congestion_map = {}  # 记录拥塞路径
     
     def compute_link_load(self, D: np.ndarray, pi: List[int]) -> np.ndarray:
@@ -91,10 +91,10 @@ class Network:
         更新负载感知的有效保真度
         :param load_matrix: 当前链路负载
         :param congestion_model: 拥塞模型 ('exponential', 'linear', 'threshold')
-        :return: 更新后的 W_eff_loaded
+        :return: 更新后的 move_fidelity_loaded
         """
         m = self.num_backends
-        W_eff_new = np.zeros((m, m))
+        move_fidelity_new = np.zeros((m, m))
         
         # 选择拥塞函数
         if congestion_model == 'exponential':
@@ -119,21 +119,21 @@ class Network:
         
         # 更新每对物理节点的保真度
         for i in range(m):
-            W_eff_new[i][i] = 1.0  # 自环保真度
+            move_fidelity_new[i][i] = 1.0  # 自环保真度
             for j in range(m):
                 if i == j:
                     continue
                 
                 # 基础保真度
-                base_fid = self.W_eff_base[i][j]
+                base_fid = self.move_fidelity_base[i][j]
                 if base_fid <= 0:
-                    W_eff_new[i][j] = 0.0
+                    move_fidelity_new[i][j] = 0.0
                     continue
                 
                 # 获取路径上的最大拥塞
                 path = self.optimal_paths_base[i][j]
                 if not path or len(path) < 2:
-                    W_eff_new[i][j] = 0.0
+                    move_fidelity_new[i][j] = 0.0
                     continue
                 
                 min_congestion = 1.0
@@ -155,7 +155,7 @@ class Network:
                         congested_edges.append((u, v))
                 
                 # 应用最坏边的拥塞（木桶效应）
-                W_eff_new[i][j] = base_fid * min_congestion
+                move_fidelity_new[i][j] = base_fid * min_congestion
                 
                 # 记录拥塞信息（用于调试）
                 if min_congestion < 0.9:  # 显著拥塞
@@ -165,8 +165,8 @@ class Network:
                         'congestion_factor': min_congestion
                     }
         
-        self.W_eff_loaded = W_eff_new
-        return W_eff_new
+        self.move_fidelity_loaded = move_fidelity_new
+        return move_fidelity_new
     
     def compute_load_aware_mapping(self, D: np.ndarray, 
                                   max_iterations: int = 10,
@@ -184,7 +184,7 @@ class Network:
         }
         
         # 步骤1: 初始映射（无负载）
-        pi_current = self._initial_mapping(D, self.W_eff_base)
+        pi_current = self._initial_mapping(D, self.move_fidelity_base)
         best_pi = pi_current.copy()
         best_score = -1
         
@@ -195,10 +195,10 @@ class Network:
             max_util = np.max(load_matrix / (self.capacity_matrix + 1e-9))
             
             # 2.2 更新负载感知保真度
-            W_eff_current = self.update_load_aware_fidelity(load_matrix)
+            move_fidelity_current = self.update_load_aware_fidelity(load_matrix)
             
             # 2.3 评估当前映射
-            current_score = self._evaluate_mapping(D, W_eff_current, pi_current)
+            current_score = self._evaluate_mapping(D, move_fidelity_current, pi_current)
             
             # 记录历史
             history['iterations'].append(iter)
@@ -214,10 +214,10 @@ class Network:
                 break
             
             # 2.5 生成新映射（基于当前负载感知保真度）
-            pi_new = self._optimize_mapping_iterative(D, W_eff_current, pi_current.copy())
+            pi_new = self._optimize_mapping_iterative(D, move_fidelity_current, pi_current.copy())
             
             # 2.6 接受更好映射
-            new_score = self._evaluate_mapping(D, W_eff_current, pi_new)
+            new_score = self._evaluate_mapping(D, move_fidelity_current, pi_new)
             if new_score > current_score:
                 pi_current = pi_new
         
@@ -350,8 +350,8 @@ class Network:
         congestion_impact = np.zeros((self.num_backends, self.num_backends))
         for i in range(self.num_backends):
             for j in range(self.num_backends):
-                if i != j and self.W_eff_base[i][j] > 0:
-                    congestion_impact[i][j] = self.W_eff_loaded[i][j] / self.W_eff_base[i][j]
+                if i != j and self.move_fidelity_base[i][j] > 0:
+                    congestion_impact[i][j] = self.move_fidelity_loaded[i][j] / self.move_fidelity_base[i][j]
         
         sns.heatmap(congestion_impact, ax=axes[1,0], annot=True, fmt=".2f", 
                    cmap="RdYlGn", vmin=0, vmax=1,
@@ -386,7 +386,7 @@ class Network:
             
             # 标签
             fid_orig = math.exp(-data['weight'][1])
-            fid_curr = self.W_eff_loaded[u][v] if hasattr(self, 'W_eff_loaded') else fid_orig
+            fid_curr = self.move_fidelity_loaded[u][v] if hasattr(self, 'move_fidelity_loaded') else fid_orig
             edge_labels[(u, v)] = f"{load:.1f}/{capacity:.1f}\n{fid_curr:.3f}"
         
         nx.draw_networkx_nodes(self.network_graph, pos, node_size=700, node_color='lightblue', ax=axes[1,1])

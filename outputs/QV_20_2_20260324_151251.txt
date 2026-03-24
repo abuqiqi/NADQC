@@ -1,0 +1,146 @@
+========== Network Info ==========
+Network with 2 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9764
+Hop weight: 0.10258658877510116
+Fidelity range: [0.95, 0.98]
+[INFO] QV #Qubits: 20
+[INFO] QV #Depths: 202
+[INFO] QV #Gates: 2762
+[INFO] QV #2Q Gates: 579
+[INFO] 2 QPUs: [10, 10]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+Registered compiler IDs: ['fgproee', 'staticoee', 'wbcp', 'navi']
+Compiler: [FGP-rOEE]
+Compiling with [FGP-rOEE]...
+[DEBUG] num_depths: 202
+✅ 成功保存 202 条映射记录到 JSON 文件：./outputs/QV20_net[10, 10]_FGP-rOEE.json
+[DEBUG] Total swaps: 0, Total gates: 0
+[DEBUG] Total comms: 0
+
+ExecCosts(comms=101, epairs=159, geo_mean_fidelity=0.9986216981757966, fidelity=0.0205, loss=3.8596, rhops=43, rswaps=58, remote_fidelity_loss=2.3860862326482373, remote_fidelity=0.08939206627792942, local_fidelity_loss=1.4734949267359105, local_fidelity=0.22883161245652925, time=6.94), local_gate_num=2719
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QV20_net[10, 10]_Static OEE.json
+ExecCosts(comms=249, epairs=249, geo_mean_fidelity=0.9975066014140677, fidelity=0.0002, loss=8.4045, rhops=249, rswaps=0, remote_fidelity_loss=5.882529425043659, remote_fidelity=0.0025976974295917063, local_fidelity_loss=2.521975724159298, local_fidelity=0.0800562412153469, time=2.89), local_gate_num=3147
+Compiler: [WBCP]
+Compiling with [WBCP]...
+Set parameter Username
+Set parameter LicenseID to value 2789005
+Academic license - for non-commercial use only - expires 2027-03-09
+Set parameter OutputFlag to value 1
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Optimize a model with 19 rows, 10 columns and 44 nonzeros (Min)
+Model fingerprint: 0x6fec7ad6
+Model has 2 linear objective coefficients
+Variable types: 0 continuous, 10 integer (10 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [8e-01, 8e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 10 rows and 10 columns
+Presolve time: 0.00s
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 0
+
+Model is infeasible
+Best objective -, best bound -, gap -
+Warning: Physical mapping optimization failed. Falling back to sequential assignment.
+Set parameter OutputFlag to value 1
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Optimize a model with 19 rows, 10 columns and 44 nonzeros (Min)
+Model fingerprint: 0x6fec7ad6
+Model has 2 linear objective coefficients
+Variable types: 0 continuous, 10 integer (10 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [8e-01, 8e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 10 rows and 10 columns
+Presolve time: 0.00s
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 0
+
+Model is infeasible
+Best objective -, best bound -, gap -
+Warning: Physical mapping optimization failed. Falling back to sequential assignment.
+Set parameter OutputFlag to value 1
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Optimize a model with 19 rows, 10 columns and 44 nonzeros (Min)
+Model fingerprint: 0x6fec7ad6
+Model has 2 linear objective coefficients
+Variable types: 0 continuous, 10 integer (10 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [8e-01, 8e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 10 rows and 10 columns
+Presolve time: 0.00s
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 0
+
+Model is infeasible
+Best objective -, best bound -, gap -
+Warning: Physical mapping optimization failed. Falling back to sequential assignment.
+✅ 成功保存 21 条映射记录到 JSON 文件：./outputs/QV20_net[10, 10]_WBCP.json
+ExecCosts(comms=100, epairs=182, geo_mean_fidelity=0.9986045145303024, fidelity=0.0197, loss=3.8972, rhops=18, rswaps=82, remote_fidelity_loss=2.3624616164834027, remote_fidelity=0.0915550184466968, local_fidelity_loss=1.5347015456616895, local_fidelity=0.21523377550312286, time=1.17), local_gate_num=2712
+Compiler: [NAVI]
+Compiling with [NAVI]...
+[INFO] gate_density: 0.8269801980198019
+[INFO] cu1_density: 0.20963070238957277
+[build_partition_table]
+[build_partition_table] Partition calculation times: 3662.
+[build_partition_table] Time: 0.2344493865966797 seconds
+[build_slicing_table] Time: 0.011382579803466797 seconds
+[group_shallow_subcircuits] Time: 1.6450881958007812e-05 seconds
+[INFO] [Time] New DP Mapper completed in 1.98 seconds.
+✅ 成功保存 18 条映射记录到 JSON 文件：./outputs/QV20_net[10, 10]_NAVI.json
+ExecCosts(comms=69, epairs=138, geo_mean_fidelity=0.9987879302140348, fidelity=0.0338, loss=3.3649, rhops=0, rswaps=69, remote_fidelity_loss=1.6300985153735472, remote_fidelity=0.1921147396496926, local_fidelity_loss=1.7348474810256433, local_fidelity=0.176137753454225, time=2.26), local_gate_num=2723
+{'num_comms': 101, 'epairs': 159, 'geo_mean_fidelity': np.float64(0.9986216981757966), 'total_fidelity': 0.020455730667199523, 'total_fidelity_loss': 3.859581159384148, 'remote_swaps': 58, 'local_fidelity': 0.22883161245652925, 'remote_fidelity': 0.08939206627792942, 'local_fidelity_loss': 1.4734949267359105}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+  Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs      QPUs                          Basis Gates 2Q Gate Names    net_type              Metrics    FGP-rOEE  Static OEE        WBCP        NAVI
+0      QV       20    2762        579     202      2  [10, 10]  [rzz, cz, id, x, sx, rz, rx, reset]     {rzz, cz}  all_to_all            num_comms  101.000000  249.000000  100.000000   69.000000
+1      QV       20    2762        579     202      2  [10, 10]  [rzz, cz, id, x, sx, rz, rx, reset]     {rzz, cz}  all_to_all               epairs  159.000000  249.000000  182.000000  138.000000
+2      QV       20    2762        579     202      2  [10, 10]  [rzz, cz, id, x, sx, rz, rx, reset]     {rzz, cz}  all_to_all    geo_mean_fidelity    0.998622    0.997507    0.998605    0.998788
+3      QV       20    2762        579     202      2  [10, 10]  [rzz, cz, id, x, sx, rz, rx, reset]     {rzz, cz}  all_to_all       total_fidelity    0.020456    0.000208    0.019706    0.033839
+4      QV       20    2762        579     202      2  [10, 10]  [rzz, cz, id, x, sx, rz, rx, reset]     {rzz, cz}  all_to_all  total_fidelity_loss    3.859581    8.404505    3.897163    3.364946
+5      QV       20    2762        579     202      2  [10, 10]  [rzz, cz, id, x, sx, rz, rx, reset]     {rzz, cz}  all_to_all         remote_swaps   58.000000    0.000000   82.000000   69.000000
+6      QV       20    2762        579     202      2  [10, 10]  [rzz, cz, id, x, sx, rz, rx, reset]     {rzz, cz}  all_to_all       local_fidelity    0.228832    0.080056    0.215234    0.176138
+7      QV       20    2762        579     202      2  [10, 10]  [rzz, cz, id, x, sx, rz, rx, reset]     {rzz, cz}  all_to_all      remote_fidelity    0.089392    0.002598    0.091555    0.192115
+8      QV       20    2762        579     202      2  [10, 10]  [rzz, cz, id, x, sx, rz, rx, reset]     {rzz, cz}  all_to_all  local_fidelity_loss    1.473495    2.521976    1.534702    1.734847
+[Total Runtime] 14.394550561904907 seconds
+
+

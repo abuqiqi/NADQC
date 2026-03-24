@@ -103,7 +103,7 @@ class NAVI(Compiler):
         telegate_partitioner_type = config.get("telegate_partitioner", "direct")
         telegate_partitioner = TelegatePartitionerFactory.create_telegate_partitioner(telegate_partitioner_type)
         
-        mapper_type = config.get("mapper", "dp")
+        mapper_type = config.get("mapper", "newdp")
         mapper = MapperFactory.create_mapper(mapper_type)
         
         # 3. 初始化上下文 (Context)
@@ -127,6 +127,7 @@ class NAVI(Compiler):
         
         # Step 2: 设置最小深度
         ctx.min_depth = self._step_set_min_depth(ctx, min_depth_cfg)
+        print(f"[DEBUG] min_depth: {ctx.min_depth}", file=sys.stderr)
 
         # Step 3: 构建分区表 (P Table)
         ctx.P_table = self._step_build_partition_table(ctx)
@@ -286,7 +287,8 @@ class NAVI(Compiler):
         multiq_layers = []
         map_to_circuit_layer = {}
         # map_to_multiq_layer = {}
-        pos_count, cu1_count, gate_count = 0, 0, 0
+        # pos_count, cu1_count, gate_count = 0, 0, 0
+        pos_count, twoq_count, gate_count = 0, 0, 0
 
         n_backends = ctx.network.num_backends
         
@@ -306,8 +308,9 @@ class NAVI(Compiler):
                         continue
                     if len(node.qargs) != 2:
                         raise ValueError(f"[ERROR] Found gate with more than 2 qubits: {node.op.name} on {node.qargs}")
-                    if node.op.name == "cu1": # TODO: 只考虑cu1吗
-                        cu1_count += 1
+                    # if node.op.name == "cu1": # TODO: 只考虑cu1吗
+                    #     cu1_count += 1
+                    twoq_count += 1
                     twoq_gates.append(node)
                 else:
                     all_gates.append(node)
@@ -345,7 +348,7 @@ class NAVI(Compiler):
         depth = ctx.circuit.depth()
         num_q = ctx.circuit.num_qubits
         ctx.gate_density = pos_count / (num_q * depth) if depth > 0 and num_q > 0 else 0.0
-        ctx.cu1_density = cu1_count / gate_count if gate_count > 0 else 0.0
+        ctx.cu1_density = twoq_count / gate_count if gate_count > 0 else 0.0
         
         # 更新 Context
         ctx.circuit_layers = circuit_layers
@@ -413,6 +416,7 @@ class NAVI(Compiler):
             qig_tmp = qig.copy()
             for j in range(num_depths - 2, i - 1, -1):
                 is_changed = self._remove_qig_edge(ctx, qig_tmp, j+1, multiq_layers)
+                
                 if len(P[i][j]) > 0: # inherit from the upper grid
                     success = True # leftward propagation
                     if i + 1 <= j:
@@ -448,6 +452,9 @@ class NAVI(Compiler):
 
         for i in range(num_depths):
             if len(P[i][i]) == 0:
+                # 输出当前层上的量子操作
+                for node in ctx.multiq_layers[i]:
+                    print(f"[DEBUG] node: {node}, {node.op.name}, {node.qargs}", file=sys.stderr)
                 raise RuntimeError(f"[ERROR] P[{i}][{i}] is empty. Cannot build slicing table.")
 
         for depth in range(2, num_depths + 1):
@@ -564,10 +571,10 @@ class NAVI(Compiler):
             for node in ctx.multiq_layers[lev]:
                 qubits = []
                 for q in node.qargs:
-                    if hasattr(q, '_index'):
-                        qubits.append(q._index)
-                    else:
-                        qubits.append(ctx.circuit.qubits.index(q))
+                    # if hasattr(q, '_index'):
+                    #     qubits.append(q._index)
+                    # else:
+                    qubits.append(ctx.circuit.qubits.index(q))
 
                 assert len(qubits) == 2
 
@@ -587,10 +594,11 @@ class NAVI(Compiler):
         for node in multiq_layers[lev]:
             qubits = []
             for q in node.qargs:
-                if hasattr(q, '_index'):
-                    qubits.append(q._index)
-                else:
-                    qubits.append(ctx.circuit.qubits.index(q))
+                # if hasattr(q, '_index'):
+                #     qubits.append(q._index)
+                # else:
+                qubits.append(ctx.circuit.qubits.index(q))
+            # print(f"[DEBUG] qubits: {qubits}", file=sys.stderr)
 
             assert len(qubits) == 2
 
@@ -693,11 +701,36 @@ class NAVI(Compiler):
         """
         获取原线路中[ori_left, ori_right]的子线路
         """
-        subcircuit = QuantumCircuit(ctx.circuit.num_qubits)
+        # 1. 复制原电路的寄存器结构（包含量子和经典比特）
+        # 这样可以完美保留原电路的比特命名和结构
+        qregs = ctx.circuit.qregs
+        cregs = ctx.circuit.cregs
+        subcircuit = QuantumCircuit(*qregs, *cregs)
+
+        # 2. 建立映射：{原电路比特对象: 子电路对应索引的比特对象}
+        # 量子比特映射
+        q_map = {old_q: subcircuit.qubits[i] for i, old_q in enumerate(ctx.circuit.qubits)}
+        # 经典比特映射（防止有测量门等操作经典比特的情况）
+        c_map = {old_c: subcircuit.clbits[i] for i, old_c in enumerate(ctx.circuit.clbits)} if subcircuit.clbits else {}
+
+        # 3. 遍历并追加门，使用映射后的比特
         for lev in range(ori_left, ori_right + 1):
             for node in ctx.circuit_layers[lev]:
-                subcircuit.append(node.op, node.qargs, getattr(node, 'cargs', []))
+                # 替换量子比特
+                new_qargs = [q_map[q] for q in node.qargs]
+                # 替换经典比特（如果有的话）
+                old_cargs = getattr(node, 'cargs', [])
+                new_cargs = [c_map[c] for c in old_cargs] if old_cargs else []
+                
+                subcircuit.append(node.op, new_qargs, new_cargs)
+
         return subcircuit
+
+        # subcircuit = QuantumCircuit(ctx.circuit.num_qubits)
+        # for lev in range(ori_left, ori_right + 1):
+        #     for node in ctx.circuit_layers[lev]:
+        #         subcircuit.append(node.op, node.qargs, getattr(node, 'cargs', []))
+        # return subcircuit
         # # layers = list(ctx.dag.layers())
         # sub_dag = ctx.dag.copy_empty_like()
         # for lev in range(ori_left, ori_right + 1):

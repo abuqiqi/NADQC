@@ -1,0 +1,56 @@
+========== Network Info ==========
+Network with 3 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9605
+  Backend 0 <-> Backend 2: Fidelity = 0.9611
+  Backend 1 <-> Backend 2: Fidelity = 0.9690
+Hop weight: 0.15387988316265172
+Fidelity range: [0.95, 0.98]
+[INFO] QFTAdder #Qubits: 90
+[INFO] QFTAdder #Depths: 553
+[INFO] QFTAdder #Gates: 7007
+[INFO] QFTAdder #2Q Gates: 2907
+[INFO] 3 QPUs: [30, 30, 30]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+Registered compiler IDs: ['staticoee', 'wbcp', 'navi']
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QFTAdder90_net[30, 30, 30]_Static OEE.json
+ExecCosts(comms=1270, epairs=1270, geo_mean_fidelity=0.0, fidelity=0.0000, loss=70.5472, rhops=1270, rswaps=0, remote_fidelity_loss=44.24696594185594, remote_fidelity_log_sum=-45.04810780940138, remote_fidelity=2.7280690479109617e-20, local_fidelity_loss=26.300264220455215, local_fidelity_log_sum=-inf, local_fidelity=0.0, time=10.48), local_gate_num=15548
+Compiler: [WBCP]
+Compiling with [WBCP]...
+Set parameter Username
+Set parameter LicenseID to value 2789005
+Academic license - for non-commercial use only - expires 2027-03-09
+Set parameter OutputFlag to value 1
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Optimize a model with 49 rows, 27 columns and 126 nonzeros (Min)
+Model fingerprint: 0x92ebf82a
+Model has 6 linear objective coefficients
+Variable types: 0 continuous, 27 integer (27 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [9e-01, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 24 rows and 14 columns
+Presolve time: 0.00s
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 0
+
+Model is infeasible
+Best objective -, best bound -, gap -
+Warning: Physical mapping optimization failed. Falling back to sequential assignment.

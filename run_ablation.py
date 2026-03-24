@@ -10,7 +10,7 @@ from tqdm import tqdm # 建议安装 tqdm 以显示进度条
 from qiskit import QuantumCircuit
 
 from src.utils import get_args, get_config, select_circuit, write_compiler_results_to_csv, Backend, Network
-from src.nadqc import NAVI
+from src.navi import NAVI
 from src.compiler import CompilerUtils, MappingRecordList
 
 
@@ -149,7 +149,11 @@ def ablation(args):
         backend = Backend(global_config, backend_config)
         backend_list.append(backend)
 
-    network_config = global_config.get('network', {'type': args.network})
+    network_config = {
+        **global_config.get('network_config', {}),
+        'type': args.network,
+        'fidelity_range': [0.95, 0.98]
+    }
 
     network = Network(network_config, backend_list)
 
@@ -172,7 +176,7 @@ def ablation(args):
     # telegate_partitioners = ["direct"]
     # mappers = ["direct", "greedy", "dp"]
     partitioner = ["recursive_dp"]
-    partition_assigners = ["global_max_match"]
+    partition_assigners = ["direct", "max_match", "global_max_match"]
     telegate_partitioners = ["direct"]
     mappers = ["direct", "dp", "newdp", "linkdp"]
 

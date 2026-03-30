@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 import time
+import copy
 from qiskit import QuantumCircuit
 from qiskit import transpile
 
 from ..utils import Network
 from ..compiler import MappingRecord, CompilerUtils, MappingRecord
-
+from ..baselines import OEE
 
 class TelegatePartitioner(ABC):
     """
@@ -71,6 +72,47 @@ class DirectTelegatePartitioner(TelegatePartitioner):
         )
 
 
+class OEEPartitioner(TelegatePartitioner):
+    @property
+    def name(self) -> str:
+        return "OEETelegatePartitioner"
+    
+    def partition(self, 
+                  circuit: QuantumCircuit, 
+                  network: Network,
+                  config: Optional[dict[str, Any]]) -> MappingRecord:
+        # 将config里面的prev_partition作为OEE的起点
+        prev_partition = config.get("partition", []) if config else []
+        partition = copy.deepcopy(prev_partition) if prev_partition else []
+        iteration_count = config.get("iteration", 50) if config else 50
+        layer_start = config.get("layer_start", 0) if config else 0
+        layer_end = config.get("layer_end", circuit.depth() - 1) if config else circuit.depth() - 1
+
+        # 如果config里没有partition，就按顺序分配
+        if not partition:
+            partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
+
+        qig = CompilerUtils.build_qubit_interaction_graph(circuit)
+        partition = OEE.partition(partition, qig, network, iteration_count)
+
+        record = MappingRecord(
+            layer_start = layer_start,
+            layer_end = layer_end,
+            partition = partition,
+            mapping_type = "telegate"
+        )
+
+        # 评估当前线路的telegate代价
+        costs = CompilerUtils.evaluate_local_and_telegate(partition, circuit, network)
+
+        # 评估和前一段线路的切分代价（如果prev_partition存在）
+        if prev_partition:
+            costs += CompilerUtils.evaluate_teledata(prev_partition, partition, network)
+
+        record.costs = costs
+        return record
+
+
 class PytketDQCPartitioner(TelegatePartitioner):
     @property
     def name(self) -> str:
@@ -133,6 +175,7 @@ class TelegatePartitionerFactory:
     """划分分配器工厂类"""
     _registry = {
         "direct": "DirectTelegatePartitioner",
+        "oee": "OEEPartitioner",
         "pytket_dqc": "PytketDQCPartitioner"
     }
 

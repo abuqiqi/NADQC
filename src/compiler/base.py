@@ -557,6 +557,80 @@ class CompilerUtils:
         return costs
 
     @staticmethod
+    def evaluate_telegate(
+        arg: MappingRecord | list[list[int]],  # 兼容两种类型：record / partition
+        circuit: QuantumCircuit, 
+        network: Network,
+        optimization_level: int = 3
+    ) -> ExecCosts:
+        """
+        评估在给定划分和后端分配下执行线路的总体保真度
+        @param record: 包含划分和映射信息的记录
+        @param circuit: 量子线路
+        @param network: 网络信息
+        @return: 更新后的记录，包含评估的成本信息
+        """
+        partition = None
+
+        if isinstance(arg, MappingRecord):
+            record = arg
+            partition = record.partition
+        else:
+            # arg is a list of lists representing the partition
+            partition = arg
+
+        # 建立每个分区对应的子线路
+        subcircuits = [QuantumCircuit(len(group)) for group in partition]
+
+        # 建立一个反向索引，用于快速查询每个量子比特属于哪个分区
+        qubit_to_partition = {}
+        for idx, group in enumerate(partition):
+            for qubit in group:
+                qubit_to_partition[qubit] = idx
+
+        # 对每个分区内，要将量子比特编号映射到0,1,...,len(group)-1，以便构建子线路
+        # 例如，如果分区是 [0,2,5]，则子线路中的量子比特0对应原线路的0，量子比特1对应原线路的2，量子比特2对应原线路的5
+        qubit_to_subcircuit = {}
+        for group in partition:
+            mapping = {original_qubit: idx for idx, original_qubit in enumerate(group)}
+            qubit_to_subcircuit.update(mapping)
+
+        # 初始化噪声
+        costs = ExecCosts()
+
+        # 遍历circuit上的每个操作，如果操作完全属于某个group，则添加到对应的subcircuit；如果操作跨越多个group，则记录为telegate操作
+        for instruction in circuit:
+            qubits = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
+
+            # 检查操作涉及的量子比特属于哪个分区
+            involved_partitions = set()
+            for qubit in qubits:
+                involved_partitions.add(qubit_to_partition[qubit])
+
+            if len(involved_partitions) > 1: # 操作跨越多个分区，为telegate操作
+                # 对qubits里的每一对相邻qubits，算作一组remote_hop
+                # 直接统计跨分区的telegate保真度损失
+                for i in range(len(qubits) - 1):
+                    q1, q2 = qubits[i], qubits[i + 1]
+                    p1, p2 = qubit_to_partition[q1], qubit_to_partition[q2]
+                    if p1 != p2:
+                        costs = CompilerUtils.update_remote_move_costs(
+                            costs, p1, p2, 1, network
+                        )
+                        # costs.remote_hops += network.Hops[p1][p2]
+                        # costs.epairs += network.Hops[p1][p2]
+                        # costs.remote_fidelity_loss += network.move_fidelity_loss[p1][p2]
+                        # costs.remote_fidelity *= network.move_fidelity[p1][p2]
+                        # costs.remote_fidelity_log_sum += np.log(network.move_fidelity[p1][p2])
+                        # print(f"[DEBUG] evaluate_local_and_telegate remote: {costs}")
+
+        if isinstance(arg, MappingRecord):
+            # 更新record的costs
+            arg.costs += costs
+
+        return costs
+
+    @staticmethod
     def evaluate_teledata(
         arg1: MappingRecord | list[list[int]],  # 兼容两种类型：prev_record / prev_partition
         arg2: MappingRecord | list[list[int]],  # 兼容两种类型：curr_record / curr_partition

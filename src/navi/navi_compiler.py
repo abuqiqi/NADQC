@@ -32,7 +32,7 @@ class CompilationContext:
     multiq_layers: list[list[Any]] = field(default_factory=list)
     map_to_circuit_layer: dict[int, int] = field(default_factory=dict)
     gate_density: float = 0.0
-    cu1_density: float = 0.0
+    twoq_gate_density: float = 0.0
     min_depth: int = 0
     
     # --- 分区表 (Partition Table - P) ---
@@ -48,9 +48,8 @@ class CompilationContext:
     final_records: MappingRecordList = field(default_factory=MappingRecordList)
 
     # --- 统计信息 (Statistics) ---
-    num_comms: int = 0
-    num_gates: int = 0
     swap_prefix_sums: list[int] = field(default_factory=list)
+    epair_prefix_sums: list[int] = field(default_factory=list)
     
     # --- 运行时组件 (Runtime Components) ---
     partitioner: Optional[Partitioner] = None
@@ -100,7 +99,7 @@ class NAVI(Compiler):
         partition_assigner_type = config.get("partition_assigner", "global_max_match")
         partition_assigner = PartitionAssignerFactory.create_assigner(partition_assigner_type)
         
-        telegate_partitioner_type = config.get("telegate_partitioner", "direct")
+        telegate_partitioner_type = config.get("telegate_partitioner", "oee")
         telegate_partitioner = TelegatePartitionerFactory.create_telegate_partitioner(telegate_partitioner_type)
         
         mapper_type = config.get("mapper", "newdp")
@@ -278,7 +277,7 @@ class NAVI(Compiler):
     def _step_remove_single_qubit_gates(self, ctx: CompilationContext):
         """
         Remove single qubit gates and calculate densities.
-        Updates: ctx.multiq_layers, ctx.map_*, ctx.gate_density, ctx.cu1_density
+        Updates: ctx.multiq_layers, ctx.map_*, ctx.gate_density, ctx.twoq_gate_density
         """
         start_time = time.time()
         ctx.dag = circuit_to_dag(ctx.circuit)
@@ -308,13 +307,11 @@ class NAVI(Compiler):
                         continue
                     if len(node.qargs) != 2:
                         raise ValueError(f"[ERROR] Found gate with more than 2 qubits: {node.op.name} on {node.qargs}")
-                    # if node.op.name == "cu1": # TODO: 只考虑cu1吗
-                    #     cu1_count += 1
                     twoq_count += 1
                     twoq_gates.append(node)
                 else:
                     all_gates.append(node)
-            
+
             if len(twoq_gates) > 0: # 逻辑：如果层满且不能整除后端数，则拆分
                 if len(twoq_gates) == ctx.circuit.num_qubits // 2 and len(twoq_gates) % n_backends != 0:
                     split_point = len(twoq_gates) // 2
@@ -348,7 +345,7 @@ class NAVI(Compiler):
         depth = ctx.circuit.depth()
         num_q = ctx.circuit.num_qubits
         ctx.gate_density = pos_count / (num_q * depth) if depth > 0 and num_q > 0 else 0.0
-        ctx.cu1_density = twoq_count / gate_count if gate_count > 0 else 0.0
+        ctx.twoq_gate_density = twoq_count / gate_count if gate_count > 0 else 0.0
         
         # 更新 Context
         ctx.circuit_layers = circuit_layers
@@ -358,16 +355,20 @@ class NAVI(Compiler):
         end_time = time.time()
         print(f"[DEBUG] remove_single_qubit_gates: {end_time - start_time} seconds", file=sys.stderr)
         print(f"[INFO] gate_density: {ctx.gate_density}")
-        print(f"[INFO] cu1_density: {ctx.cu1_density}")
+        print(f"[INFO] twoq_gate_density: {ctx.twoq_gate_density}")
 
+    # TODO
     def _step_set_min_depth(self, ctx: CompilationContext, min_depth_cfg: Optional[int]) -> int:
         def sigmoid_decay(gate_density, depth, k=15, c=0.5):
             return 0.6 * depth * (1 - 1 / (1 + np.exp(-k * (gate_density - c))))
         def sigmoid_increase(gate_density, depth, k=15, c=0.5):
-            return 0.6 * depth * (1 / (1 + np.exp(-k * (gate_density - c))))
-            
+            return 1.0 * depth * (1 / (1 + np.exp(-k * (gate_density - c))))
+
         if min_depth_cfg is None:
-            return int(sigmoid_increase(ctx.cu1_density, ctx.circuit.depth()))
+            print(f"[DEBUG] twoq_gate_density: {ctx.twoq_gate_density}", file=sys.stderr)
+            print(f"[DEBUG] circuit depth: {ctx.circuit.depth()}", file=sys.stderr)
+            print(f"[DEBUG] sigmoid_decay: {sigmoid_increase(ctx.twoq_gate_density, ctx.circuit.depth())}", file=sys.stderr)
+            return int(sigmoid_increase(ctx.twoq_gate_density, ctx.circuit.depth()))
 
         return min_depth_cfg
 
@@ -484,15 +485,16 @@ class NAVI(Compiler):
     def _step_construct_teledata_only_records(self, ctx: CompilationContext) -> MappingRecordList:
         """
         Construct initial mapping records based on partition plan.
-        Updates: ctx.num_comms, ctx.swap_prefix_sums
+        Updates: ctx.swap_prefix_sums, ctx.epair_prefix_sums
         """
         mapping_record_list = MappingRecordList()
         partition_plan = ctx.partition_plan
         subc_ranges = ctx.subc_ranges
         network = ctx.network
         
-        ctx.num_comms = 0
+        # ctx.num_comms = 0
         swap_prefix_sums = [0] * len(partition_plan)
+        epair_prefix_sums = [0] * len(partition_plan)
 
         for i, partition in enumerate(partition_plan):
             left, right = subc_ranges[i]
@@ -510,10 +512,13 @@ class NAVI(Compiler):
                 costs = CompilerUtils.evaluate_teledata(prev_rec, curr_rec, network)
                 comms = costs.remote_swaps
                 
-                ctx.num_comms += comms
+                # ctx.num_comms += comms
                 swap_prefix_sums[i] = swap_prefix_sums[i-1] + comms
-        
+                epair_prefix_sums[i] = epair_prefix_sums[i-1] + costs.epairs
+
         ctx.swap_prefix_sums = swap_prefix_sums
+        ctx.epair_prefix_sums = epair_prefix_sums
+
         return mapping_record_list
 
     def _step_group_and_optimize(self, ctx: CompilationContext, mapping_record_list: MappingRecordList) -> MappingRecordList:
@@ -640,7 +645,7 @@ class NAVI(Compiler):
         if left_subc_idx != -1:
             prev_partition = mapping_record_list.records[left_subc_idx].partition
         
-        # 2. 调用策略类进行划分
+        # 2. 调用telegate_partitioner进行划分
         assert ctx.telegate_partitioner is not None
         telegate_record = ctx.telegate_partitioner.partition(
             circuit = sub_qc,
@@ -652,42 +657,33 @@ class NAVI(Compiler):
             }
         )
 
-        # telegate_record = self._hyper_partition(ctx, left, right)
-        cat_ent_costs = telegate_record.costs.remote_hops
-        
-        swap_costs = 0
+        # TODO: 根据ecosts来评估
+        new_epairs = telegate_record.costs.epairs
 
-        # 获取左子线路的record
-        if left_subc_idx != -1:
-            left_record = mapping_record_list.records[left_subc_idx]
-            swap_costs += CompilerUtils.evaluate_teledata(left_record, telegate_record, ctx.network).remote_swaps
-        
         # 获取右子线路的record
         right_record = None
         if right_subc_idx < len(mapping_record_list.records):
+            # 拷贝一份right_record，可能会直接加入grouped_records
             right_record = copy.deepcopy(mapping_record_list.records[right_subc_idx])
-            swap_costs += CompilerUtils.evaluate_teledata(telegate_record, right_record, ctx.network).remote_swaps
-        
-        new_costs = cat_ent_costs + swap_costs
+            new_epairs += CompilerUtils.evaluate_teledata(telegate_record, right_record, ctx.network).epairs
 
         # Calculate old costs
         end_idx = right_subc_idx if right_subc_idx < len(ctx.swap_prefix_sums) else len(ctx.swap_prefix_sums) - 1
-        old_costs = ctx.swap_prefix_sums[end_idx]
+        # old_costs = ctx.swap_prefix_sums[end_idx]
+        old_epairs = ctx.epair_prefix_sums[end_idx]
         if left_subc_idx >= 0:
-            old_costs -= ctx.swap_prefix_sums[left_subc_idx]
+            # old_costs -= ctx.swap_prefix_sums[left_subc_idx]
+            old_epairs -= ctx.epair_prefix_sums[left_subc_idx]
 
-        if new_costs < old_costs:
-            ctx.num_comms += new_costs - old_costs
-            ctx.num_gates += cat_ent_costs
-
-            grouped_records.add_record(telegate_record)
+        if new_epairs < old_epairs:
+            grouped_records.add_record(telegate_record) # 层号已更新
 
             # 更新下一个子线路的record
             if right_record:
                 mapping_record_list.records[right_subc_idx] = right_record
 
             return True
-        
+
         # If not replacing, we still need to add the intermediate records to grouped_records later
         for idx in range(left_subc_idx + 1, right_subc_idx):
             # 更新层号

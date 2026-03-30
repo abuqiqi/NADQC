@@ -1,0 +1,83 @@
+Sampling backend from ibm_torino for ibm_torino_sampled_90q ...
+Sampled subsystem saved to: /home/xls/project/NADQC/data/device_properties/ibm/ibm_torino_sampled_90q/ibm_torino_sampled_90q_2025-11-09.xlsx
+========== Network Info ==========
+Network with 5 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9584
+  Backend 0 <-> Backend 2: Fidelity = 0.9613
+  Backend 0 <-> Backend 3: Fidelity = 0.9519
+  Backend 0 <-> Backend 4: Fidelity = 0.9512
+  Backend 1 <-> Backend 2: Fidelity = 0.9658
+  Backend 1 <-> Backend 3: Fidelity = 0.9555
+  Backend 1 <-> Backend 4: Fidelity = 0.9702
+  Backend 2 <-> Backend 3: Fidelity = 0.9758
+  Backend 2 <-> Backend 4: Fidelity = 0.9522
+  Backend 3 <-> Backend 4: Fidelity = 0.9508
+Hop weight: 0.2564664719377529
+Fidelity range: [0.95, 0.98]
+[INFO] ising_n420 #Qubits: 420
+[INFO] ising_n420 #Depths: 16
+[INFO] ising_n420 #Gates: 4308
+[INFO] ising_n420 #2Q Gates: 838
+[INFO] 5 QPUs: [90, 90, 90, 90, 90]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+Registered compiler IDs: ['fgproee', 'staticoee', 'wbcp', 'navi']
+Compiler: [FGP-rOEE]
+Compiling with [FGP-rOEE]...
+[DEBUG] num_depths: 16
+✅ 成功保存 16 条映射记录到 JSON 文件：./outputs/ising_n420420_net[90, 90, 90, 90, 90]_FGP-rOEE.json
+[DEBUG] Total swaps: 0, Total gates: 0
+[DEBUG] Total comms: 0
+
+ExecCosts(comms=6, epairs=12, geo_mean_fidelity=0.9986803006611708, fidelity=0.0031, loss=5.7514, rhops=0, rswaps=6, remote_fidelity_loss=0.25256516158765374, remote_fidelity_log_sum=-0.2581585411499826, remote_fidelity=0.7724727536795506, local_fidelity_loss=5.4987942026561205, local_fidelity_log_sum=-5.5338654652551, local_fidelity=0.0039506882874754045, time=464.16), local_gate_num=4380
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/ising_n420420_net[90, 90, 90, 90, 90]_Static OEE.json
+ExecCosts(comms=8, epairs=8, geo_mean_fidelity=0.998592470913071, fidelity=0.0024, loss=5.9816, rhops=8, rswaps=0, remote_fidelity_loss=0.29855033217496896, remote_fidelity_log_sum=-0.3046325488561288, remote_fidelity=0.7373942809881433, local_fidelity_loss=5.683098560132121, local_fidelity_log_sum=-5.730878164209824, local_fidelity=0.003244227018259278, time=156.41), local_gate_num=4277
+Compiler: [WBCP]
+Compiling with [WBCP]...
+✅ 成功保存 16 条映射记录到 JSON 文件：./outputs/ising_n420420_net[90, 90, 90, 90, 90]_WBCP.json
+ExecCosts(comms=8, epairs=8, geo_mean_fidelity=0.9986139827306422, fidelity=0.0024, loss=5.9707, rhops=8, rswaps=0, remote_fidelity_loss=0.29855033217496896, remote_fidelity_log_sum=-0.3046325488561288, remote_fidelity=0.7373942809881434, local_fidelity_loss=5.67219276926747, local_fidelity_log_sum=-5.720402835978917, local_fidelity=0.0032783899828664727, time=444.53), local_gate_num=4336
+Compiler: [NAVI]
+Compiling with [NAVI]...
+[INFO] gate_density: 0.7657738095238096
+[INFO] cu1_density: 0.19452181987000927
+[build_partition_table]
+[build_partition_table] Partition calculation times: 3.
+[build_partition_table] Time: 0.25221729278564453 seconds
+[build_slicing_table] Time: 1.4781951904296875e-05 seconds
+[group_shallow_subcircuits] Time: 5.9604644775390625e-06 seconds
+[INFO] [Time] New DP Mapper completed in 325.17 seconds.
+✅ 成功保存 2 条映射记录到 JSON 文件：./outputs/ising_n420420_net[90, 90, 90, 90, 90]_NAVI.json
+ExecCosts(comms=5, epairs=10, geo_mean_fidelity=0.9983139349636825, fidelity=0.0041, loss=5.4696, rhops=0, rswaps=5, remote_fidelity_loss=0.18349258025726078, remote_fidelity_log_sum=-0.18715398874479522, remote_fidelity=0.8293160212191611, local_fidelity_loss=5.286113168416923, local_fidelity_log_sum=-5.320806985950368, local_fidelity=0.004888806934441203, time=325.83), local_gate_num=3259
+{'F_eff': np.float64(0.6962813231402688), 'num_comms': 6, 'epairs': 12, 'total_fidelity_log_sum': np.float64(-5.792024006405082), 'total_fidelity_loss': 5.751359364243775, 'geo_mean_fidelity': np.float64(0.9986803006611708), 'total_fidelity': 0.0030517990603556736, 'execution_time': 464.1581115722656, 'remote_hops': 0, 'remote_swaps': 6, 'local_fidelity': 0.0039506882874754045, 'remote_fidelity': 0.7724727536795506, 'local_fidelity_loss': 5.4987942026561205, 'remote_fidelity_loss': 0.25256516158765374, 'local_fidelity_log_sum': np.float64(-5.5338654652551), 'remote_fidelity_log_sum': np.float64(-0.2581585411499826), 'local_gate_num': 4380}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+       Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs  ...    net_type                  Metrics     FGP-rOEE   Static OEE         WBCP         NAVI
+0   ising_n420      420    4308        838      16      5  ...  all_to_all                    F_eff     0.696281     0.685766     0.686215     0.708753
+1   ising_n420      420    4308        838      16      5  ...  all_to_all                num_comms     6.000000     8.000000     8.000000     5.000000
+2   ising_n420      420    4308        838      16      5  ...  all_to_all                   epairs    12.000000     8.000000     8.000000    10.000000
+3   ising_n420      420    4308        838      16      5  ...  all_to_all   total_fidelity_log_sum    -5.792024    -6.035511    -6.025035    -5.507961
+4   ising_n420      420    4308        838      16      5  ...  all_to_all      total_fidelity_loss     5.751359     5.981649     5.970743     5.469606
+5   ising_n420      420    4308        838      16      5  ...  all_to_all        geo_mean_fidelity     0.998680     0.998592     0.998614     0.998314
+6   ising_n420      420    4308        838      16      5  ...  all_to_all           total_fidelity     0.003052     0.002392     0.002417     0.004054
+7   ising_n420      420    4308        838      16      5  ...  all_to_all           execution_time   464.158112   156.411384   444.525387   325.828049
+8   ising_n420      420    4308        838      16      5  ...  all_to_all              remote_hops     0.000000     8.000000     8.000000     0.000000
+9   ising_n420      420    4308        838      16      5  ...  all_to_all             remote_swaps     6.000000     0.000000     0.000000     5.000000
+10  ising_n420      420    4308        838      16      5  ...  all_to_all           local_fidelity     0.003951     0.003244     0.003278     0.004889
+11  ising_n420      420    4308        838      16      5  ...  all_to_all          remote_fidelity     0.772473     0.737394     0.737394     0.829316
+12  ising_n420      420    4308        838      16      5  ...  all_to_all      local_fidelity_loss     5.498794     5.683099     5.672193     5.286113
+13  ising_n420      420    4308        838      16      5  ...  all_to_all     remote_fidelity_loss     0.252565     0.298550     0.298550     0.183493
+14  ising_n420      420    4308        838      16      5  ...  all_to_all   local_fidelity_log_sum    -5.533865    -5.730878    -5.720403    -5.320807
+15  ising_n420      420    4308        838      16      5  ...  all_to_all  remote_fidelity_log_sum    -0.258159    -0.304633    -0.304633    -0.187154
+16  ising_n420      420    4308        838      16      5  ...  all_to_all           local_gate_num  4380.000000  4277.000000  4336.000000  3259.000000
+
+[17 rows x 15 columns]
+[Total Runtime] 1392.9762077331543 seconds
+
+

@@ -86,6 +86,7 @@ class FGPrOEE(Compiler):
                 partition = partition,
                 mapping_type = "telegate"
             )
+            # TODO: 检查为什么本地量子门数量这么少
             _ = CompilerUtils.evaluate_local_and_telegate(record, sub_qc, network)
 
             # 更新mapping_record_list
@@ -100,42 +101,42 @@ class FGPrOEE(Compiler):
                                                 network)
         return mapping_record_list
 
-    def _build_lookahead_graphs(self, circuit: QuantumCircuit, 
-                                circuit_layers: list, 
-                                level: int):
-        def lookahead_weight(n, sigma=1.0):
-            return 2 ** (-n / sigma)
-        lookahead_graph = nx.Graph()
-        lookahead_graph.add_nodes_from(range(circuit.num_qubits))
-        for current_level in range(level, len(circuit_layers)):
-            weight = lookahead_weight(current_level - level) # the lookahead weight of the current level
-            if current_level == level:
-                weight = 999 # float('inf')
-            for node in circuit_layers[current_level]["graph"].op_nodes():
-                # print(f"node.op: {node.op}, node.qargs: {node.qargs}, node.cargs: {node.cargs}")
-                if len(node.qargs) == 2:
-                    qubits = [node.qargs[i]._index for i in range(len(node.qargs))]
-                    if qubits[0] == None:
-                        qubits = [circuit.qubits.index(node.qargs[i]) for i in range(len(node.qargs))]
-                        # print(f"none: qubits: {qubits}")
-                        # exit(0)
-                    if lookahead_graph.has_edge(qubits[0], qubits[1]):
-                        lookahead_graph[qubits[0]][qubits[1]]['weight'] += weight
-                    else:
-                        lookahead_graph.add_edge(qubits[0], qubits[1], weight=weight)
-        # 返回当前层的图
-        time_slice_graph = nx.Graph()
-        time_slice_graph.add_nodes_from(range(circuit.num_qubits))
-        for node in circuit_layers[level]["graph"].op_nodes():
-            if len(node.qargs) == 2:
-                qubits = [node.qargs[i]._index for i in range(len(node.qargs))]
-                if qubits[0] == None:
-                    qubits = [circuit.qubits.index(node.qargs[i]) for i in range(len(node.qargs))]
-                if time_slice_graph.has_edge(qubits[0], qubits[1]):
-                    time_slice_graph[qubits[0]][qubits[1]]['weight'] += 1
-                else:
-                    time_slice_graph.add_edge(qubits[0], qubits[1], weight=1)
-        return lookahead_graph, time_slice_graph
+    # def _build_lookahead_graphs(self, circuit: QuantumCircuit, 
+    #                             circuit_layers: list, 
+    #                             level: int):
+    #     def lookahead_weight(n, sigma=1.0):
+    #         return 2 ** (-n / sigma)
+    #     lookahead_graph = nx.Graph()
+    #     lookahead_graph.add_nodes_from(range(circuit.num_qubits))
+    #     for current_level in range(level, len(circuit_layers)):
+    #         weight = lookahead_weight(current_level - level) # the lookahead weight of the current level
+    #         if current_level == level:
+    #             weight = 999 # float('inf')
+    #         for node in circuit_layers[current_level]["graph"].op_nodes():
+    #             # print(f"node.op: {node.op}, node.qargs: {node.qargs}, node.cargs: {node.cargs}")
+    #             if len(node.qargs) == 2:
+    #                 qubits = [node.qargs[i]._index for i in range(len(node.qargs))]
+    #                 if qubits[0] == None:
+    #                     qubits = [circuit.qubits.index(node.qargs[i]) for i in range(len(node.qargs))]
+    #                     # print(f"none: qubits: {qubits}")
+    #                     # exit(0)
+    #                 if lookahead_graph.has_edge(qubits[0], qubits[1]):
+    #                     lookahead_graph[qubits[0]][qubits[1]]['weight'] += weight
+    #                 else:
+    #                     lookahead_graph.add_edge(qubits[0], qubits[1], weight=weight)
+    #     # 返回当前层的图
+    #     time_slice_graph = nx.Graph()
+    #     time_slice_graph.add_nodes_from(range(circuit.num_qubits))
+    #     for node in circuit_layers[level]["graph"].op_nodes():
+    #         if len(node.qargs) == 2:
+    #             qubits = [node.qargs[i]._index for i in range(len(node.qargs))]
+    #             if qubits[0] == None:
+    #                 qubits = [circuit.qubits.index(node.qargs[i]) for i in range(len(node.qargs))]
+    #             if time_slice_graph.has_edge(qubits[0], qubits[1]):
+    #                 time_slice_graph[qubits[0]][qubits[1]]['weight'] += 1
+    #             else:
+    #                 time_slice_graph.add_edge(qubits[0], qubits[1], weight=1)
+    #     return lookahead_graph, time_slice_graph
 
     def _k_way_rOEE(self, partition: list[list[int]], 
                    lookahead_graph: nx.Graph, 
@@ -146,6 +147,12 @@ class FGPrOEE(Compiler):
         n = len(nodes)
         cnt = 0
         k = len(partition)
+
+        # --- 优化1: 预构建节点到分区的映射 (O(1)查找) ---
+        node_to_part = {}
+        for part_idx, part in enumerate(partition):
+            for node in part:
+                node_to_part[node] = part_idx
 
         num_remote_hops = CompilerUtils.evaluate_remote_hops(time_slice_graph, partition, network)
 
@@ -158,39 +165,46 @@ class FGPrOEE(Compiler):
             D = np.zeros((n, k))
             # 步骤 1: 计算每个节点 i 和每个子集 l 对应的 D(i, l) 值
             for node in nodes:
-                current_col = next(j for j, subset in enumerate(partition) if node in subset)
+                current_col = node_to_part[node]  # 优化查找
                 for l in range(k):
                     D[node, l] = OEE._calculate_d(lookahead_graph, node, partition[l], partition[current_col])
+            
             g_values = []
             exchange_pairs = []
+            
             while len(C) > 1:
                 max_g = float('-inf')
                 best_a, best_b = None, None
-                # 步骤 2: 寻找使减少交换成本 g(a, b) 最大的两个节点 a 和 b
-                for a in C:
-                    for b in C:
-                        if a < b:
-                            col_a = next(j for j, subset in enumerate(partition) if a in subset)
-                            col_b = next(j for j, subset in enumerate(partition) if b in subset)
-                            if lookahead_graph.has_edge(a, b):
-                                g = D[a, col_b] + D[b, col_a] - 2 * lookahead_graph[a][b].get('weight', 1)
-                            else:
-                                g = D[a, col_b] + D[b, col_a]
-                            if g > max_g:
-                                max_g = g
-                                best_a, best_b = a, b
-                # print(f"remove: {best_a}, {best_b}, max_g: {max_g}")
+                
+                # --- 优化2: 更紧凑的循环结构 ---
+                # 只遍历 a < b 的组合，避免重复检查
+                for i in range(len(C)):
+                    a = C[i]
+                    col_a = node_to_part[a]
+                    for j in range(i + 1, len(C)):
+                        b = C[j]
+                        col_b = node_to_part[b]
+                        
+                        if lookahead_graph.has_edge(a, b):
+                            g = D[a, col_b] + D[b, col_a] - 2 * lookahead_graph[a][b].get('weight', 1)
+                        else:
+                            g = D[a, col_b] + D[b, col_a]
+                        
+                        if g > max_g:
+                            max_g = g
+                            best_a, best_b = a, b
+
                 C.remove(best_a)
                 C.remove(best_b)
                 g_values.append(max_g)
                 exchange_pairs.append((best_a, best_b))
 
                 # 步骤 3: 更新 D 值
-                col_a = next(j for j, subset in enumerate(partition) if best_a in subset)
-                col_b = next(j for j, subset in enumerate(partition) if best_b in subset)
-                # print(f"col_a: {col_a}, col_b: {col_b}")
+                col_a = node_to_part[best_a]
+                col_b = node_to_part[best_b]
+                
                 for node in C:
-                    col_i = next(j for j, subset in enumerate(partition) if node in subset)
+                    col_i = node_to_part[node]
                     w_ia = lookahead_graph[best_a][node].get('weight', 1) if lookahead_graph.has_edge(best_a, node) else 0
                     w_ib = lookahead_graph[best_b][node].get('weight', 1) if lookahead_graph.has_edge(best_b, node) else 0
                     # print(f"w_ia: {w_ia}, w_ib: {w_ib}")
@@ -218,22 +232,86 @@ class FGPrOEE(Compiler):
                 if g_sum > max_g_sum:
                     max_g_sum = g_sum
                     best_m = m
-            # 步骤 6: 记录最大总减少成本
-            g_max = max_g_sum
-            # 步骤 7: 判断是否继续迭代
-            if g_max <= 0:
+            
+            if max_g_sum <= 0:
                 break
-            # 交换前 m 对节点
+
+            # 执行交换并更新映射
             for i in range(best_m + 1):
                 a, b = exchange_pairs[i]
-                col_a = next(j for j, subset in enumerate(partition) if a in subset)
-                col_b = next(j for j, subset in enumerate(partition) if b in subset)
+                col_a = node_to_part[a]
+                col_b = node_to_part[b]
+
+                # 更新 partition 数据结构
                 partition[col_a].remove(a)
                 partition[col_b].append(a)
                 partition[col_b].remove(b)
                 partition[col_a].append(b)
 
+                # --- 优化3: 同步更新映射字典 ---
+                node_to_part[a] = col_b
+                node_to_part[b] = col_a
+
+            # 更新下一轮迭代的条件
+            num_remote_hops = CompilerUtils.evaluate_remote_hops(time_slice_graph, partition, network)
+
         return partition
+
+    def _build_lookahead_graphs(self, circuit: QuantumCircuit, 
+                                circuit_layers: list, 
+                                level: int):
+        def lookahead_weight(n, sigma=1.0):
+            return 2 ** (-n / sigma)
+            
+        lookahead_graph = nx.Graph()
+        lookahead_graph.add_nodes_from(range(circuit.num_qubits))
+        
+        # 构建 Lookahead 图
+        for current_level in range(level, len(circuit_layers)):
+            weight = lookahead_weight(current_level - level) # the lookahead weight of the current level
+            if current_level == level:
+                weight = 999  # 当前层权重极大化
+                
+            layer_graph = circuit_layers[current_level]["graph"]
+            for node in layer_graph.op_nodes():
+                qargs = node.qargs
+                if len(qargs) != 2:
+                    continue
+                
+                # 简化索引获取逻辑
+                # q0_idx = qargs[0]._index
+                # q1_idx = qargs[1]._index
+                # if q0_idx is None:
+                q0_idx = circuit.qubits.index(qargs[0])
+                q1_idx = circuit.qubits.index(qargs[1])
+
+                if lookahead_graph.has_edge(q0_idx, q1_idx):
+                    lookahead_graph[q0_idx][q1_idx]['weight'] += weight
+                else:
+                    lookahead_graph.add_edge(q0_idx, q1_idx, weight=weight)
+
+        # 构建当前层 Time Slice 图
+        time_slice_graph = nx.Graph()
+        time_slice_graph.add_nodes_from(range(circuit.num_qubits))
+        layer_graph = circuit_layers[level]["graph"]
+        
+        for node in layer_graph.op_nodes():
+            qargs = node.qargs
+            if len(qargs) != 2:
+                continue
+                
+            # q0_idx = qargs[0]._index
+            # q1_idx = qargs[1]._index
+            # if q0_idx is None:
+            q0_idx = circuit.qubits.index(qargs[0])
+            q1_idx = circuit.qubits.index(qargs[1])
+
+            if time_slice_graph.has_edge(q0_idx, q1_idx):
+                time_slice_graph[q0_idx][q1_idx]['weight'] += 1
+            else:
+                time_slice_graph.add_edge(q0_idx, q1_idx, weight=1)
+
+        return lookahead_graph, time_slice_graph
 
     def _extract_subcircuit(self, num_qubits: int, circuit_layers: list, level: int) -> QuantumCircuit:
         sub_qc = QuantumCircuit(num_qubits)

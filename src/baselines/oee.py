@@ -148,10 +148,10 @@ class OEE:
                     best_m = m
 
             # Step 5: Record the maximum total reduction cost
-            g_max = max_g_sum
+            # g_max = max_g_sum
 
             # Step 6: Determine whether to continue iterating
-            if g_max <= 0:
+            if max_g_sum <= 0:
                 break
             # Exchange the m pairs of nodes before
             for i in range(best_m + 1):

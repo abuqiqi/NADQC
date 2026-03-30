@@ -52,8 +52,15 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         circ = myIQP(num_qubits).decompose()
     elif name == "VQC_AA":
         circ = VQC_AA(num_qubits).decompose()
+    elif name == "test":
+        circ = QuantumCircuit(4)
+        circ.rzz(0.5, 0, 1)
+        circ.rzz(0.1, 1, 3)
+        circ.rzz(0.2, 0, 2)
+        circ.rzz(0.4, 0, 1)
+        print(circ)
     else:
-        circ = load_circ_from_qasm("./benchmarks", name)
+        circ = load_circ_from_qasm("./data/benchmarks", name)
         # trans_bm = QASMbm(do_transpile=True,
         #                   basis_gates=basis_gates,
         #                   category="large")
@@ -72,11 +79,11 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
 
     # 将线路转换到basis gates
     trans_circ = transpile(circ, basis_gates=basis_gates, optimization_level=3)
-    MAX_ALLOWED_DEPTH = 1000
-    if trans_circ.depth() > MAX_ALLOWED_DEPTH:
-        print(f"[INFO] Circuit depth ({circ.depth()}) exceeds threshold ({MAX_ALLOWED_DEPTH}). Truncating...")
-        trans_circ = truncate_circuit_by_depth(trans_circ, MAX_ALLOWED_DEPTH)
-        print(f"[INFO] Truncated circuit depth: {trans_circ.depth()}")
+    # MAX_ALLOWED_DEPTH = 1000
+    # if trans_circ.depth() > MAX_ALLOWED_DEPTH:
+    #     print(f"[INFO] Circuit depth ({circ.depth()}) exceeds threshold ({MAX_ALLOWED_DEPTH}). Truncating...")
+    #     trans_circ = truncate_circuit_by_depth(trans_circ, MAX_ALLOWED_DEPTH)
+    #     print(f"[INFO] Truncated circuit depth: {trans_circ.depth()}")
 
     # print(trans_circ)
     # 输出线路和QPU信息
@@ -110,6 +117,8 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         "Basis Gates": basis_gates,
         "2Q Gate Names": two_qubit_gates
     }
+
+    print(trans_circ)
 
     return circ, trans_circ, task_info
 

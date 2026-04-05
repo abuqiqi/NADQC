@@ -5,6 +5,7 @@ import sys
 import copy
 import numpy as np
 import networkx as nx
+import datetime
 
 from qiskit import QuantumCircuit
 from qiskit.converters import circuit_to_dag
@@ -170,7 +171,8 @@ class NAVI(Compiler):
 
         final_result.summarize_total_costs()
         final_result.update_total_costs(execution_time = exec_time)
-        final_result.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        final_result.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
 
         return final_result
 

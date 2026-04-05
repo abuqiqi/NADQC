@@ -3,14 +3,11 @@ from qiskit import QuantumCircuit
 from qiskit.converters import circuit_to_dag, dag_to_circuit
 from typing import Any, Optional
 import networkx as nx
-import numpy as np
 import time
-from itertools import combinations
 from collections import defaultdict
 import gurobipy as gp
 from gurobipy import GRB
-import numpy as np
-import random
+import datetime
 
 from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
@@ -49,7 +46,8 @@ class WBCP(Compiler):
 
         mapping_record_list.summarize_total_costs()
         mapping_record_list.update_total_costs(execution_time = end_time - start_time)
-        mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
         
         return mapping_record_list
 

@@ -5,6 +5,7 @@ import sys
 import copy
 import numpy as np
 import networkx as nx
+import datetime
 
 from qiskit import QuantumCircuit
 from qiskit.converters import circuit_to_dag
@@ -98,8 +99,10 @@ class NAVIHybrid(Compiler):
         
         # Step 6: 分配分区计划
         assert ctx.partition_assigner is not None
+        assign_time = time.time()
         assign_result = ctx.partition_assigner.assign(ctx.partition_candidates)
         ctx.partition_plan = assign_result["partition_plan"]
+        print(f"[partition assignment] Time: {time.time() - assign_time:.2f}s")
 
         # # Step 7: 构建初始 Mapping Record (Teledata-only)
         # mapping_record_list = self._step_construct_teledata_only_records(ctx)
@@ -127,7 +130,8 @@ class NAVIHybrid(Compiler):
 
         final_result.summarize_total_costs()
         final_result.update_total_costs(execution_time = exec_time)
-        final_result.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        final_result.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
 
         return final_result
 

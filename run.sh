@@ -1,15 +1,33 @@
-# python main.py -cname QV -nq 60 -core 2 -cap 30
-# python main.py -cname QV -nq 90 -core 3 -cap 30
-# python main.py -cname QV -nq 120 -core 4 -cap 30
-# python main.py -cname QFT -nq 60 -core 2 -cap 30
-# python main.py -cname QFT -nq 60 -core 2 -cap 31
-# python main.py -cname QFT -nq 90 -core 3 -cap 30
-# python main.py -cname QFT -nq 90 -core 3 -cap 31
-# python main.py -cname QFT -nq 120 -core 4 -cap 30
-# python main.py -cname QFT -nq 120 -core 4 -cap 31
-# python main.py -cname QAOA -nq 60 -core 2 -cap 30
+python main.py -cname QV -nq 40 -core 2 -cap 20
+python main.py -cname QV -nq 60 -core 3 -cap 20
+python main.py -cname QV -nq 80 -core 4 -cap 20
+python main.py -cname QV -nq 100 -core 5 -cap 20
+
+python main.py -cname QFT -nq 40 -core 2 -cap 20
+python main.py -cname QFT -nq 60 -core 3 -cap 20
+python main.py -cname QFT -nq 80 -core 4 -cap 20
+python main.py -cname QFT -nq 100 -core 5 -cap 20
+
+python main.py -cname QAOA -nq 40 -core 2 -cap 20
+python main.py -cname QAOA -nq 60 -core 3 -cap 20
+python main.py -cname QAOA -nq 80 -core 4 -cap 20
+python main.py -cname QAOA -nq 100 -core 5 -cap 20
+
+python main.py -cname QV -nq 30 -core 3 -cap 10
+python main.py -cname QV -nq 60 -core 3 -cap 20
+python main.py -cname QV -nq 90 -core 3 -cap 30
+python main.py -cname QV -nq 120 -core 3 -cap 40
+
+python main.py -cname QFT -nq 30 -core 3 -cap 10
+python main.py -cname QFT -nq 60 -core 3 -cap 20
+python main.py -cname QFT -nq 90 -core 3 -cap 30
+python main.py -cname QFT -nq 120 -core 3 -cap 40
+
+python main.py -cname QAOA -nq 30 -core 3 -cap 10
+python main.py -cname QAOA -nq 60 -core 3 -cap 20
 python main.py -cname QAOA -nq 90 -core 3 -cap 30
-python main.py -cname QAOA -nq 120 -core 4 -cap 30
+python main.py -cname QAOA -nq 120 -core 3 -cap 40
+
 # python main.py -cname QV -nq 60 -core 2 -cap 35
 # python main.py -cname QV -nq 90 -core 3 -cap 35
 # python main.py -cname QV -nq 120 -core 4 -cap 35

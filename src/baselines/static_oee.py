@@ -1,7 +1,6 @@
 from qiskit import QuantumCircuit
 from typing import Any, Optional
-import networkx as nx
-import numpy as np
+import datetime
 import time
 
 from .oee import OEE
@@ -56,5 +55,6 @@ class StaticOEE(Compiler):
         end_time = time.time()
         mapping_record_list.update_total_costs(execution_time = end_time - start_time)
         
-        mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
         return mapping_record_list

@@ -37,16 +37,18 @@ class StaticOEE(Compiler):
         partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network) # initialize partition
         qig = CompilerUtils.build_qubit_interaction_graph(circuit)
         partition = OEE.partition(partition, qig, network, iteration_count)
+        logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
 
         record = MappingRecord(
             layer_start = 0, 
             layer_end = circuit.depth() - 1,
             partition = partition,
-            mapping_type = "telegate"
+            mapping_type = "telegate",
+            logical_phy_map = logical_phy_map
         )
 
         _ = CompilerUtils.evaluate_local_and_telegate(record, circuit, network)
-        
+
         mapping_record_list = MappingRecordList()
         mapping_record_list.add_record(record)
         mapping_record_list.summarize_total_costs()

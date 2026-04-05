@@ -236,8 +236,8 @@ class Network:
                 for (u, v) in swap_edges:
                     edge_data = self.network_graph.get_edge_data(u, v)
                     fid = edge_data['fidelity']
-                    total_fid *= fid
-                    total_fid_loss += (1 - fid)
+                    total_fid *= (fid ** 2)
+                    total_fid_loss += 2 * (1 - fid)
 
                 swap_fidelity[i][j] = total_fid
                 swap_fidelity_loss[i][j] = total_fid_loss
@@ -355,6 +355,11 @@ class Network:
             print(f"  Backend {u} <-> Backend {v}: Fidelity = {fidelity:.4f}")
         print(f"Hop weight: {self.hop_weight}")
         print(f"Fidelity range: {self.fidelity_range}")
+        print(f"Backend sizes: {self.backend_sizes}")
+        # 输出每个backend的coupling map
+        print("Backend Coupling Maps:")
+        for i, backend in enumerate(self.backends):
+            print(f"  Backend {i} ({backend.name}): Coupling Map = {backend.coupling_map}")
         return
 
     def get_network_coupling_and_qubits(self):

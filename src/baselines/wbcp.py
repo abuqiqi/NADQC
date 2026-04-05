@@ -40,7 +40,7 @@ class WBCP(Compiler):
         print(f"Compiling with [{self.name}]...")
         
         start_time = time.time()
-        iteration_count = config.get("iteration", 10) if config else 10
+        iteration_count = config.get("iteration", 50) if config else 50
         circuit_name = config.get("circuit_name", "circ") if config else "circ"
 
         mapping_record_list = self._k_way_WBCP(circuit, network, iteration_count)
@@ -64,7 +64,6 @@ class WBCP(Compiler):
         circuit_layers = list(circuit_dag.layers())
 
         num_depths = circuit.depth()
-        # win_len = num_depths // 20 
         win_len = max(1, min(num_depths // 20, 500)) # 范围在[1, 500]，过长的线路设置成500
         if win_len == 0:
             win_len = num_depths
@@ -83,23 +82,31 @@ class WBCP(Compiler):
         partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
         partition = OEE.partition(partition, qig, network, iteration_count)
 
-        # TODO: 完成逻辑QPU到物理QPU的映射
+        # 完成逻辑QPU到物理QPU的映射
         partition = self._map_logical_to_physical(partition, qig, network)
+        logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
 
         record = MappingRecord(
             layer_start = 0,
             layer_end = right,
             partition = partition,
-            mapping_type = "telegate"
+            mapping_type = "telegate",
+            logical_phy_map = logical_phy_map
         )
         _ = CompilerUtils.evaluate_local_and_telegate(record, sub_qc, network)
         mapping_record_list.add_record(record)
 
         # 处理后续的子线路
         for i in range(1, num_subc):
+
+            # print(f"\n\n\n[DEBUG] Processing sub-circuit {i}/{num_subc - 1}, layers {i*win_len} to {min((i+1)*win_len-1, num_depths-1)}")
+
             # 获取子线路段
             right = min((i+1)*win_len-1, num_depths-1)
             sub_qc = self._get_subcircuit_by_levels(circuit_dag, circuit_layers, (i*win_len, right))
+
+            # print(f"[DEBUG] subc:\n{sub_qc}")
+
             # 构造子线路的qubit interaction graph
             qig = CompilerUtils.build_qubit_interaction_graph(sub_qc)
 
@@ -117,28 +124,37 @@ class WBCP(Compiler):
             # 先确定partition，再确定logical到物理的映射
             current_partition = self._map_logical_to_physical(current_partition, qig, network)
 
+            # 构建当前划分对应的mapping record
             current_record = MappingRecord(
                 layer_start = i*win_len,
                 layer_end = right,
                 partition = current_partition,
-                mapping_type = "telegate"
+                mapping_type = "telegate",
+                logical_phy_map = previous_record.logical_phy_map
             )
+
+            # 如果采用当前的record，评估当前划分的costs
+            # 先评估teledata并更新logical_phy_map
+            _ = CompilerUtils.evaluate_teledata(previous_record, current_record, network)
+            # 再评估local和telegate
             _ = CompilerUtils.evaluate_local_and_telegate(current_record, sub_qc, network)
-            costs_for_current_partition = CompilerUtils.evaluate_teledata(previous_record, current_record, network)
 
             # 检查沿用上一个partition是否更好
-            # 如果沿用上一个partition，只有local和remote telegate开销，没有teledata开销
+            # 如果沿用上一个partition，只有remote telegate开销，没有teledata开销
             num_prev_remote_hops = CompilerUtils.evaluate_remote_hops(qig, previous_partition, network)
 
             # 比较哪个开销小
-            if num_prev_remote_hops < costs_for_current_partition.num_comms:
+            # 如果先前的partition更好
+            if num_prev_remote_hops < current_record.costs.num_comms:
                 # 更新previous record的costs和layers
                 record = MappingRecord(
                     layer_start = i*win_len,
                     layer_end = right,
                     partition = previous_partition,
-                    mapping_type = "telegate"
+                    mapping_type = "telegate",
+                    logical_phy_map = previous_record.logical_phy_map # 沿用上一个record的logical_phy_map作为初始状态
                 )
+                # 完整评估划分，只有local and telegate开销
                 _ = CompilerUtils.evaluate_local_and_telegate(record, sub_qc, network)
                 mapping_record_list.add_record(record)
             else:

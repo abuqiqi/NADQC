@@ -1,0 +1,332 @@
+========== Network Info ==========
+Network with 2 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9523
+Hop weight: 0.10258658877510116
+Fidelity range: [0.95, 0.98]
+Backend sizes: [2, 2]
+Backend Coupling Maps:
+  Backend 0 (ibm_torino): Coupling Map = [[0, 1], [1, 0]]
+  Backend 1 (ibm_torino): Coupling Map = [[0, 1], [1, 0]]
+     ┌───┐                                        
+q_0: ┤ H ├─■───────────────────■─────────■────────
+     ├───┤ │ZZ(0.5)            │         │ZZ(0.4) 
+q_1: ┤ H ├─■─────────■─────────┼─────────■────────
+     ├───┤           │         │ZZ(0.2)           
+q_2: ┤ H ├───────────┼─────────■──────────────────
+     ├───┤           │ZZ(0.1)                     
+q_3: ┤ H ├───────────■────────────────────────────
+     └───┘                                        
+[INFO] test #Qubits: 4
+[INFO] test #Depths: 6
+[INFO] test #Gates: 16
+[INFO] test #2Q Gates: 4
+[INFO] 2 QPUs: [2, 2]
+
+
+global phase: π
+     ┌─────────┐┌────┐┌─────────┐                                        
+q_0: ┤ Rz(π/2) ├┤ √X ├┤ Rz(π/2) ├─■─────────■───────────────────■────────
+     ├─────────┤├────┤├─────────┤ │ZZ(0.5)  │                   │ZZ(0.4) 
+q_1: ┤ Rz(π/2) ├┤ √X ├┤ Rz(π/2) ├─■─────────┼─────────■─────────■────────
+     ├─────────┤├────┤├─────────┤           │ZZ(0.2)  │                  
+q_2: ┤ Rz(π/2) ├┤ √X ├┤ Rz(π/2) ├───────────■─────────┼──────────────────
+     ├─────────┤├────┤├─────────┤                     │ZZ(0.1)           
+q_3: ┤ Rz(π/2) ├┤ √X ├┤ Rz(π/2) ├─────────────────────■──────────────────
+     └─────────┘└────┘└─────────┘                                        
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['staticoee', 'fgproee', 'wbcp', 'navi']
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+===== transpiled circuit =====
+         ┌─────────┐┌────┐┌─────────┐                    
+q_0 -> 0 ┤ Rz(π/2) ├┤ √X ├┤ Rz(π/2) ├─■─────────■────────
+         ├─────────┤├────┤├─────────┤ │ZZ(0.5)  │ZZ(0.4) 
+q_1 -> 1 ┤ Rz(π/2) ├┤ √X ├┤ Rz(π/2) ├─■─────────■────────
+         └─────────┘└────┘└─────────┘                    
+===== transpiled circuit =====
+         ┌─────────┐┌────┐┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├┤ √X ├┤ Rz(π/2) ├
+         ├─────────┤├────┤├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├┤ √X ├┤ Rz(π/2) ├
+         └─────────┘└────┘└─────────┘
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/test4_net[2, 2]_Static OEE.json
+ExecCosts(comms=2, epairs=2, geo_mean_fidelity=0.9934834314013501, fidelity=0.9007, loss=0.1022, rhops=2, rswaps=0, remote_fidelity_loss=0.09541222581177977, remote_fidelity_log_sum=-0.09776317379909365, remote_fidelity=0.9068636473968097, local_fidelity_loss=0.006835526374018203, local_fidelity_log_sum=-0.006843132256468061, local_fidelity=0.9931802286554279, time=0.03), local_gate_num=14
+Compiler: [FGP-rOEE]
+Compiling with [FGP-rOEE]...
+[INFO] num_depths: 6
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+===== transpiled circuit =====
+         ┌────┐
+q_0 -> 0 ┤ √X ├
+         ├────┤
+q_1 -> 1 ┤ √X ├
+         └────┘
+===== transpiled circuit =====
+         ┌────┐
+q_0 -> 0 ┤ √X ├
+         ├────┤
+q_1 -> 1 ┤ √X ├
+         └────┘
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+===== transpiled circuit =====
+                   
+q_0 -> 0 ─■────────
+          │ZZ(0.5) 
+q_1 -> 1 ─■────────
+                   
+===== transpiled circuit =====
+                   
+q_1 -> 0 ─■────────
+          │ZZ(0.1) 
+q_0 -> 1 ─■────────
+                   
+===== transpiled circuit =====
+                   
+q_0 -> 0 ─■────────
+          │ZZ(0.2) 
+q_1 -> 1 ─■────────
+                   
+===== transpiled circuit =====
+                   
+q_1 -> 0 ─■────────
+          │ZZ(0.4) 
+q_0 -> 1 ─■────────
+                   
+✅ 成功保存 6 条映射记录到 JSON 文件：./outputs/test4_net[2, 2]_FGP-rOEE.json
+ExecCosts(comms=2, epairs=4, geo_mean_fidelity=0.9939057269130191, fidelity=0.8958, loss=0.1077, rhops=0, rswaps=2, remote_fidelity_loss=0.09541222581177977, remote_fidelity_log_sum=-0.09776317379909365, remote_fidelity=0.9068636473968097, local_fidelity_loss=0.012254407300996323, local_fidelity_log_sum=-0.012269367538199384, local_fidelity=0.9878055942605378, time=0.12), local_gate_num=16
+Compiler: [WBCP]
+Compiling with [WBCP]...
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+
+
+
+[DEBUG] Processing sub-circuit 1/5, layers 1 to 1
+[DEBUG] subc:
+global phase: π
+     ┌────┐
+q_0: ┤ √X ├
+     ├────┤
+q_1: ┤ √X ├
+     ├────┤
+q_2: ┤ √X ├
+     ├────┤
+q_3: ┤ √X ├
+     └────┘
+===== transpiled circuit =====
+         ┌────┐
+q_0 -> 0 ┤ √X ├
+         ├────┤
+q_1 -> 1 ┤ √X ├
+         └────┘
+===== transpiled circuit =====
+         ┌────┐
+q_0 -> 0 ┤ √X ├
+         ├────┤
+q_1 -> 1 ┤ √X ├
+         └────┘
+
+
+
+[DEBUG] Processing sub-circuit 2/5, layers 2 to 2
+[DEBUG] subc:
+global phase: π
+     ┌─────────┐
+q_0: ┤ Rz(π/2) ├
+     ├─────────┤
+q_1: ┤ Rz(π/2) ├
+     ├─────────┤
+q_2: ┤ Rz(π/2) ├
+     ├─────────┤
+q_3: ┤ Rz(π/2) ├
+     └─────────┘
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+
+
+
+[DEBUG] Processing sub-circuit 3/5, layers 3 to 3
+[DEBUG] subc:
+global phase: π
+               
+q_0: ─■────────
+      │ZZ(0.5) 
+q_1: ─■────────
+               
+q_2: ──────────
+               
+q_3: ──────────
+               
+===== transpiled circuit =====
+                   
+q_0 -> 0 ─■────────
+          │ZZ(0.5) 
+q_1 -> 1 ─■────────
+                   
+
+
+
+[DEBUG] Processing sub-circuit 4/5, layers 4 to 4
+[DEBUG] subc:
+global phase: π
+                         
+q_0: ─■──────────────────
+      │                  
+q_1: ─┼─────────■────────
+      │ZZ(0.2)  │        
+q_2: ─■─────────┼────────
+                │ZZ(0.1) 
+q_3: ───────────■────────
+                         
+===== transpiled circuit =====
+                   
+q_1 -> 0 ─■────────
+          │ZZ(0.1) 
+q_0 -> 1 ─■────────
+                   
+===== transpiled circuit =====
+                   
+q_0 -> 0 ─■────────
+          │ZZ(0.2) 
+q_1 -> 1 ─■────────
+                   
+
+
+
+[DEBUG] Processing sub-circuit 5/5, layers 5 to 5
+[DEBUG] subc:
+global phase: π
+               
+q_0: ─■────────
+      │ZZ(0.4) 
+q_1: ─■────────
+               
+q_2: ──────────
+               
+q_3: ──────────
+               
+===== transpiled circuit =====
+                   
+q_0 -> 0 ─■────────
+          │ZZ(0.4) 
+q_1 -> 1 ─■────────
+                   
+✅ 成功保存 6 条映射记录到 JSON 文件：./outputs/test4_net[2, 2]_WBCP.json
+ExecCosts(comms=2, epairs=4, geo_mean_fidelity=0.9939057269130191, fidelity=0.8958, loss=0.1077, rhops=0, rswaps=2, remote_fidelity_loss=0.09541222581177977, remote_fidelity_log_sum=-0.09776317379909365, remote_fidelity=0.9068636473968097, local_fidelity_loss=0.012254407300996323, local_fidelity_log_sum=-0.012269367538199384, local_fidelity=0.9878055942605378, time=0.12), local_gate_num=16
+Compiler: [NAVI]
+Compiling with [NAVI]...
+[INFO] gate_density: 0.8333333333333334
+[INFO] twoq_gate_density: 0.25
+[build_partition_table]
+[build_partition_table] Partition calculation times: 4.
+[build_partition_table] Time: 0.0007605552673339844 seconds
+[build_slicing_table] Time: 1.9550323486328125e-05 seconds
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+===== transpiled circuit =====
+         ┌────┐
+q_0 -> 0 ┤ √X ├
+         ├────┤
+q_1 -> 1 ┤ √X ├
+         └────┘
+===== transpiled circuit =====
+         ┌────┐
+q_0 -> 0 ┤ √X ├
+         ├────┤
+q_1 -> 1 ┤ √X ├
+         └────┘
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+===== transpiled circuit =====
+         ┌─────────┐
+q_0 -> 0 ┤ Rz(π/2) ├
+         ├─────────┤
+q_1 -> 1 ┤ Rz(π/2) ├
+         └─────────┘
+✅ 成功保存 3 条映射记录到 JSON 文件：./outputs/test4_net[2, 2]_NAVI.json
+ExecCosts(comms=2, epairs=4, geo_mean_fidelity=0.9929407436663364, fidelity=0.9056, loss=0.0968, rhops=0, rswaps=2, remote_fidelity_loss=0.09541222581177977, remote_fidelity_log_sum=-0.09776317379909365, remote_fidelity=0.9068636473968097, local_fidelity_loss=0.0014166454470400836, local_fidelity_log_sum=-0.0014168969747367396, local_fidelity=0.9985841063498566, time=0.07), local_gate_num=12
+{'F_eff': np.float64(0.982716715152927), 'num_comms': 2, 'epairs': 2, 'total_fidelity_log_sum': np.float64(-0.1046063060555617), 'total_fidelity_loss': 0.10224775218579797, 'geo_mean_fidelity': np.float64(0.9934834314013501), 'total_fidelity': 0.9006790446808588, 'execution_time': 0.030904054641723633, 'remote_hops': 2, 'remote_swaps': 0, 'local_fidelity': 0.9931802286554279, 'remote_fidelity': 0.9068636473968097, 'local_fidelity_loss': 0.006835526374018203, 'remote_fidelity_loss': 0.09541222581177977, 'local_fidelity_log_sum': np.float64(-0.006843132256468061), 'remote_fidelity_log_sum': np.float64(-0.09776317379909365), 'local_gate_num': 14}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+   Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs    QPUs                          Basis Gates 2Q Gate Names    net_type                  Metrics  Static OEE   FGP-rOEE       WBCP       NAVI
+0     test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all                    F_eff    0.982717   0.981828   0.981828   0.983606
+1     test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all                num_comms    2.000000   2.000000   2.000000   2.000000
+2     test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all                   epairs    2.000000   4.000000   4.000000   4.000000
+3     test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all   total_fidelity_log_sum   -0.104606  -0.110033  -0.110033  -0.099180
+4     test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all      total_fidelity_loss    0.102248   0.107667   0.107667   0.096829
+5     test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all        geo_mean_fidelity    0.993483   0.993906   0.993906   0.992941
+6     test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all           total_fidelity    0.900679   0.895805   0.895805   0.905580
+7     test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all           execution_time    0.030904   0.123694   0.123446   0.073988
+8     test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all              remote_hops    2.000000   0.000000   0.000000   0.000000
+9     test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all             remote_swaps    0.000000   2.000000   2.000000   2.000000
+10    test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all           local_fidelity    0.993180   0.987806   0.987806   0.998584
+11    test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all          remote_fidelity    0.906864   0.906864   0.906864   0.906864
+12    test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all      local_fidelity_loss    0.006836   0.012254   0.012254   0.001417
+13    test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all     remote_fidelity_loss    0.095412   0.095412   0.095412   0.095412
+14    test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all   local_fidelity_log_sum   -0.006843  -0.012269  -0.012269  -0.001417
+15    test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all  remote_fidelity_log_sum   -0.097763  -0.097763  -0.097763  -0.097763
+16    test        4      16          4       6      2  [2, 2]  [rx, id, cz, rz, rzz, x, reset, sx]     {rzz, cz}  all_to_all           local_gate_num   14.000000  16.000000  16.000000  12.000000
+[Total Runtime] 1.2564427852630615 seconds
+
+

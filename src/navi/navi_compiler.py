@@ -39,6 +39,8 @@ class CompilationContext:
     P_table: list[list[list[Any]]] = field(default_factory=list)
 
     # --- 切片表 (Slicing Tables - S, T) ---
+    S_table: list[list[int]] = field(default_factory=list)
+    T_table: list[list[int]] = field(default_factory=list)
     subc_ranges: list[tuple[int, int]] = field(default_factory=list)
 
     # --- 结果与计划 (Results & Plans) ---
@@ -87,6 +89,8 @@ class NAVI(Compiler):
         if config is None:
             config = {}
 
+        # print(f"[DEBUG] [compile] circuit: \n{circuit}")
+
         # 1. 解析配置
         circuit_name = config.get("circuit_name", "circ")
         min_depth_cfg = config.get("min_depth", None)
@@ -95,14 +99,16 @@ class NAVI(Compiler):
         partitioner_type = config.get("partitioner", "recursive_dp")
         max_option = config.get("max_option", 1)
         partitioner = PartitionerFactory.create_partitioner(partitioner_type, network, max_options=max_option)
-        
-        partition_assigner_type = config.get("partition_assigner", "global_max_match")
+
+        partition_assigner_type = config.get("partition_assigner", "direct")
+        # partition_assigner_type = config.get("partition_assigner", "global_max_match")
         partition_assigner = PartitionAssignerFactory.create_assigner(partition_assigner_type)
-        
+
         telegate_partitioner_type = config.get("telegate_partitioner", "oee")
         telegate_partitioner = TelegatePartitionerFactory.create_telegate_partitioner(telegate_partitioner_type)
         
-        mapper_type = config.get("mapper", "newdp")
+        # mapper_type = config.get("mapper", "dp")
+        mapper_type = config.get("mapper", "boundeddp")
         mapper = MapperFactory.create_mapper(mapper_type)
         
         # 3. 初始化上下文 (Context)
@@ -146,16 +152,18 @@ class NAVI(Compiler):
         mapping_record_list = self._step_construct_teledata_only_records(ctx)
 
         # Step 8: 分组浅层子线路并尝试 Gate Teleportation 优化
-        grouped_records = self._step_group_and_optimize(ctx, mapping_record_list)
+        # grouped_records = self._step_group_and_optimize(ctx, mapping_record_list)
 
         # Step 9: 最终映射 (考虑噪声)
         assert ctx.mapper is not None
         final_result = ctx.mapper.map(
-            grouped_records, 
+            # grouped_records, 
+            mapping_record_list,
             ctx.circuit,
             ctx.circuit_layers, 
             ctx.network
         )
+        # final_result = mapping_record_list # 先不进行telegate优化，直接映射看看效果
 
         end_time = time.time()
         exec_time = end_time - start_time
@@ -336,10 +344,9 @@ class NAVI(Compiler):
                 # 没有双量子比特门的层，直接放到circuit_layers里
                 circuit_layers.append(all_gates)
         
-        # 确保map_to_circuit_layer[0] = 0, map_to_circuit_layer[-1] = len(circuit_layers) - 1
-        assert 0 in map_to_circuit_layer, "[ERROR] map_to_circuit_layer must contain the first layer mapping."
-        map_to_circuit_layer[0] = 0
-        map_to_circuit_layer[len(multiq_layers) - 1] = len(circuit_layers) - 1
+        assert 0 in map_to_circuit_layer, f"[ERROR] map_to_circuit_layer must contain the first layer mapping. {map_to_circuit_layer}"
+        # map_to_circuit_layer[0] = 0
+        # map_to_circuit_layer[len(multiq_layers) - 1] = len(circuit_layers) - 1
 
         # 计算密度
         depth = ctx.circuit.depth()
@@ -354,15 +361,15 @@ class NAVI(Compiler):
 
         end_time = time.time()
         print(f"[DEBUG] remove_single_qubit_gates: {end_time - start_time} seconds", file=sys.stderr)
-        print(f"[INFO] gate_density: {ctx.gate_density}")
-        print(f"[INFO] twoq_gate_density: {ctx.twoq_gate_density}")
+        # print(f"[INFO] gate_density: {ctx.gate_density}")
+        # print(f"[INFO] twoq_gate_density: {ctx.twoq_gate_density}")
+        return
 
-    # TODO
     def _step_set_min_depth(self, ctx: CompilationContext, min_depth_cfg: Optional[int]) -> int:
         def sigmoid_decay(gate_density, depth, k=15, c=0.5):
             return 0.6 * depth * (1 - 1 / (1 + np.exp(-k * (gate_density - c))))
         def sigmoid_increase(gate_density, depth, k=15, c=0.5):
-            return 1.0 * depth * (1 / (1 + np.exp(-k * (gate_density - c))))
+            return 0.6 * depth * (1 / (1 + np.exp(-k * (gate_density - c))))
 
         if min_depth_cfg is None:
             print(f"[DEBUG] twoq_gate_density: {ctx.twoq_gate_density}", file=sys.stderr)
@@ -441,6 +448,7 @@ class NAVI(Compiler):
         """
         Build S and T tables and extract subc_ranges.
         """
+        print(f"[build_slicing_table]")
         start_time = time.time()
         P = ctx.P_table
         num_depths = len(P)
@@ -476,6 +484,9 @@ class NAVI(Compiler):
                     S[i][j] = best_k
 
         # Extract ranges
+        ctx.S_table = S
+        ctx.T_table = T
+
         subc_ranges = []
         self._get_sliced_subc_recursive(S, 0, num_depths - 1, subc_ranges)
         
@@ -487,6 +498,7 @@ class NAVI(Compiler):
         Construct initial mapping records based on partition plan.
         Updates: ctx.swap_prefix_sums, ctx.epair_prefix_sums
         """
+        print(f"[construct_teledata_only_records]")
         mapping_record_list = MappingRecordList()
         partition_plan = ctx.partition_plan
         subc_ranges = ctx.subc_ranges
@@ -496,25 +508,37 @@ class NAVI(Compiler):
         swap_prefix_sums = [0] * len(partition_plan)
         epair_prefix_sums = [0] * len(partition_plan)
 
-        for i, partition in enumerate(partition_plan):
-            left, right = subc_ranges[i]
-            record = MappingRecord(
-                layer_start=left,
-                layer_end=right,
-                partition=partition,
-                mapping_type="teledata"
-            )
-            mapping_record_list.add_record(record)
+        logical_phy_map = {}
 
-            if i > 0:
-                prev_rec = mapping_record_list.records[-2]
-                curr_rec = mapping_record_list.records[-1]
-                costs = CompilerUtils.evaluate_teledata(prev_rec, curr_rec, network)
+        for i, partition in enumerate(partition_plan):
+            if i == 0:
+                # 对第一个子线路生成logical到物理的映射
+                logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
+            else:
+                # 沿用上一个record的logical_phy_map作为初始状态
+                logical_phy_map = mapping_record_list.records[-1].logical_phy_map
+
+            # 构建当前划分
+            left, right = subc_ranges[i]
+            ori_left, ori_right = self.get_original_layer_idx(ctx, (left, right))
+            record = MappingRecord(
+                layer_start = ori_left, # 注意，如果要group，这里要换成原始的层号
+                layer_end = ori_right,
+                partition = partition,
+                mapping_type = "teledata",
+                logical_phy_map = logical_phy_map
+            )
+
+            if i > 0: # 计算teledata并更新logical_phy_map
+                prev_rec = mapping_record_list.records[-1]
+                costs, _ = CompilerUtils.evaluate_teledata(prev_rec, record, network)
                 comms = costs.remote_swaps
                 
                 # ctx.num_comms += comms
                 swap_prefix_sums[i] = swap_prefix_sums[i-1] + comms
                 epair_prefix_sums[i] = epair_prefix_sums[i-1] + costs.epairs
+
+            mapping_record_list.add_record(record)
 
         ctx.swap_prefix_sums = swap_prefix_sums
         ctx.epair_prefix_sums = epair_prefix_sums
@@ -540,13 +564,17 @@ class NAVI(Compiler):
                 right_subc_idx = i + 1
             else:
                 if left_subc_idx < right_subc_idx:
+                    # TODO: 改层号
                     self._try_replace_with_telegate(
                         ctx, mapping_record_list, grouped_records, left_subc_idx, right_subc_idx, left, right
                     )
 
                 # Add current record (with updated layer indices)
-                record.layer_start = ctx.map_to_circuit_layer[record.layer_start]
-                record.layer_end = ctx.map_to_circuit_layer[record.layer_end]
+                # TODO: 注意层号
+                # record.layer_start = ctx.map_to_circuit_layer[record.layer_start]
+                # record.layer_end = ctx.map_to_circuit_layer[record.layer_end]
+                record.layer_start, record.layer_end = self.get_original_layer_idx(
+                    ctx, (record.layer_start, record.layer_end))
                 grouped_records.add_record(record)
 
                 left_subc_idx = right_subc_idx = i
@@ -636,8 +664,7 @@ class NAVI(Compiler):
         Logic to try replacing a range with gate teleportation.
         """
         # 1. 获取原始子电路范围
-        ori_left = ctx.map_to_circuit_layer[left]
-        ori_right = ctx.map_to_circuit_layer[right]
+        ori_left, ori_right = self.get_original_layer_idx(ctx, (left, right))
         sub_qc = self._get_ori_subc(ctx, ori_left, ori_right)
 
         # 获取上一个partition的partition方案，作为telegate partition的初始方案
@@ -657,7 +684,6 @@ class NAVI(Compiler):
             }
         )
 
-        # TODO: 根据ecosts来评估
         new_epairs = telegate_record.costs.epairs
 
         # 获取右子线路的record
@@ -665,7 +691,8 @@ class NAVI(Compiler):
         if right_subc_idx < len(mapping_record_list.records):
             # 拷贝一份right_record，可能会直接加入grouped_records
             right_record = copy.deepcopy(mapping_record_list.records[right_subc_idx])
-            new_epairs += CompilerUtils.evaluate_teledata(telegate_record, right_record, ctx.network).epairs
+            costs, _ = CompilerUtils.evaluate_teledata(telegate_record, right_record, ctx.network)
+            new_epairs += costs.epairs
 
         # Calculate old costs
         end_idx = right_subc_idx if right_subc_idx < len(ctx.swap_prefix_sums) else len(ctx.swap_prefix_sums) - 1
@@ -688,8 +715,10 @@ class NAVI(Compiler):
         for idx in range(left_subc_idx + 1, right_subc_idx):
             # 更新层号
             record = mapping_record_list.records[idx]
-            record.layer_start = ctx.map_to_circuit_layer[record.layer_start]
-            record.layer_end = ctx.map_to_circuit_layer[record.layer_end]
+            # record.layer_start = ctx.map_to_circuit_layer[record.layer_start]
+            # record.layer_end = ctx.map_to_circuit_layer[record.layer_end]
+            record.layer_start, record.layer_end = self.get_original_layer_idx(
+                ctx, (record.layer_start, record.layer_end))
             grouped_records.add_record(record)
         return False
 
@@ -794,3 +823,25 @@ class NAVI(Compiler):
             print("="*60 + "\n")
         
         return recon_circ
+
+    def get_original_layer_idx(self, ctx: CompilationContext, layer_range: tuple[int, int]) -> tuple[int, int]:
+        """
+        获取指定层在原始电路中的对应层号。
+
+        Args:
+            ctx (CompilationContext): 编译上下文。
+            layer_range (tuple[int, int]): 指定的层范围。
+
+        Returns:
+            int: 原始电路中的层号。
+        """
+        left, right = layer_range
+        ori_left, ori_right = ctx.map_to_circuit_layer[left], ctx.map_to_circuit_layer[right]
+
+        if left == 0 and ctx.map_to_circuit_layer[0] != 0: # 检查起点是否对应原始电路的起点
+            ori_left = 0
+        
+        if right == len(ctx.multiq_layers) - 1 and ctx.map_to_circuit_layer[right] != len(ctx.circuit_layers) - 1: # 检查终点是否对应原始电路的终点
+            ori_right = len(ctx.circuit_layers) - 1
+
+        return (ori_left, ori_right)

@@ -1,0 +1,1460 @@
+========== Network Info ==========
+Network with 2 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9300
+Hop weight: 0.14514138566967075
+Fidelity range: [0.93, 0.93]
+Backend sizes: [31, 31]
+Backend Coupling Maps:
+  Backend 0 (ibm_torino): Coupling Map = [[0, 1], [0, 9], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2], [3, 4], [4, 3], [4, 5], [5, 4], [5, 6], [6, 5], [6, 7], [7, 6], [7, 8], [8, 7], [8, 10], [9, 0], [9, 13], [10, 8], [10, 20], [11, 12], [12, 11], [12, 13], [13, 9], [13, 12], [14, 15], [14, 21], [15, 14], [15, 16], [16, 15], [16, 17], [17, 16], [17, 18], [18, 17], [18, 19], [19, 18], [19, 20], [20, 10], [20, 19], [21, 14], [21, 24], [22, 23], [22, 25], [23, 22], [23, 24], [24, 21], [24, 23], [25, 22], [25, 28], [26, 27], [26, 29], [27, 26], [27, 28], [28, 25], [28, 27], [29, 26], [29, 30], [30, 29]]
+  Backend 1 (ibm_torino): Coupling Map = [[0, 1], [0, 9], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2], [3, 4], [4, 3], [4, 5], [5, 4], [5, 6], [6, 5], [6, 7], [7, 6], [7, 8], [8, 7], [8, 10], [9, 0], [9, 13], [10, 8], [10, 20], [11, 12], [12, 11], [12, 13], [13, 9], [13, 12], [14, 15], [14, 21], [15, 14], [15, 16], [16, 15], [16, 17], [17, 16], [17, 18], [18, 17], [18, 19], [19, 18], [19, 20], [20, 10], [20, 19], [21, 14], [21, 24], [22, 23], [22, 25], [23, 22], [23, 24], [24, 21], [24, 23], [25, 22], [25, 28], [26, 27], [26, 29], [27, 26], [27, 28], [28, 25], [28, 27], [29, 26], [29, 30], [30, 29]]
+[INFO] QAOA #Qubits: 60
+[INFO] QAOA #Depths: 121
+[INFO] QAOA #Gates: 2010
+[INFO] QAOA #2Q Gates: 1770
+[INFO] 2 QPUs: [31, 31]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['staticoee', 'fgproee', 'wbcp', 'navi', 'navihybrid']
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QAOA60_net[31, 31]_Static OEE.json
+ExecCosts(comms=899, epairs=899, rgeo_mean_fid=0.9299999999999996, fidelity=0.0000, loss=121.9433, rhops=899, rswaps=0, remote_fidelity_loss=62.93000000000023, remote_fidelity_log_sum=-65.24105285851743, remote_fidelity=4.6362916730678146e-29, local_fidelity_loss=59.01330047163384, local_fidelity_log_sum=-239.78211233974744, local_fidelity=7.310578615656067e-105, time=0.52), local_gate_num=8703
+Compiler: [FGP-rOEE]
+Compiling with [FGP-rOEE]...
+[INFO] num_depths: 121
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+✅ 成功保存 121 条映射记录到 JSON 文件：./outputs/QAOA60_net[31, 31]_FGP-rOEE.json
+ExecCosts(comms=59, epairs=117, rgeo_mean_fid=0.9299999999999999, fidelity=0.0000, loss=176.3712, rhops=1, rswaps=58, remote_fidelity_loss=4.129999999999993, remote_fidelity_log_sum=-4.281670877255291, remote_fidelity=0.013819552009674045, local_fidelity_loss=172.24121080045649, local_fidelity_log_sum=-335.0614226262774, local_fidelity=3.0526221752479782e-146, time=12.28), local_gate_num=124805
+Compiler: [WBCP]
+Compiling with [WBCP]...
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+Set parameter Username
+Set parameter LicenseID to value 2789005
+Academic license - for non-commercial use only - expires 2027-03-09
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0x2bd245bf
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [3e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 1.30627 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.306272471027e+00, best bound 1.306272471027e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.3062724710270368
+[WARNING] rzz0_1: 0.99
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0xdd191906
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [4e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 1.95941 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.959408706541e+00, best bound 1.959408706541e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.9594087065405552
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0xdd191906
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [4e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 1.95941 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.959408706541e+00, best bound 1.959408706541e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.9594087065405552
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0xdd191906
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [4e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 1.95941 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.959408706541e+00, best bound 1.959408706541e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.9594087065405552
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0xdd191906
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [4e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 1.95941 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.959408706541e+00, best bound 1.959408706541e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.9594087065405552
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0xdd191906
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [4e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 1.95941 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.959408706541e+00, best bound 1.959408706541e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.9594087065405552
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0xbbc7d2fa
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [9e+00, 9e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 4.35424 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 4.354241570090e+00, best bound 4.354241570090e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 4.354241570090123
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0x09a9a61c
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [8e+00, 8e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 3.91882 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 3.918817413081e+00, best bound 3.918817413081e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 3.9188174130811104
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0xdd191906
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [4e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 1.95941 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.959408706541e+00, best bound 1.959408706541e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.9594087065405552
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0xdd191906
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [4e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 1.95941 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.959408706541e+00, best bound 1.959408706541e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.9594087065405552
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 4 rows, 4 columns and 8 nonzeros (Min)
+Model fingerprint: 0xd51df308
+Model has 0 linear objective coefficients
+Model has 2 quadratic objective terms
+Variable types: 0 continuous, 4 integer (4 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve removed 4 rows and 4 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 96 available processors)
+
+Solution count 1: 0.653136 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 6.531362355135e-01, best bound 6.531362355135e-01, gap 0.0000%
+Physical mapping optimal solution found, objective = 0.6531362355135184
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+✅ 成功保存 21 条映射记录到 JSON 文件：./outputs/QAOA60_net[31, 31]_WBCP.json
+ExecCosts(comms=166, epairs=222, rgeo_mean_fid=0.93, fidelity=0.0000, loss=130.0778, rhops=110, rswaps=56, remote_fidelity_loss=11.619999999999992, remote_fidelity_log_sum=-12.046735010582672, remote_fidelity=5.863669178855154e-06, local_fidelity_loss=118.45775163841387, local_fidelity_log_sum=-320.97511483357874, local_fidelity=4.0020158056417837e-140, time=6.18), local_gate_num=60969
+Compiler: [NAVI]
+Compiling with [NAVI]...
+[build_partition_table]
+[build_partition_table] Partition calculation times: 5975.
+[build_partition_table] Time: 3.5281248092651367 seconds
+[build_slicing_table]
+[build_slicing_table] Time: 0.008987903594970703 seconds
+[construct_teledata_only_records]
+[INFO] [BoundedDPMapper] beam_width: 100, n_subcs: 59, n_QPUs: 2
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 1, time: 0.15238261222839355
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 2, time: 0.16144776344299316
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 3, time: 0.2299351692199707
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 4, time: 0.21248364448547363
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 5, time: 0.22198724746704102
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 6, time: 0.22573614120483398
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 7, time: 0.22261977195739746
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 8, time: 0.18029212951660156
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 9, time: 0.22290658950805664
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 10, time: 0.19983911514282227
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 11, time: 0.2378082275390625
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 12, time: 0.22177362442016602
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 13, time: 0.24440979957580566
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 14, time: 0.24407100677490234
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 15, time: 0.26892852783203125
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 16, time: 0.26083946228027344
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 17, time: 0.2598750591278076
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 18, time: 0.25968384742736816
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 19, time: 0.2464919090270996
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 20, time: 0.22603774070739746
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 21, time: 0.26035475730895996
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 22, time: 0.2836930751800537
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 23, time: 0.31094789505004883
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 24, time: 0.2801811695098877
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 25, time: 0.27330446243286133
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 26, time: 0.24446558952331543
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 27, time: 0.2679281234741211
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 28, time: 0.2695136070251465
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 29, time: 0.23610687255859375
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 30, time: 0.23947548866271973
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 31, time: 0.2883775234222412
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 32, time: 0.2550804615020752
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 33, time: 0.26080894470214844
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 34, time: 0.27640628814697266
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 35, time: 0.26940131187438965
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 36, time: 0.2269759178161621
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 37, time: 0.2674410343170166
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 38, time: 0.22617793083190918
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 39, time: 0.24910283088684082
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 40, time: 0.2712416648864746
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 41, time: 0.22156929969787598
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 42, time: 0.26228880882263184
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 43, time: 0.2137746810913086
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 44, time: 0.23474812507629395
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 45, time: 0.23216509819030762
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 46, time: 0.24113845825195312
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 47, time: 0.3883655071258545
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 48, time: 0.2303321361541748
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 49, time: 0.18211746215820312
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 50, time: 0.20552682876586914
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 51, time: 0.2028493881225586
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 52, time: 0.2053053379058838
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 53, time: 0.23108482360839844
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 54, time: 0.23134279251098633
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 55, time: 0.21381211280822754
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 56, time: 0.17662930488586426
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 57, time: 0.19774079322814941
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 58, time: 0.7209360599517822
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[INFO] Bounded DP 运行完成 | 束宽=100 | 耗时=19.58s
+✅ 成功保存 59 条映射记录到 JSON 文件：./outputs/QAOA60_net[31, 31]_NAVI.json
+ExecCosts(comms=218, epairs=422, rgeo_mean_fid=0.93, fidelity=0.0000, loss=196.3887, rhops=14, rswaps=204, remote_fidelity_loss=15.259999999999993, remote_fidelity_log_sum=-15.820411037994115, remote_fidelity=1.346736977509903e-07, local_fidelity_loss=181.12873816182076, local_fidelity_log_sum=-455.9951611634573, local_fidelity=9.200633518189745e-199, time=23.26), local_gate_num=103501
+Compiler: [NAVI Hybrid]
+Compiling with [NAVI Hybrid]...
+[build_partition_table]
+[build_partition_table] Partition calculation times: 5975.
+[build_partition_table] Time: 3.953970193862915 seconds
+[build_slicing_table] Time: 0.0060520172119140625 seconds
+[construct_hybrid_records] Number of atomic blocks: 59
+[INFO] 2 / 59
+[INFO] Time: 38.142990827560425
+[INFO] 3 / 59
+[INFO] Time: 38.08977961540222
+[INFO] 4 / 59
+[INFO] Time: 35.931442737579346
+[INFO] 5 / 59
+[INFO] Time: 37.162973403930664
+[INFO] 6 / 59
+[INFO] Time: 41.83372712135315
+[INFO] 7 / 59
+[INFO] Time: 40.356093406677246
+[INFO] 8 / 59
+[INFO] Time: 38.61545205116272
+[INFO] 9 / 59
+[INFO] Time: 36.29435992240906
+[INFO] 10 / 59
+[INFO] Time: 38.0742564201355
+[INFO] 11 / 59
+[INFO] Time: 35.430585622787476
+[INFO] 12 / 59
+[INFO] Time: 42.13365316390991
+[INFO] 13 / 59
+[INFO] Time: 35.30335831642151
+[INFO] 14 / 59
+[INFO] Time: 35.15299463272095
+[INFO] 15 / 59
+[INFO] Time: 36.570258378982544
+[INFO] 16 / 59
+[INFO] Time: 38.84689998626709
+[INFO] 17 / 59
+[INFO] Time: 38.36125445365906
+[INFO] 18 / 59
+[INFO] Time: 35.926323890686035
+[INFO] 19 / 59
+[INFO] Time: 38.901975870132446
+[INFO] 20 / 59
+[INFO] Time: 36.142009019851685
+[INFO] 21 / 59
+[INFO] Time: 39.974032163619995
+[INFO] 22 / 59
+[INFO] Time: 33.00646209716797
+[INFO] 23 / 59
+[INFO] Time: 32.44219446182251
+[INFO] 24 / 59
+[INFO] Time: 33.06559419631958
+[INFO] 25 / 59
+[INFO] Time: 36.024346590042114
+[INFO] 26 / 59
+[INFO] Time: 32.068971395492554
+[INFO] 27 / 59
+[INFO] Time: 31.584701538085938
+[INFO] 28 / 59
+[INFO] Time: 34.38108420372009
+[INFO] 29 / 59
+[INFO] Time: 30.250771522521973
+[INFO] 30 / 59
+[INFO] Time: 32.2654333114624
+[INFO] 31 / 59
+[INFO] Time: 30.010417938232422
+[INFO] 32 / 59
+[INFO] Time: 27.28473711013794
+[INFO] 33 / 59
+[INFO] Time: 31.444976806640625
+[INFO] 34 / 59
+[INFO] Time: 27.33761215209961
+[INFO] 35 / 59
+[INFO] Time: 30.02611804008484
+[INFO] 36 / 59
+[INFO] Time: 28.54405164718628
+[INFO] 37 / 59
+[INFO] Time: 25.33463740348816
+[INFO] 38 / 59
+[INFO] Time: 26.282653331756592
+[INFO] 39 / 59
+[INFO] Time: 24.862037181854248
+[INFO] 40 / 59
+[INFO] Time: 21.725675582885742
+[INFO] 41 / 59
+[INFO] Time: 22.02889847755432
+[INFO] 42 / 59
+[INFO] Time: 25.308687448501587
+[INFO] 43 / 59
+[INFO] Time: 18.505671739578247
+[INFO] 44 / 59
+[INFO] Time: 17.12550187110901
+[INFO] 45 / 59
+[INFO] Time: 15.06427001953125
+[INFO] 46 / 59
+[INFO] Time: 13.020339250564575
+[INFO] 47 / 59
+[INFO] Time: 9.913660526275635
+[INFO] 48 / 59
+[INFO] Time: 12.788939714431763
+[INFO] 49 / 59
+[INFO] Time: 14.141833066940308
+[INFO] 50 / 59
+[INFO] Time: 12.906968593597412
+[INFO] 51 / 59
+[INFO] Time: 11.52670168876648
+[INFO] 52 / 59
+[INFO] Time: 8.794954538345337
+[INFO] 53 / 59
+[INFO] Time: 8.690591812133789
+[INFO] 54 / 59
+[INFO] Time: 7.2458930015563965
+[INFO] 55 / 59
+[INFO] Time: 5.157593011856079
+[INFO] 56 / 59
+[INFO] Time: 4.22567343711853
+[INFO] 57 / 59
+[INFO] Time: 2.995069742202759
+[INFO] 58 / 59
+[INFO] Time: 1.7165236473083496
+[INFO] 59 / 59
+[INFO] Time: 0.17770862579345703
+[construct_hybrid_records] Time: 1536.533358335495 seconds
+[INFO] [BoundedDPMapper] beam_width: 100, n_subcs: 31, n_QPUs: 2
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 1, time: 0.23599505424499512
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 2, time: 0.2693328857421875
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 3, time: 0.2883126735687256
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 4, time: 0.198028564453125
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 5, time: 0.3223128318786621
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 6, time: 0.22717761993408203
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 7, time: 0.343578577041626
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 8, time: 0.14678549766540527
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 9, time: 0.3370180130004883
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 10, time: 0.2479996681213379
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 11, time: 0.37338876724243164
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 12, time: 0.20502352714538574
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 13, time: 0.2486426830291748
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 14, time: 0.4125828742980957
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 15, time: 0.27472400665283203
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 16, time: 0.2632918357849121
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 17, time: 0.504335880279541
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 18, time: 0.21342706680297852
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 19, time: 0.3877987861633301
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 20, time: 0.2499680519104004
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 21, time: 0.425731897354126
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 22, time: 0.2232670783996582
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 23, time: 0.366379976272583
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 24, time: 0.2014293670654297
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 25, time: 0.3887500762939453
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 26, time: 0.2740769386291504
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 27, time: 0.2129809856414795
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 28, time: 0.3712172508239746
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[DEBUG] subc: 29, time: 0.2178652286529541
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[DEBUG] subc: 30, time: 0.8071599006652832
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz0_1: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[WARNING] rzz1_0: 0.99
+[INFO] Bounded DP 运行完成 | 束宽=100 | 耗时=13.07s
+✅ 成功保存 31 条映射记录到 JSON 文件：./outputs/QAOA60_net[31, 31]_NAVI Hybrid.json
+ExecCosts(comms=245, epairs=445, rgeo_mean_fid=0.93, fidelity=0.0000, loss=149.4211, rhops=45, rswaps=200, remote_fidelity_loss=17.14999999999998, remote_fidelity_log_sum=-17.779819744534667, remote_fidelity=1.8981144513890948e-08, local_fidelity_loss=132.27108493550253, local_fidelity_log_sum=-320.3469876422212, local_fidelity=7.5001676749000615e-140, time=1553.64), local_gate_num=78388
+{'F_eff': np.float64(0.08039103572714852), 'num_comms': 899, 'epairs': 899, 'total_fidelity_loss': 121.94330047163407, 'rgeo_mean_fid': np.float64(0.9299999999999996), 'execution_time': 0.5225791931152344, 'total_fidelity_log_sum': np.float64(-305.0231651982649), 'total_fidelity': 3.3893974761073856e-133, 'remote_hops': 899, 'remote_swaps': 0, 'local_fidelity_loss': 59.01330047163384, 'remote_fidelity_loss': 62.93000000000023, 'local_fidelity_log_sum': np.float64(-239.78211233974744), 'remote_fidelity_log_sum': np.float64(-65.24105285851743), 'local_fidelity': 7.310578615656067e-105, 'remote_fidelity': 4.6362916730678146e-29, 'local_gate_num': 8703}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+   Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs      QPUs  ...    net_type                  Metrics     Static OEE       FGP-rOEE           WBCP           NAVI    NAVI Hybrid
+0     QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all                    F_eff   8.039104e-02   6.053774e-02   6.378440e-02   2.025604e-02   6.114933e-02
+1     QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all                num_comms   8.990000e+02   5.900000e+01   1.660000e+02   2.180000e+02   2.450000e+02
+2     QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all                   epairs   8.990000e+02   1.170000e+02   2.220000e+02   4.220000e+02   4.450000e+02
+3     QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all      total_fidelity_loss   1.219433e+02   1.763712e+02   1.300778e+02   1.963887e+02   1.494211e+02
+4     QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all            rgeo_mean_fid   9.300000e-01   9.300000e-01   9.300000e-01   9.300000e-01   9.300000e-01
+5     QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all           execution_time   5.225792e-01   1.228224e+01   6.177742e+00   2.326167e+01   1.553645e+03
+6     QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all   total_fidelity_log_sum  -3.050232e+02  -3.393431e+02  -3.330218e+02  -4.718156e+02  -3.381268e+02
+7     QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all           total_fidelity  3.389397e-133  4.218587e-148  2.346650e-145  1.239083e-205  1.423618e-147
+8     QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all              remote_hops   8.990000e+02   1.000000e+00   1.100000e+02   1.400000e+01   4.500000e+01
+9     QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all             remote_swaps   0.000000e+00   5.800000e+01   5.600000e+01   2.040000e+02   2.000000e+02
+10    QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all      local_fidelity_loss   5.901330e+01   1.722412e+02   1.184578e+02   1.811287e+02   1.322711e+02
+11    QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all     remote_fidelity_loss   6.293000e+01   4.130000e+00   1.162000e+01   1.526000e+01   1.715000e+01
+12    QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all   local_fidelity_log_sum  -2.397821e+02  -3.350614e+02  -3.209751e+02  -4.559952e+02  -3.203470e+02
+13    QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all  remote_fidelity_log_sum  -6.524105e+01  -4.281671e+00  -1.204674e+01  -1.582041e+01  -1.777982e+01
+14    QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all           local_fidelity  7.310579e-105  3.052622e-146  4.002016e-140  9.200634e-199  7.500168e-140
+15    QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all          remote_fidelity   4.636292e-29   1.381955e-02   5.863669e-06   1.346737e-07   1.898114e-08
+16    QAOA       60    2010       1770     121      2  [31, 31]  ...  all_to_all           local_gate_num   8.703000e+03   1.248050e+05   6.096900e+04   1.035010e+05   7.838800e+04
+
+[17 rows x 16 columns]
+[Total Runtime] 1597.0315158367157 seconds
+
+

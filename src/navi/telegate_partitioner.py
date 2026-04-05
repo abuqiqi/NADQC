@@ -88,12 +88,17 @@ class OEEPartitioner(TelegatePartitioner):
         layer_start = config.get("layer_start", 0) if config else 0
         layer_end = config.get("layer_end", circuit.depth() - 1) if config else circuit.depth() - 1
 
+        add_teledata_costs = config.get("add_teledata_costs", True) if config else True
+
         # 如果config里没有partition，就按顺序分配
         if not partition:
             partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
 
         qig = CompilerUtils.build_qubit_interaction_graph(circuit)
+        
+        # oee_start_time = time.time()
         partition = OEE.partition(partition, qig, network, iteration_count)
+        # print(f"[DEBUG] OEE Time: {time.time() - oee_start_time}")
 
         record = MappingRecord(
             layer_start = layer_start,
@@ -103,11 +108,17 @@ class OEEPartitioner(TelegatePartitioner):
         )
 
         # 评估当前线路的telegate代价
-        costs = CompilerUtils.evaluate_local_and_telegate(partition, circuit, network)
+        # 这里不考虑fidelity loss
+        costs = CompilerUtils.evaluate_telegate(partition, circuit, network)
 
         # 评估和前一段线路的切分代价（如果prev_partition存在）
-        if prev_partition:
-            costs += CompilerUtils.evaluate_teledata(prev_partition, partition, network)
+        if prev_partition and add_teledata_costs:
+            teledata_costs, _ = CompilerUtils.evaluate_teledata(
+                prev_partition,
+                partition,
+                network)
+
+            costs += teledata_costs
 
         record.costs = costs
         return record

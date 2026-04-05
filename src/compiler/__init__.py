@@ -1,11 +1,12 @@
-from .base import Compiler, CompilerUtils, ExecCosts, MappingRecord, MappingRecordList
+from .compiler_utils import CompilerUtils, ExecCosts, MappingRecord, MappingRecordList
+from .base import Compiler
 from .factory import CompilerFactory
 
 __all__ = [
-    "Compiler",
-    # "ExecCosts",
+    "ExecCosts",
     "MappingRecord",
     "MappingRecordList",
-    "CompilerFactory",
-    "CompilerUtils"
+    "CompilerUtils",
+    "Compiler",
+    "CompilerFactory"
 ]

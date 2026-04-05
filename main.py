@@ -19,11 +19,16 @@ def main(args):
         }
         backend = Backend(global_config, backend_config)
         backend_list.append(backend)
+        # pprint(backend.gate_dict)
+
+    fidelity_range = [0.90, 0.95]
+    if args.core_count == 2:
+        fidelity_range = [0.93, 0.93]
 
     network_config = {
         **global_config.get('network_config', {}),
         'type': args.network,
-        'fidelity_range': [0.95, 0.98]
+        'fidelity_range': fidelity_range
     }
 
     network = Network(network_config, backend_list)
@@ -43,12 +48,16 @@ def main(args):
                                                  two_qubit_gates
                                                  )
 
+    # print(circ)
+    # print(trans_circ)
+
     # 调用不同的compiler
     result_info = {}
 
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     # compiler_ids = ["fgproee"] # , "staticoee", "wbcp", "navi"
-    compiler_ids = ["navi"]
+    # compiler_ids = ["wbcp", "navi"]
+    compiler_ids = ["staticoee", "fgproee", "wbcp", "navi", "navihybrid"] # 
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
     for compiler_id in compiler_ids:
@@ -72,10 +81,10 @@ if __name__ == "__main__":
     # 获取全局配置
     args = get_args()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"
+    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
     original_stdout = sys.stdout
     with open(f'outputs/{filename}.txt', 'w', buffering=1) as f:
-        # sys.stdout = f
+        sys.stdout = f
         start_time = time.time()
         main(args)
         end_time = time.time()

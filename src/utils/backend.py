@@ -4,11 +4,12 @@ import pickle as pkl
 import datetime
 import os
 import pandas as pd
-import random
 from typing import Any, Optional
 import json
 import ast
 import glob
+from collections import defaultdict
+import math
 
 class QiskitBackendImporter:
     def __init__(self, token=None, instance=None, proxies=None):
@@ -314,7 +315,11 @@ class Backend:
             # 无论 Excel 里存的是 "[0,1]" 还是 "0" 还是 0，这里统一变成 list[int]
             gate['qubits'] = self._parse_qubits_list(gate.get('qubits', '[]'))
         
+        # 2.1. 先初始化原始的单门数据 (id0, id1, rx0...)
         self.gate_dict = {gate['name']: gate for gate in self.gate_info}
+
+        # 2.2. 计算平均值，并将其合并到上面的字典中 (id, rx, cz...)
+        self.gate_dict.update(self._calculate_average_gate_errors(self.gate_info))
 
         # 3. 初始化 qubit_info
         self.qubit_info = qubit_df.to_dict(orient='records')
@@ -454,7 +459,7 @@ class Backend:
         self.basic_info = sampled['basic_info']
         self.name = f"{self.name}_sampled_{num_qubits}q"
         self.gate_info = new_gate_info
-        self.gate_dict = {gate['name']: gate for gate in new_gate_info}
+        # self.gate_dict = {gate['name']: gate for gate in new_gate_info}
         self.qubit_info = new_qubit_info
         self.num_qubits = num_qubits
 
@@ -590,6 +595,51 @@ class Backend:
             if n_qubits == 2:
                 two_qubit_gates.add(gate['gate'])
         return list(basis_gates), two_qubit_gates
+
+    def _calculate_average_gate_errors(self, gate_info) -> dict:
+        """
+        统计每种量子门的平均错误率。
+
+        Args:
+            gate_info (list): 包含量子门信息的字典列表。
+
+        Returns:
+            dict: 键为门名称，值为包含平均错误率的字典。
+        """
+        # 1. 用于临时存储每种门的所有错误率
+        error_collector = defaultdict(list)
+
+        # 2. 遍历数据，收集错误率
+        for gate in gate_info:
+            gate_type = gate['gate']
+            error_val = gate.get('gate_error_value')
+            
+            # 修改逻辑：如果是空值(None)或不是数字，视为0.0
+            if not isinstance(error_val, (int, float)) or math.isnan(error_val):
+                error_val = 0.0
+                
+            error_collector[gate_type].append(error_val)
+
+        # 3. 构建最终的结果字典
+        avg_gate_dict = {}
+        for gate_type, errors in error_collector.items():
+            # 计算平均值，如果该组没有数据则为 None
+            avg_error = sum(errors) / len(errors) if errors else None
+            
+            # 构建新的条目，其他字段留空
+            avg_gate_dict[gate_type] = {
+                'name': gate_type,
+                'gate': gate_type,
+                'qubits': None,
+                'gate_error_date': None,
+                'gate_error_unit': None,
+                'gate_error_value': avg_error,
+                'gate_length_date': None,
+                'gate_length_unit': None,
+                'gate_length_value': None
+            }
+
+        return avg_gate_dict
 
     # ------------------------------ 新增/修改的辅助函数 ------------------------------
     def _get_qubit_readout_error(self) -> dict[int, float]:

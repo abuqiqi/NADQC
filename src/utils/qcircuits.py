@@ -54,6 +54,7 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         circ = VQC_AA(num_qubits).decompose()
     elif name == "test":
         circ = QuantumCircuit(4)
+        circ.h(range(4))
         circ.rzz(0.5, 0, 1)
         circ.rzz(0.1, 1, 3)
         circ.rzz(0.2, 0, 2)
@@ -118,7 +119,7 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         "2Q Gate Names": two_qubit_gates
     }
 
-    print(trans_circ)
+    # print(trans_circ)
 
     return circ, trans_circ, task_info
 
@@ -318,17 +319,23 @@ def CPFraction(num_qubits: int, depth: int, p: float):
         #         # qc.swap(remaining_qubits[i], remaining_qubits[i+1])
     return qc
 
-def QAOA(numQubits):
-    qc = QuantumCircuit(numQubits)
-    qc.h(range(numQubits))
-    for j in range(numQubits):
-        for i in range(j+1, numQubits):
-            qc.cx(j, i)
-            qc.rz(random.uniform(0, 2 * pi), i)
-            qc.cx(j, i)
-    qc.h(range(numQubits))
-    qc.rz(random.uniform(0, 2 * pi), range(numQubits))
-    qc.h(range(numQubits))
+def QAOA(num_qubits):
+    qc = QuantumCircuit(num_qubits)
+    qc.h(range(num_qubits))
+    # Cost Hamiltonian
+    for j in range(num_qubits):
+        for i in range(j+1, num_qubits):
+            # qc.cx(j, i)
+            # qc.rz(random.uniform(0, 2 * pi), i)
+            # qc.cx(j, i)
+            qc.rzz(random.uniform(0, 2 * pi), j, i)
+
+    # Mixer Hamiltonian
+    for i in range(num_qubits):
+        qc.rx(random.uniform(0, 2 * pi), i)
+    # qc.h(range(num_qubits))
+    # qc.rz(random.uniform(0, 2 * pi), range(num_qubits))
+    # qc.h(range(num_qubits))
     return qc
 
 def Toffoli(num_qubits):
@@ -380,6 +387,7 @@ def MCMTcircuit(num_qubits, t=10):
 
 def test():
     qc = QuantumCircuit(6)
+    qc.h(range(6))
     qc.ecr(0, 1)
     qc.ecr(2, 3)
     qc.ecr(4, 5)
@@ -392,21 +400,21 @@ def test():
     # transpiled_qc = transpile(qc, basis_gates=basis_gates)
     return qc #, transpiled_qc
 
-def Grover(numQubits, k=0):
+def Grover(num_qubits, k=0):
     ''' One implementation of Grover\'s algorithm '''
-    qc = QuantumCircuit(numQubits)
-    oracle = ZGate().control(numQubits-1-k)
-    oracle_qubits = [i for i in range(k, numQubits)]
+    qc = QuantumCircuit(num_qubits)
+    oracle = ZGate().control(num_qubits-1-k)
+    oracle_qubits = [i for i in range(k, num_qubits)]
 
-    cz = ZGate().control(numQubits-1)
-    qubits = [i for i in range(numQubits)]
+    cz = ZGate().control(num_qubits-1)
+    qubits = [i for i in range(num_qubits)]
 
     # 1. Apply Hadamard gates to all qubits
-    # for j in range(numQubits): # |00...0> => |u>
+    # for j in range(num_qubits): # |00...0> => |u>
     #     qc.h(j)
 
     # 2. Start the Grover iteration
-    # numIterations = int(round(pi / 4 * sqrt(2**numQubits / 2**k), 0))
+    # numIterations = int(round(pi / 4 * sqrt(2**num_qubits / 2**k), 0))
     numIterations = 1
 
     for _ in range(numIterations):
@@ -417,7 +425,7 @@ def Grover(numQubits, k=0):
 
         # 2.2. Apply the diffusion operator
         # 2.2.1. Apply H, X to all qubits
-        # for j in range(numQubits):
+        # for j in range(num_qubits):
         #     qc.h(j) # |u> => |00...0>
         #     qc.x(j) # |00...0> => |11...1>
 
@@ -425,7 +433,7 @@ def Grover(numQubits, k=0):
         qc.append(cz, qubits) # |11...1> => -|11...1>
 
         # 2.2.3. Recover X, H
-        # for j in range(numQubits):
+        # for j in range(num_qubits):
         #     qc.x(j) # |11...1> => |00...0>
         #     qc.h(j) # |00...0> => |u>
     return qc
@@ -438,22 +446,22 @@ def myIQP(num_qubits):
     qc = IQP(symmetric_matrix)
     return qc
 
-def VQC_AA(numQubits):
-    qc = QuantumCircuit(numQubits)
+def VQC_AA(num_qubits):
+    qc = QuantumCircuit(num_qubits)
     for _ in range(1):
         # 对每个量子比特应用随机的 RX 门
-        for i in range(numQubits):
+        for i in range(num_qubits):
             angle_rx = np.random.rand() * 2 * pi  # 随机生成 0 到 2π 的角度
             qc.rx(angle_rx, i)
 
         # 对每个量子比特应用随机的 RZ 门
-        for i in range(numQubits):
+        for i in range(num_qubits):
             angle_rz = np.random.rand() * 2 * pi  # 随机生成 0 到 2π 的角度
             qc.rz(angle_rz, i)
 
         # 双比特的 CRZ 门
-        for i in range(numQubits):
-            for j in range(numQubits):
+        for i in range(num_qubits):
+            for j in range(num_qubits):
                 if i == j:
                     continue
                 qc.barrier()  # 加入 barrier 隔离量子门

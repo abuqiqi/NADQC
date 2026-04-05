@@ -1,0 +1,56 @@
+========== Network Info ==========
+Network with 2 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9527
+Hop weight: 0.10258658877510116
+Fidelity range: [0.95, 0.98]
+Backend sizes: [4, 4]
+Backend Coupling Maps:
+  Backend 0 (ibm_torino): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2]]
+  Backend 1 (ibm_torino): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2]]
+[INFO] QV #Qubits: 6
+[INFO] QV #Depths: 63
+[INFO] QV #Gates: 228
+[INFO] QV #2Q Gates: 45
+[INFO] 2 QPUs: [4, 4]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['navi']
+Compiler: [NAVI]
+Compiling with [NAVI]...
+[build_partition_table]
+[build_partition_table] Partition calculation times: 77.
+[build_partition_table] Time: 0.004658699035644531 seconds
+[build_slicing_table] Time: 0.00035834312438964844 seconds
+[INFO] [Time] Greedy Mapper completed in 0.26 seconds.
+✅ 成功保存 4 条映射记录到 JSON 文件：./outputs/QV6_net[4, 4]_NAVI.json
+ExecCosts(comms=5, epairs=6, geo_mean_fidelity=0.9983184727377289, fidelity=0.6825, loss=0.3761, rhops=4, rswaps=1, remote_fidelity_loss=0.2365849100497902, remote_fidelity_log_sum=-0.24236522783653702, remote_fidelity=0.7847695055360289, local_fidelity_loss=0.13953670109036242, local_fidelity_log_sum=-0.13966274601768025, local_fidelity=0.8696514793718261, time=0.28), local_gate_num=222
+{'F_eff': np.float64(0.9939544124606592), 'num_comms': 5, 'epairs': 6, 'total_fidelity_log_sum': np.float64(-0.3820279738542173), 'total_fidelity_loss': 0.37612161114015263, 'geo_mean_fidelity': np.float64(0.9983184727377289), 'total_fidelity': 0.682475961455304, 'execution_time': 0.27559852600097656, 'remote_hops': 4, 'remote_swaps': 1, 'local_fidelity': 0.8696514793718261, 'remote_fidelity': 0.7847695055360289, 'local_fidelity_loss': 0.13953670109036242, 'remote_fidelity_loss': 0.2365849100497902, 'local_fidelity_log_sum': np.float64(-0.13966274601768025), 'remote_fidelity_log_sum': np.float64(-0.24236522783653702), 'local_gate_num': 222}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+   Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs    QPUs                          Basis Gates 2Q Gate Names    net_type                  Metrics        NAVI
+0       QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all                    F_eff    0.993954
+1       QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all                num_comms    5.000000
+2       QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all                   epairs    6.000000
+3       QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all   total_fidelity_log_sum   -0.382028
+4       QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all      total_fidelity_loss    0.376122
+5       QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all        geo_mean_fidelity    0.998318
+6       QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all           total_fidelity    0.682476
+7       QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all           execution_time    0.275599
+8       QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all              remote_hops    4.000000
+9       QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all             remote_swaps    1.000000
+10      QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all           local_fidelity    0.869651
+11      QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all          remote_fidelity    0.784770
+12      QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all      local_fidelity_loss    0.139537
+13      QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all     remote_fidelity_loss    0.236585
+14      QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all   local_fidelity_log_sum   -0.139663
+15      QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all  remote_fidelity_log_sum   -0.242365
+16      QV        6     228         45      63      2  [4, 4]  [rzz, x, id, reset, rz, sx, rx, cz]     {rzz, cz}  all_to_all           local_gate_num  222.000000
+[Total Runtime] 0.9404175281524658 seconds
+
+

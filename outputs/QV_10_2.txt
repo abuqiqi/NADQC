@@ -1,0 +1,70 @@
+========== Network Info ==========
+Network with 2 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9776
+Hop weight: 0.10258658877510116
+Fidelity range: [0.95, 0.98]
+Backend sizes: [5, 5]
+Backend Coupling Maps:
+  Backend 0 (ibm_torino): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2], [3, 4], [4, 3]]
+  Backend 1 (ibm_torino): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2], [3, 4], [4, 3]]
+[INFO] QV #Qubits: 10
+[INFO] QV #Depths: 93
+[INFO] QV #Gates: 590
+[INFO] QV #2Q Gates: 120
+[INFO] 2 QPUs: [5, 5]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['navi']
+Compiler: [NAVI]
+Compiling with [NAVI]...
+[INFO] gate_density: 0.7634408602150538
+[INFO] twoq_gate_density: 0.2033898305084746
+[build_partition_table]
+[build_partition_table] Partition calculation times: 412.
+[build_partition_table] Time: 0.023131847381591797 seconds
+[build_slicing_table] Time: 0.0012841224670410156 seconds
+[DEBUG] Before mapping - Time slice 0: 
+MappingRecord(layer_start=0, layer_end=0, partition=[[0, 1, 2, 3, 6], [4, 5, 7, 8, 9]], mapping_type='teledata', costs=ExecCosts(comms=0, epairs=0, geo_mean_fidelity=1.0, fidelity=1.0000, loss=0.0000, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, None), 1: (0, None), 2: (0, None), 3: (0, None), 6: (0, None), 4: (1, None), 5: (1, None), 7: (1, None), 8: (1, None), 9: (1, None)}, extra_info=None)
+[DEBUG] After new init: 
+MappingRecord(layer_start=0, layer_end=0, partition=[[0, 1, 2, 3, 6], [4, 5, 7, 8, 9]], mapping_type='teledata', costs=ExecCosts(comms=0, epairs=0, geo_mean_fidelity=1.0, fidelity=1.0000, loss=0.0000, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, None), 1: (0, None), 2: (0, None), 3: (0, None), 6: (0, None), 4: (1, None), 5: (1, None), 7: (1, None), 8: (1, None), 9: (1, None)}, extra_info=None)
+[DEBUG] record (local and telegate): 
+MappingRecord(layer_start=0, layer_end=0, partition=[[0, 1, 2, 3, 6], [4, 5, 7, 8, 9]], mapping_type='teledata', costs=ExecCosts(comms=0, epairs=0, geo_mean_fidelity=1.0, fidelity=1.0000, loss=0.0000, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=10, logical_phy_map={0: (0, 0), 1: (0, 4), 2: (0, 1), 3: (0, 2), 6: (0, 3), 4: (1, 0), 5: (1, 4), 7: (1, 1), 8: (1, 2), 9: (1, 3)}, extra_info=None)
+
+
+[DEBUG] Before mapping - Time slice 1: 
+MappingRecord(layer_start=1, layer_end=1, partition=[[0, 1, 2, 3, 9], [4, 5, 6, 7, 8]], mapping_type='teledata', costs=ExecCosts(comms=1, epairs=2, geo_mean_fidelity=0.9776246556492139, fidelity=0.9776, loss=0.0224, rhops=0, rswaps=1, remote_fidelity_loss=0.02237534435078614, remote_fidelity_log_sum=-0.02262947029240021, remote_fidelity=0.9776246556492139, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, None), 1: (0, None), 2: (0, None), 3: (0, None), 6: (1, None), 4: (1, None), 5: (1, None), 7: (1, None), 8: (1, None), 9: (0, None)}, extra_info=None)
+[DEBUG] After new init: 
+MappingRecord(layer_start=1, layer_end=1, partition=[[0, 1, 2, 3, 9], [4, 5, 6, 7, 8]], mapping_type='teledata', costs=ExecCosts(comms=0, epairs=0, geo_mean_fidelity=1.0, fidelity=1.0000, loss=0.0000, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, 0), 1: (0, 4), 2: (0, 1), 3: (0, 2), 6: (0, 3), 4: (1, 0), 5: (1, 4), 7: (1, 1), 8: (1, 2), 9: (1, 3)}, extra_info=None)
+[DEBUG] record (teledata): 
+MappingRecord(layer_start=1, layer_end=1, partition=[[0, 1, 2, 3, 9], [4, 5, 6, 7, 8]], mapping_type='teledata', costs=ExecCosts(comms=1, epairs=2, geo_mean_fidelity=0.9776246556492139, fidelity=0.9776, loss=0.0224, rhops=0, rswaps=1, remote_fidelity_loss=0.02237534435078614, remote_fidelity_log_sum=-0.02262947029240021, remote_fidelity=0.9776246556492139, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, 0), 1: (0, 4), 2: (0, 1), 3: (0, 2), 6: (1, 3), 4: (1, 0), 5: (1, 4), 7: (1, 1), 8: (1, 2), 9: (0, 3)}, extra_info=None)
+[DEBUG] record (local and telegate): 
+MappingRecord(layer_start=1, layer_end=1, partition=[[0, 1, 2, 3, 9], [4, 5, 6, 7, 8]], mapping_type='teledata', costs=ExecCosts(comms=1, epairs=2, geo_mean_fidelity=0.9977419937731723, fidelity=0.9754, loss=0.0246, rhops=0, rswaps=1, remote_fidelity_loss=0.02237534435078614, remote_fidelity_log_sum=-0.02262947029240021, remote_fidelity=0.9776246556492139, local_fidelity_loss=0.002236415623141112, local_fidelity_log_sum=-0.002236682744044391, local_fidelity=0.9977658167669193, time=0.00), local_gate_num=10, logical_phy_map={0: (0, 0), 1: (0, 4), 2: (0, 1), 3: (0, 2), 6: (1, 3), 4: (1, 0), 5: (1, 4), 7: (1, 1), 8: (1, 2), 9: (0, 3)}, extra_info=None)
+
+
+[DEBUG] Before mapping - Time slice 2: 
+MappingRecord(layer_start=2, layer_end=2, partition=[[0, 1, 2, 3, 6], [4, 5, 7, 8, 9]], mapping_type='teledata', costs=ExecCosts(comms=1, epairs=2, geo_mean_fidelity=0.9776246556492139, fidelity=0.9776, loss=0.0224, rhops=0, rswaps=1, remote_fidelity_loss=0.02237534435078614, remote_fidelity_log_sum=-0.02262947029240021, remote_fidelity=0.9776246556492139, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, None), 1: (0, None), 2: (0, None), 3: (0, None), 6: (0, None), 4: (1, None), 5: (1, None), 7: (1, None), 8: (1, None), 9: (1, None)}, extra_info=None)
+[DEBUG] After new init: 
+MappingRecord(layer_start=2, layer_end=2, partition=[[0, 1, 2, 3, 6], [4, 5, 7, 8, 9]], mapping_type='teledata', costs=ExecCosts(comms=0, epairs=0, geo_mean_fidelity=1.0, fidelity=1.0000, loss=0.0000, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, 0), 1: (0, 4), 2: (0, 1), 3: (0, 2), 6: (1, 3), 4: (1, 0), 5: (1, 4), 7: (1, 1), 8: (1, 2), 9: (0, 3)}, extra_info=None)
+[DEBUG] record (teledata): 
+MappingRecord(layer_start=2, layer_end=2, partition=[[0, 1, 2, 3, 6], [4, 5, 7, 8, 9]], mapping_type='teledata', costs=ExecCosts(comms=1, epairs=2, geo_mean_fidelity=0.9776246556492139, fidelity=0.9776, loss=0.0224, rhops=0, rswaps=1, remote_fidelity_loss=0.02237534435078614, remote_fidelity_log_sum=-0.02262947029240021, remote_fidelity=0.9776246556492139, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, 0), 1: (0, 4), 2: (0, 1), 3: (0, 2), 6: (0, 3), 4: (1, 0), 5: (1, 4), 7: (1, 1), 8: (1, 2), 9: (1, 3)}, extra_info=None)
+[DEBUG] record (local and telegate): 
+MappingRecord(layer_start=2, layer_end=2, partition=[[0, 1, 2, 3, 6], [4, 5, 7, 8, 9]], mapping_type='teledata', costs=ExecCosts(comms=1, epairs=2, geo_mean_fidelity=0.9979448900640912, fidelity=0.9776, loss=0.0224, rhops=0, rswaps=1, remote_fidelity_loss=0.02237534435078614, remote_fidelity_log_sum=-0.02262947029240021, remote_fidelity=0.9776246556492139, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=10, logical_phy_map={0: (0, 0), 1: (0, 4), 2: (0, 1), 3: (0, 2), 6: (0, 3), 4: (1, 0), 5: (1, 4), 7: (1, 1), 8: (1, 2), 9: (1, 3)}, extra_info=None)
+
+
+[DEBUG] Before mapping - Time slice 3: 
+MappingRecord(layer_start=3, layer_end=3, partition=[[0, 1, 2, 3, 9], [4, 5, 6, 7, 8]], mapping_type='teledata', costs=ExecCosts(comms=1, epairs=2, geo_mean_fidelity=0.9776246556492139, fidelity=0.9776, loss=0.0224, rhops=0, rswaps=1, remote_fidelity_loss=0.02237534435078614, remote_fidelity_log_sum=-0.02262947029240021, remote_fidelity=0.9776246556492139, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, None), 1: (0, None), 2: (0, None), 3: (0, None), 6: (1, None), 4: (1, None), 5: (1, None), 7: (1, None), 8: (1, None), 9: (0, None)}, extra_info=None)
+[DEBUG] After new init: 
+MappingRecord(layer_start=3, layer_end=3, partition=[[0, 1, 2, 3, 9], [4, 5, 6, 7, 8]], mapping_type='teledata', costs=ExecCosts(comms=0, epairs=0, geo_mean_fidelity=1.0, fidelity=1.0000, loss=0.0000, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, 0), 1: (0, 4), 2: (0, 1), 3: (0, 2), 6: (0, 3), 4: (1, 0), 5: (1, 4), 7: (1, 1), 8: (1, 2), 9: (1, 3)}, extra_info=None)
+[DEBUG] record (teledata): 
+MappingRecord(layer_start=3, layer_end=3, partition=[[0, 1, 2, 3, 9], [4, 5, 6, 7, 8]], mapping_type='teledata', costs=ExecCosts(comms=1, epairs=2, geo_mean_fidelity=0.9776246556492139, fidelity=0.9776, loss=0.0224, rhops=0, rswaps=1, remote_fidelity_loss=0.02237534435078614, remote_fidelity_log_sum=-0.02262947029240021, remote_fidelity=0.9776246556492139, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.00), local_gate_num=0, logical_phy_map={0: (0, 0), 1: (0, 4), 2: (0, 1), 3: (0, 2), 6: (1, 3), 4: (1, 0), 5: (1, 4), 7: (1, 1), 8: (1, 2), 9: (0, 3)}, extra_info=None)
+[DEBUG] op[cz]                      [0, 6]，对应QPU {0, 1}，记录为telegate操作
+[DEBUG] record (local and telegate): 
+MappingRecord(layer_start=3, layer_end=3, partition=[[0, 1, 2, 3, 9], [4, 5, 6, 7, 8]], mapping_type='teledata', costs=ExecCosts(comms=2, epairs=3, geo_mean_fidelity=0.9954665431782636, fidelity=0.9469, loss=0.0540, rhops=1, rswaps=1, remote_fidelity_loss=0.04475068870157228, remote_fidelity_log_sum=-0.04525894058480042, remote_fidelity=0.955749967333244, local_fidelity_loss=0.009258710726655744, local_fidelity_log_sum=-0.009266228622963503, local_fidelity=0.9907765705757463, time=0.00), local_gate_num=10, logical_phy_map={0: (0, 0), 1: (0, 4), 2: (0, 1), 3: (0, 2), 6: (1, 3), 4: (1, 0), 5: (1, 4), 7: (1, 1), 8: (1, 2), 9: (0, 3)}, extra_info=None)
+
+

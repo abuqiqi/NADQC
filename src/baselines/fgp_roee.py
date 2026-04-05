@@ -39,7 +39,7 @@ class FGPrOEE(Compiler):
         # print(f"[DEBUG] network.Hops: {network.Hops}\n")
 
         start_time = time.time()
-        iteration_count = config.get("iteration", 10) if config else 10
+        iteration_count = config.get("iteration", 50) if config else 50
         circuit_name = config.get("circuit_name", "circ") if config else "circ"
         
         mapping_record_list = self._k_way_FGP_rOEE(circuit, network, iteration_count)
@@ -51,8 +51,8 @@ class FGPrOEE(Compiler):
         mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}.json")
         
         # print(f"[DEBUG] num_swaps: {self.num_swaps}\nnum_gates: {self.num_gates}")
-        print(f"[DEBUG] Total swaps: {sum(self.num_swaps)}, Total gates: {sum(self.num_gates)}")
-        print(f"[DEBUG] Total comms: {sum(self.num_swaps) + sum(self.num_gates)}\n")
+        # print(f"[DEBUG] Total swaps: {sum(self.num_swaps)}, Total gates: {sum(self.num_gates)}")
+        # print(f"[DEBUG] Total comms: {sum(self.num_swaps) + sum(self.num_gates)}\n")
         return mapping_record_list
 
     def _k_way_FGP_rOEE(self, circuit: QuantumCircuit, 
@@ -61,44 +61,65 @@ class FGPrOEE(Compiler):
         circuit_dag = circuit_to_dag(circuit)
         circuit_layers = list(circuit_dag.layers())
         circuit_depth = circuit.depth()
-        print(f"[DEBUG] num_depths: {circuit_depth}")
+        print(f"[INFO] num_depths: {circuit_depth}")
         
         partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
         mapping_record_list = MappingRecordList()
 
-        self.num_swaps = []
-        self.num_gates = []
+        # self.num_swaps = []
+        # self.num_gates = []
 
+        logical_phy_map = {}
         for lev in range(circuit_depth):
+
+            # print(f"\n\n=== Processing layer {lev}/{circuit_depth - 1} ===")
+
             lookahead_graph, time_slice_graph = self._build_lookahead_graphs(circuit, circuit_layers, lev)
             partition = self._k_way_rOEE(partition,
                                          lookahead_graph, 
                                          time_slice_graph, 
                                          network, 
                                          iteration_count)
+            
+            # print(f"[DEBUG] partition after rOEE: {partition}\n")
+
+
             # 获取子线路
             sub_qc = self._extract_subcircuit(circuit.num_qubits, circuit_layers, lev)
 
-            # 评估划分
+            if lev == 0:
+                logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
+            else:
+                # 沿用上一个record的logical_phy_map作为初始状态
+                logical_phy_map = mapping_record_list.records[-1].logical_phy_map
+
+            # 构建当前划分
             record = MappingRecord(
                 layer_start = lev, 
                 layer_end = lev,
                 partition = partition,
-                mapping_type = "telegate"
+                mapping_type = "telegate",
+                logical_phy_map = logical_phy_map
             )
-            # TODO: 检查为什么本地量子门数量这么少
-            _ = CompilerUtils.evaluate_local_and_telegate(record, sub_qc, network)
 
-            # 更新mapping_record_list
-            mapping_record_list.add_record(record)
-
+            # 先计算teledata并更新logical_phy_map
             if lev > 0:
                 # TODO: CHECK
                 # self.num_swaps.append(self.calculate_nonlocal_communications(mapping_record_list.records[-2].partition, 
                 #                                                              mapping_record_list.records[-1].partition))
-                CompilerUtils.evaluate_teledata(mapping_record_list.records[-2],
-                                                mapping_record_list.records[-1],
-                                                network)
+                _ = CompilerUtils.evaluate_teledata(
+                    mapping_record_list.records[-1],
+                    record,
+                    network
+                )
+
+            _ = CompilerUtils.evaluate_local_and_telegate(
+                record, sub_qc, network
+            )
+
+            # 更新mapping_record_list
+            mapping_record_list.add_record(record)
+
         return mapping_record_list
 
     # def _build_lookahead_graphs(self, circuit: QuantumCircuit, 
@@ -184,6 +205,9 @@ class FGPrOEE(Compiler):
                     for j in range(i + 1, len(C)):
                         b = C[j]
                         col_b = node_to_part[b]
+
+                        if col_a == col_b:
+                            continue
                         
                         if lookahead_graph.has_edge(a, b):
                             g = D[a, col_b] + D[b, col_a] - 2 * lookahead_graph[a][b].get('weight', 1)
@@ -193,6 +217,9 @@ class FGPrOEE(Compiler):
                         if g > max_g:
                             max_g = g
                             best_a, best_b = a, b
+                
+                if best_a is None or best_b is None:
+                    break  # 无有效可交换pair，退出当前pass的while循环
 
                 C.remove(best_a)
                 C.remove(best_b)

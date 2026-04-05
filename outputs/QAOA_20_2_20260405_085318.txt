@@ -1,0 +1,38 @@
+========== Network Info ==========
+Network with 2 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9300
+Hop weight: 0.14514138566967075
+Fidelity range: [0.93, 0.93]
+Backend sizes: [10, 10]
+Backend Coupling Maps:
+  Backend 0 (ibm_torino): Coupling Map = [[0, 1], [0, 3], [1, 0], [1, 2], [2, 1], [3, 0], [3, 6], [4, 5], [4, 7], [5, 4], [5, 6], [6, 3], [6, 5], [7, 4], [7, 9], [8, 9], [9, 7], [9, 8]]
+  Backend 1 (ibm_torino): Coupling Map = [[0, 1], [0, 3], [1, 0], [1, 2], [2, 1], [3, 0], [3, 6], [4, 5], [4, 7], [5, 4], [5, 6], [6, 3], [6, 5], [7, 4], [7, 9], [8, 9], [9, 7], [9, 8]]
+[INFO] QAOA #Qubits: 20
+[INFO] QAOA #Depths: 3
+[INFO] QAOA #Gates: 60
+[INFO] QAOA #2Q Gates: 0
+[INFO] 2 QPUs: [10, 10]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['staticoee', 'fgproee', 'wbcp', 'navi', 'navihybrid']
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QAOA20_net[10, 10]_Static OEE.json
+ExecCosts(comms=0, epairs=0, rgeo_mean_fid=1.0, fidelity=0.9939, loss=0.0062, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.006153874591929948, local_fidelity_log_sum=-0.006154948630607759, local_fidelity=0.9938639542637169, time=0.04), local_gate_num=60
+Compiler: [FGP-rOEE]
+Compiling with [FGP-rOEE]...
+[INFO] num_depths: 3
+✅ 成功保存 3 条映射记录到 JSON 文件：./outputs/QAOA20_net[10, 10]_FGP-rOEE.json
+ExecCosts(comms=0, epairs=0, rgeo_mean_fid=1.0, fidelity=0.9939, loss=0.0062, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.006153874591929948, local_fidelity_log_sum=-0.006154948630607759, local_fidelity=0.9938639542637169, time=0.08), local_gate_num=60
+Compiler: [WBCP]
+Compiling with [WBCP]...
+✅ 成功保存 3 条映射记录到 JSON 文件：./outputs/QAOA20_net[10, 10]_WBCP.json
+ExecCosts(comms=0, epairs=0, rgeo_mean_fid=1.0, fidelity=0.9939, loss=0.0062, rhops=0, rswaps=0, remote_fidelity_loss=0.0, remote_fidelity_log_sum=0.0, remote_fidelity=1.0, local_fidelity_loss=0.006153874591929948, local_fidelity_log_sum=-0.006154948630607759, local_fidelity=0.9938639542637169, time=0.07), local_gate_num=60
+Compiler: [NAVI]
+Compiling with [NAVI]...

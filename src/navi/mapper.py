@@ -8,10 +8,11 @@ import copy
 from math import inf
 from pprint import pprint
 import networkx as nx
+from dataclasses import replace
 
 from qiskit import QuantumCircuit
 
-from ..compiler import MappingRecordList, CompilerUtils, ExecCosts
+from ..compiler import MappingRecord, MappingRecordList, CompilerUtils, ExecCosts
 from ..utils import Network
 
 class Mapper(ABC):
@@ -353,6 +354,72 @@ class Mapper(ABC):
 
         return costs
 
+    def _reevaluate_mapping_record_list(
+            self, 
+            mapping_record_list: MappingRecordList,
+            circuit: QuantumCircuit,
+            circuit_layers: list[Any],
+            network: Network
+        ) -> MappingRecordList:
+        """
+        将量子线路映射到特定量子硬件（基线实现）
+        """
+        # print(f"\n\n\n[DEBUG] _reevaluate_mapping_record_list\n\n\n")
+        # ---------- 更新映射记录 ----------
+        k = len(mapping_record_list.records)  # 时间片数量
+
+        logical_phy_map = {}
+        for t in range(k):
+            # print(f"\n\n\n[DEBUG] {t} / {k}")
+
+            record = mapping_record_list.records[t]
+
+            if t == 0:
+                logical_phy_map = CompilerUtils.init_logical_phy_map(record.partition)
+            else:
+                # 沿用上一个record的logical_phy_map作为初始状态
+                logical_phy_map = mapping_record_list.records[t-1].logical_phy_map
+
+            record.costs = ExecCosts()  # 初始化成本对象
+            record.logical_phy_map = logical_phy_map.copy() # 初始化当前时间片的logical_phy_map
+
+            # 
+            # print(f"[DEBUG] After new init: \n{record}")
+            # print(f"[DEBUG] partition: {record.partition}")
+            # print(f"[DEBUG] logical_phy_map: {logical_phy_map}")
+
+            # 获取子线路
+            subcircuit = CompilerUtils.get_subcircuit_by_level(
+                num_qubits=circuit.num_qubits,
+                circuit=circuit,
+                circuit_layers=circuit_layers,
+                layer_start=record.layer_start,
+                layer_end=record.layer_end
+            )
+
+            # print(f"[DEBUG] original subcircuit:")
+            # print(subcircuit)
+
+            # 计算teledata损失
+            if t != 0:
+                prev_record = mapping_record_list.records[t - 1]
+                _ = CompilerUtils.evaluate_teledata(
+                    prev_record,
+                    record,
+                    network
+                )
+                # print(f"[DEBUG] record (teledata): \n{record}")
+                # print(f"[DEBUG] after teledata: {record.logical_phy_map}")
+
+            # 计算local和telegate损失
+            _ = CompilerUtils.evaluate_local_and_telegate(record, subcircuit, network)
+            # print(f"[DEBUG] record (local and telegate): \n{record}\n\n")
+
+            # print(f"[DEBUG] logical_phy_map: {record.logical_phy_map}")
+            # print(f"[DEBUG] After mapping - Time slice {t}: \n{record} \n\n")
+
+        return mapping_record_list
+
     # def _evaluate_initial_mapping(self, network: Network, mapping: list[int], D_total: np.ndarray) -> float:
     #     """
     #     评估初始映射的质量
@@ -414,36 +481,12 @@ class DirectMapper(Mapper):
         """
         将量子线路映射到特定量子硬件（基线实现）
         """
-        # ---------- 更新映射记录 ----------
-        k = len(mapping_record_list.records)  # 时间片数量
-        for t in range(k):
-            record = mapping_record_list.records[t]
-
-            # 计算该时间片对应的成本对象
-
-            # 获取子线路
-            subcircuit = CompilerUtils.get_subcircuit_by_level(
-                num_qubits=circuit.num_qubits,
-                circuit=circuit,
-                circuit_layers=circuit_layers,
-                layer_start=record.layer_start,
-                layer_end=record.layer_end
-            )
-            # print(subcircuit)
-
-            # 计算local和telegate损失
-            record.costs = CompilerUtils.evaluate_local_and_telegate(record.partition, subcircuit, network)
-            # print(f"[DEBUG] record.costs (local and telegate): {record.costs}")
-
-            # 计算teledata损失
-            if t != 0:
-                prev_record = mapping_record_list.records[t - 1]
-                record.costs += CompilerUtils.evaluate_teledata(
-                    prev_record.partition,
-                    record.partition,
-                    network
-                )
-                # print(f"[DEBUG] record.costs (teledata): {record.costs}")
+        mapping_record_list = self._reevaluate_mapping_record_list(
+            mapping_record_list,
+            circuit,
+            circuit_layers,
+            network
+        )
         return mapping_record_list
 
 
@@ -453,14 +496,14 @@ class GreedyMapper(Mapper):
     def name(self) -> str:
         """获取映射器名称"""
         return "Greedy Mapper"
-    
+
     def map(self,
             mapping_record_list: MappingRecordList,
             circuit: QuantumCircuit,
             circuit_layers: list[Any],
             network: Network
         ) -> MappingRecordList:
-        
+
         start_time = time.time()
         # 对于每一段子线路，我们尝试找到一个局部最优的映射
         k = len(mapping_record_list.records)  # 时间片数量
@@ -468,10 +511,18 @@ class GreedyMapper(Mapper):
 
         all_perms = list(itertools.permutations(range(n_physical)))
 
+        logical_phy_map = {}
+
         for t in range(k): # 对于每一段线路
+
+            # print(f"\n\n\n[DEBUG] ========== {t} / {k} ==========")
+
             # 使用贪心算法为下一时间片找到映射
             curr_record = mapping_record_list.records[t]
+            # print(f"[DEBUG] Current record before mapping:\n{curr_record}")
             original_partition = curr_record.partition
+
+            # print(f"[DEBUG] original_partition: {original_partition}")
 
             # 获取子线路
             subcircuit = CompilerUtils.get_subcircuit_by_level(
@@ -481,12 +532,14 @@ class GreedyMapper(Mapper):
                 layer_start=curr_record.layer_start,
                 layer_end=curr_record.layer_end
             )
+            # print(f"[DEBUG] subcircuit:\n{subcircuit}")
 
             # 记录最佳排列
             best_perm = None
             min_costs = None
-            min_num_comms = float('inf')
+            # min_num_comms = float('inf')
             min_fidelity_loss = float('inf')
+            best_logical_phy_map = {}
 
             # perm所有可能的排列
             for perm in all_perms:
@@ -497,42 +550,62 @@ class GreedyMapper(Mapper):
                 partition = []
                 for idx in order:
                     partition.append(original_partition[idx])
+                # print(f"[DEBUG] Trying permutation {perm}, partition: {partition}")
 
-                # 评估当前排列的local_and_telegate_cost
-                costs = CompilerUtils.evaluate_local_and_telegate(
-                    partition,
-                    subcircuit,
-                    network
-                )
+                costs = ExecCosts()
 
-                # 评估当前排列和前一个排列（如果有）的teledata_cost
-                if t > 0:
-                    costs += CompilerUtils.evaluate_teledata(
+                # 根据partition构造logical_phy_map
+                # 如果是第一段线路，logical_phy_map直接根据partition构造；否则沿用上一个时间片的logical_phy_map并根据新的partition调整
+                if t == 0:
+                    logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
+                    # print(f"[DEBUG] initial logical_phy_map: {logical_phy_map}")
+                else:
+                    # 沿用上一个record的logical_phy_map作为初始状态
+                    logical_phy_map = mapping_record_list.records[t-1].logical_phy_map.copy()
+                    # print(f"[DEBUG] initial logical_phy_map: {logical_phy_map}")
+                
+                    # 评估当前线路的teledata开销并更新logical_phy_map
+                    costs, logical_phy_map = CompilerUtils.evaluate_teledata(
                         mapping_record_list.records[t-1].partition,
                         partition,
-                        network
+                        network,
+                        logical_phy_map
                     )
 
+                # 评估当前排列的local_and_telegate_cost
+                telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate(
+                    partition,
+                    subcircuit,
+                    network,
+                    logical_phy_map,
+                    optimization_level=0,
+                )
+                costs += telegate_costs
+
                 curr_fidelity_loss = costs.total_fidelity_loss
-                curr_num_comms = costs.num_comms
+                # curr_epairs = costs.epairs
 
                 if curr_fidelity_loss < min_fidelity_loss:
                     # 比较最小num_comms和最小fidelity_loss的排列是否一致
-                    if curr_num_comms <= min_num_comms:
-                        min_num_comms = curr_num_comms
+                    # if curr_epairs <= min_num_comms:
+                    #     min_num_comms = curr_epairs
                     # else:
-                        # print(f"[NOTE] Found a permutation with lower fidelity loss but higher communication cost: {curr_num_comms} vs {min_num_comms}")
+                        # print(f"[NOTE] Found a permutation with lower fidelity loss but higher communication cost: {curr_epairs} vs {min_num_comms}")
                     min_fidelity_loss = curr_fidelity_loss
                     best_perm = perm
                     min_costs = costs
+                    best_logical_phy_map = logical_phy_map.copy()
 
-            # 调整curr_record.partition成最佳排列
+            # 调整curr_record成最佳排列
             assert best_perm is not None and min_costs is not None, "未找到最佳排列，可能存在问题"
             best_partition = []
             for idx in best_perm:
                 best_partition.append(original_partition[idx])
             curr_record.partition = copy.deepcopy(best_partition)
-            curr_record.costs = copy.deepcopy(min_costs)
+            curr_record.costs = replace(min_costs)
+            curr_record.logical_phy_map = best_logical_phy_map.copy()
+
+            # print(f"\n[DEBUG] Best permutation for time slice {t}: {best_perm}\npartition: {best_partition}\ncosts: {min_costs}\nlogical_phy_map: {best_logical_phy_map}")
 
         end_time = time.time()
         print(f"[INFO] [Time] Greedy Mapper completed in {end_time - start_time:.2f} seconds.")
@@ -554,151 +627,16 @@ class DPMapper(Mapper):
         ) -> MappingRecordList:
         """
         使用动态规划为每个时间片选择最优的物理QPU映射（排列），
-        使得所有时间片的总成本（保真度损失+通信成本）最小。
+        使得所有时间片的总成本（保真度损失, 通信成本）最小。
         """
-        start_time = time.time()
-        k = len(mapping_record_list.records)          # 时间片数量
-        n_physical = network.num_backends             # 物理QPU数量
 
-        # 所有可能的物理QPU排列（即映射状态）
-        all_perms = list(itertools.permutations(range(n_physical)))
-        num_states = len(all_perms)
-
-        # ---------- 预计算每个时间片各状态下的 local_and_telegate 成本 ----------
-        telegate_costs: list[list[ExecCosts]] = [] # telegate_costs[t][idx] -> Costs 对象
-        for t in range(k):
-            record = mapping_record_list.records[t]
-            original_partition = record.partition
-            subcircuit = CompilerUtils.get_subcircuit_by_level(
-                num_qubits=circuit.num_qubits,
-                circuit=circuit,
-                circuit_layers=circuit_layers,
-                layer_start=record.layer_start,
-                layer_end=record.layer_end
-            )
-            cost_list = []
-            for perm in all_perms:
-                partition = [original_partition[idx] for idx in perm]
-                costs = CompilerUtils.evaluate_local_and_telegate(partition, subcircuit, network, optimization_level=0)
-                cost_list.append(costs)
-            telegate_costs.append(cost_list)
-
-        # ---------- 预计算相邻时间片之间的 teledata 成本 ----------
-        teledata_costs: list[list[list[ExecCosts]]] = []       # teledata_costs[t][prev_idx][curr_idx] 对应从 t 到 t+1 的转移成本
-        for t in range(k - 1):
-            record_prev = mapping_record_list.records[t]
-            record_curr = mapping_record_list.records[t+1]
-            orig_part_prev = record_prev.partition
-            orig_part_curr = record_curr.partition
-            # 构建转移矩阵
-            matrix: list[list[ExecCosts]] = [[ExecCosts()] * num_states for _ in range(num_states)]
-            for prev_idx, perm_prev in enumerate(all_perms):
-                partition_prev = [orig_part_prev[idx] for idx in perm_prev]
-                for curr_idx, perm_curr in enumerate(all_perms):
-                    partition_curr = [orig_part_curr[idx] for idx in perm_curr]
-                    costs = CompilerUtils.evaluate_teledata(partition_prev, partition_curr, network)
-                    matrix[prev_idx][curr_idx] = costs
-            # print(f"[DEBUG] t: {t}, matrix: ")
-            # pprint(matrix)
-            teledata_costs.append(matrix)
-
-        # ---------- 动态规划 ----------
-        # dp[t][idx] 存储到时间片 t 状态 idx 的最小累计成本（元组：(fidelity_loss, num_comms)）
-        # dp: list[list[tuple[float, int]]] = [[(float(inf), 9999999)] * num_states for _ in range(k)]
-        dp: list[list[tuple[float, int]]] = [
-            [(inf, -1) for _ in range(num_states)] for _ in range(k)
-        ]
-        # back[t][idx] 存储达到该状态的最优前一状态索引
-        back: list[list[int]] = [[-1 for _ in range(num_states)] for _ in range(k)]
-
-        # 初始化第一个时间片
-        for idx in range(num_states):
-            cost = telegate_costs[0][idx]
-            dp[0][idx] = (cost.total_fidelity_loss, cost.num_comms)
-            back[0][idx] = -1
-
-        # 递推后续时间片
-        for t in range(1, k):
-            for curr_idx in range(num_states):
-                curr_telegate = telegate_costs[t][curr_idx]
-                curr_telegate_tuple = (curr_telegate.total_fidelity_loss, curr_telegate.num_comms)
-                best_cost = (inf, 0)
-                best_prev = -1
-                for prev_idx in range(num_states):
-                    prev_cost = dp[t-1][prev_idx]
-                    teledata_cost = teledata_costs[t-1][prev_idx][curr_idx]   # 从 t-1 到 t 的转移成本
-                    # assert isinstance(prev_cost, tuple), f"Expected tuple, got {type(prev_cost)}"
-                    # assert isinstance(tel, ExecCosts), f"Expected ExecCosts, got {type(tel)}"
-                    tel_tuple = (teledata_cost.total_fidelity_loss, teledata_cost.num_comms)
-                    total = (prev_cost[0] + curr_telegate_tuple[0] + tel_tuple[0],
-                             prev_cost[1] + curr_telegate_tuple[1] + tel_tuple[1])
-                    if total < best_cost:
-                        best_cost = total
-                        best_prev = prev_idx
-                dp[t][curr_idx] = best_cost
-                back[t][curr_idx] = best_prev
-
-        # ---------- 回溯找到最优路径 ----------
-        best_last = min(range(num_states), key=lambda i: dp[k-1][i])
-        perm_indices = [0] * k
-        perm_indices[k-1] = best_last
-        for t in range(k-2, -1, -1):
-            perm_indices[t] = back[t+1][perm_indices[t+1]]
-
-        # ---------- 更新映射记录 ----------
-        for t in range(k):
-            record = mapping_record_list.records[t]
-            perm = all_perms[perm_indices[t]]
-            original_partition = record.partition
-            
-            best_partition = [original_partition[idx] for idx in perm]
-            record.partition = copy.deepcopy(best_partition)
-
-            # 计算该时间片对应的成本对象
-
-            # 获取子线路
-            subcircuit = CompilerUtils.get_subcircuit_by_level(
-                num_qubits=circuit.num_qubits,
-                circuit=circuit,
-                circuit_layers=circuit_layers,
-                layer_start=record.layer_start,
-                layer_end=record.layer_end
-            )
-            # print(subcircuit)
-
-            # 计算local和telegate损失
-            record.costs = CompilerUtils.evaluate_local_and_telegate(record.partition, subcircuit, network)
-
-        # for t in range(k):
-        #     record = mapping_record_list.records[t]
-        #     perm = all_perms[perm_indices[t]]
-        #     original_partition = record.partition
-        #     best_partition = [original_partition[idx] for idx in perm]
-        #     record.partition = copy.deepcopy(best_partition)
-
-        #     # 计算该时间片对应的成本对象
-        #     record.costs = copy.deepcopy(telegate_costs[t][perm_indices[t]])
-
-            if t != 0:
-                record.costs += teledata_costs[t-1][perm_indices[t-1]][perm_indices[t]]
-
-        end_time = time.time()
-        print(f"[INFO] [Time] DP Mapper completed in {end_time - start_time:.2f} seconds.")
-        return mapping_record_list
-
-
-class NewDPMapper(Mapper):
-    @property
-    def name(self) -> str:
-        """获取映射器名称"""
-        return "New DP Mapper"
-
-    def map(self,
-            mapping_record_list: MappingRecordList,
-            circuit: QuantumCircuit,
-            circuit_layers: list[Any],
-            network: Network
-        ) -> MappingRecordList:
+        # 
+        # dp[t][perm] := 在t段量子线路采用perm排列的partition得到的全程最优的(总保真度损失, 总eparis)
+        # % dp[t][curr_perm] = min_{prev_perm ∈ all_perm} [
+        # %     dp[t-1][prev_perm]  // 前一阶段的累计开销
+        # %     + teledata_cost(prev_perm对应的partition, curr_perm, network, prev_perm对应的logical_phy_map)  // 分区切换开销（对应evaluate_teledata）
+        # %     + telegate_cost(curr_perm, subcircuit_t, network, prev_perm对应的logical_phy_map被teledata更新到curr_perm的)  // 当前子线路开销（对应evaluate_local_and_telegate）
+        # % ]
         start_time = time.time()
         k = len(mapping_record_list.records)
         n_physical = network.num_backends
@@ -707,9 +645,40 @@ class NewDPMapper(Mapper):
         all_perms = list(itertools.permutations(range(n_physical)))
         num_states = len(all_perms)
 
-        # ---------- 预计算 local and telegate 成本（原有逻辑保持不变） ----------
-        telegate_costs: list[list[ExecCosts]] = []
-        for t in range(k):
+        # 只需记录上一和当前时间片的最佳映射状态，DP过程中不需要完整记录路径
+        # 包括partition, costs, logical_phy_map
+        prev_bests: list[MappingRecord] = []
+        curr_bests: list[MappingRecord] = []
+
+        # back[t][idx] 存储达到该状态的最优前一状态索引
+        back: list[list[int]] = [[-1 for _ in range(num_states)] for _ in range(k)]
+
+        # ----- t=0 的初始化 -----
+        # 第一个时间片只需要记录telegate开销，logical_phy_map由原始分区直接构建
+        record = mapping_record_list.records[0]
+        original_partition = record.partition
+        subcircuit = CompilerUtils.get_subcircuit_by_level(
+            num_qubits=circuit.num_qubits,
+            circuit=circuit,
+            circuit_layers=circuit_layers,
+            layer_start=record.layer_start,
+            layer_end=record.layer_end
+        )
+        for perm in all_perms:
+            partition = [original_partition[i] for i in perm]
+            logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
+            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate(
+                partition, subcircuit, network, logical_phy_map=logical_phy_map, optimization_level=0)
+
+            prev_bests.append(MappingRecord(
+                partition = partition,
+                costs = costs,
+                logical_phy_map = logical_phy_map
+            ))
+            # print(f"[DEBUG] t=0, perm: {perm}, partition: {partition}, costs: {costs}, logical_phy_map: {logical_phy_map})
+
+        # ----- t=1~k-1 的迭代更新 -----
+        for t in range(1, k):
             record = mapping_record_list.records[t]
             original_partition = record.partition
             subcircuit = CompilerUtils.get_subcircuit_by_level(
@@ -719,269 +688,202 @@ class NewDPMapper(Mapper):
                 layer_start=record.layer_start,
                 layer_end=record.layer_end
             )
-            cost_list = []
-            for perm in all_perms:
-                partition = [original_partition[idx] for idx in perm]
-                costs = CompilerUtils.evaluate_local_and_telegate(partition, subcircuit, network, optimization_level=0)
-                cost_list.append(costs)
-            telegate_costs.append(cost_list)
 
-        # ---------- 优化后的：预计算 teledata 成本 ----------
-        teledata_costs: list[list[list[ExecCosts]]] = []
-        for t in range(k - 1):
-            record_prev = mapping_record_list.records[t]
-            record_curr = mapping_record_list.records[t+1]
-            orig_part_prev = record_prev.partition
-            orig_part_curr = record_curr.partition
+            # 更新dp[t][0~num_states-1] / curr_bests[0~num_states-1]
+            for curr_idx, curr_perm in enumerate(all_perms):
+                # 更新curr_bests[curr_idx]选取perm的时候，全局最优映射路径
 
-            # 【核心优化1】仅对原始分区运行1次图结构预计算
-            D_move = self._compute_move_demand(orig_part_prev, orig_part_curr)
+                # 获取当前的partition
+                partition = [original_partition[i] for i in curr_perm]
 
-            # 【核心优化2】对每个排列，仅通过映射快速计算开销
-            matrix: list[list[ExecCosts]] = [[ExecCosts()] * num_states for _ in range(num_states)]
-            for prev_idx, perm_prev in enumerate(all_perms):
-                for curr_idx, perm_curr in enumerate(all_perms):
-                    # 快速计算：图结构 + 物理映射 → 开销
-                    costs = self._fast_evaluate_teledata(D_move, perm_prev, perm_curr, network)
-                    matrix[prev_idx][curr_idx] = costs
-            # print(f"[DEBUG] t: {t}, matrix: ")
-            # pprint(matrix)
-            teledata_costs.append(matrix)
-
-        # ---------- 动态规划 ----------
-        # dp[t][idx] 存储到时间片 t 状态 idx 的最小累计成本（元组：(fidelity_loss, num_comms)）
-        # dp: list[list[tuple[float, int]]] = [[(float(inf), 9999999)] * num_states for _ in range(k)]
-        dp: list[list[tuple[float, int]]] = [
-            [(inf, -1) for _ in range(num_states)] for _ in range(k)
-        ]
-        # back[t][idx] 存储达到该状态的最优前一状态索引
-        back: list[list[int]] = [[-1 for _ in range(num_states)] for _ in range(k)]
-
-        # 初始化第一个时间片
-        for idx in range(num_states):
-            cost = telegate_costs[0][idx]
-            dp[0][idx] = (cost.total_fidelity_loss, cost.num_comms)
-            back[0][idx] = -1
-
-        # 递推后续时间片
-        for t in range(1, k):
-            for curr_idx in range(num_states):
-                curr_telegate = telegate_costs[t][curr_idx]
-                curr_telegate_tuple = (curr_telegate.total_fidelity_loss, curr_telegate.num_comms)
-                best_cost = (inf, 0)
+                # 最佳累计开销
+                best_record: MappingRecord | None = None
                 best_prev = -1
+
+                # 遍历每一个可能的前序record
                 for prev_idx in range(num_states):
-                    prev_cost = dp[t-1][prev_idx]
-                    teledata_cost = teledata_costs[t-1][prev_idx][curr_idx]   # 从 t-1 到 t 的转移成本
-                    # assert isinstance(prev_cost, tuple), f"Expected tuple, got {type(prev_cost)}"
-                    # assert isinstance(tel, ExecCosts), f"Expected ExecCosts, got {type(tel)}"
-                    tel_tuple = (teledata_cost.total_fidelity_loss, teledata_cost.num_comms)
-                    total = (prev_cost[0] + curr_telegate_tuple[0] + tel_tuple[0],
-                             prev_cost[1] + curr_telegate_tuple[1] + tel_tuple[1])
-                    if total < best_cost:
-                        best_cost = total
+                    prev_record = prev_bests[prev_idx]
+                    curr_total_costs = copy.deepcopy(prev_record.costs)
+
+                    # 衡量前序节点和当前节点的costs
+                    # 获取logical_phy_map
+                    logical_phy_map = prev_record.logical_phy_map.copy()
+
+                    # 计算teledata costs
+                    curr_costs, logical_phy_map = CompilerUtils.evaluate_teledata(
+                        prev_record.partition,
+                        partition,
+                        network,
+                        logical_phy_map
+                    )
+
+                    # 计算telegate costs
+                    telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate(
+                        partition,
+                        subcircuit,
+                        network,
+                        logical_phy_map = logical_phy_map,
+                        optimization_level = 0
+                    )
+
+                    curr_costs += telegate_costs
+                    curr_total_costs += curr_costs
+
+                    if best_record is None or \
+                        (curr_total_costs.total_fidelity_loss, curr_total_costs.epairs) < \
+                        (best_record.costs.total_fidelity_loss, best_record.costs.epairs):
+
+                        best_record = MappingRecord(
+                            partition = partition, # 记录最后一个partition
+                            costs = curr_total_costs, # 记录全路径的costs
+                            logical_phy_map = logical_phy_map # 记录最后一个logical_phy_map
+                        )
                         best_prev = prev_idx
-                dp[t][curr_idx] = best_cost
+
+                # 更新curr_bests[curr_idx]
+                assert best_record is not None
+                curr_bests.append(best_record)
                 back[t][curr_idx] = best_prev
 
-        # ---------- 回溯找到最优路径 ----------
-        best_last = min(range(num_states), key=lambda i: dp[k-1][i])
+            # 交换prev_bests和curr_bests
+            prev_bests = curr_bests
+            curr_bests = []
+
+        # ----- 回溯找到最优路径 -----
+        # 从最后一个时间片里找出最小总开销的项
+        best_last = 0
+        for idx, record in enumerate(prev_bests):
+            if (record.costs.total_fidelity_loss, record.costs.epairs) < \
+               (prev_bests[best_last].costs.total_fidelity_loss, prev_bests[best_last].costs.epairs):
+                best_last = idx
+        
         perm_indices = [0] * k
         perm_indices[k-1] = best_last
         for t in range(k-2, -1, -1):
             perm_indices[t] = back[t+1][perm_indices[t+1]]
 
-        # ---------- 更新映射记录 ----------
+        # ----- 更新映射记录 -----
+        final_record_list = MappingRecordList()
+
         for t in range(k):
             record = mapping_record_list.records[t]
             perm = all_perms[perm_indices[t]]
+
             original_partition = record.partition
-            
+
             best_partition = [original_partition[idx] for idx in perm]
-            record.partition = copy.deepcopy(best_partition)
-
-            # 计算该时间片对应的成本对象
-
-            # 获取子线路
-            subcircuit = CompilerUtils.get_subcircuit_by_level(
-                num_qubits=circuit.num_qubits,
-                circuit=circuit,
-                circuit_layers=circuit_layers,
-                layer_start=record.layer_start,
-                layer_end=record.layer_end
+            
+            new_record = MappingRecord(
+                layer_start = record.layer_start,
+                layer_end = record.layer_end,
+                partition = best_partition,
+                mapping_type = record.mapping_type
             )
-            # print(subcircuit)
 
-            # 计算local和telegate损失
-            record.costs = CompilerUtils.evaluate_local_and_telegate(record.partition, subcircuit, network)
+            final_record_list.add_record(new_record)
 
-        # for t in range(k):
-        #     record = mapping_record_list.records[t]
-        #     perm = all_perms[perm_indices[t]]
-        #     original_partition = record.partition
-        #     best_partition = [original_partition[idx] for idx in perm]
-        #     record.partition = copy.deepcopy(best_partition)
-
-        #     # 计算该时间片对应的成本对象
-        #     record.costs = copy.deepcopy(telegate_costs[t][perm_indices[t]])
-
-            if t != 0:
-                record.costs += teledata_costs[t-1][perm_indices[t-1]][perm_indices[t]]
-                # prev_record = mapping_record_list.records[t - 1]
-                # record.costs += CompilerUtils.evaluate_teledata(
-                #     prev_record.partition,
-                #     record.partition,
-                #     network
-                # )
+        final_record_list = self._reevaluate_mapping_record_list(
+            final_record_list,
+            circuit,
+            circuit_layers,
+            network
+        )
 
         end_time = time.time()
-        print(f"[INFO] [Time] New DP Mapper completed in {end_time - start_time:.2f} seconds.")
-        return mapping_record_list
+        print(f"[INFO] [Time] DP Mapper completed in {end_time - start_time:.2f} seconds.")
+
+        return final_record_list
 
 
-class LinkOrientedDPMapper(Mapper):
+class BoundedDPMapper(Mapper):
     @property
     def name(self) -> str:
-        """获取映射器名称"""
-        return "Link-Ori DP Mapper"
-    
+        return "Bounded DP Mapper"
+
     def map(self,
             mapping_record_list: MappingRecordList,
             circuit: QuantumCircuit,
             circuit_layers: list[Any],
-            network: Network
+            network: Network,
+            beam_width: int = 5  # 束宽
         ) -> MappingRecordList:
         """
-        使用动态规划为每个时间片选择最优的物理QPU映射（排列），
-        使得所有时间片的通信相关成本最小。
+        带束搜索优化的动态规划映射器
+        解决 QPU 数量增多时 m! 状态爆炸问题
         """
         start_time = time.time()
+        k = len(mapping_record_list.records)
+        n_physical = network.num_backends
+        print(f"[INFO] [BoundedDPMapper] beam_width: {beam_width}, n_subcs: {k}, n_QPUs: {n_physical}")
 
-        k = len(mapping_record_list.records)          # 时间片数量
-        n_physical = network.num_backends             # 物理QPU数量
-
-        # 所有可能的物理QPU排列（即映射状态）
+        # 所有物理QPU排列 + 固定索引（idx = state_key）
         all_perms = list(itertools.permutations(range(n_physical)))
         num_states = len(all_perms)
 
-        # ---------- 预计算每个时间片各状态下的 telegate 成本 ----------
-        telegate_costs: list[list[ExecCosts]] = [] # telegate_costs[t][idx] -> Costs 对象
+        # --------------------------
+        # 滚动DP数组（仅保留上一层）
+        # --------------------------
+        prev_bests: list[MappingRecord] = []
 
-        for t in range(k):
-            record = mapping_record_list.records[t]
-            original_partition = record.partition
+        # --------------------------
+        # 束搜索核心数据结构
+        # --------------------------
+        # back[t][kept_idx] = 上一层的kept_idx
+        back: list[list[int]] = []
+        # 每层保留的【原始perm idx】列表：map_kept[t][kept_idx] = original_perm_idx
+        map_kept_to_original: list[list[int]] = []
 
-            # 1. 统计每一对QPU间的远程操作数量
-            D_hops = self._compute_hop_demand(
-                original_partition,
-                circuit,
-                circuit_layers,
-                record.layer_start,
-                record.layer_end
+        # ==========================
+        # t=0 初始化（第一层）
+        # ==========================
+        record = mapping_record_list.records[0]
+        original_partition = record.partition
+        subcircuit = CompilerUtils.get_subcircuit_by_level(
+            num_qubits=circuit.num_qubits,
+            circuit=circuit,
+            circuit_layers=circuit_layers,
+            layer_start=record.layer_start,
+            layer_end=record.layer_end
+        )
+
+        # 计算所有初始状态
+        t0_full = []
+        for perm in all_perms:
+            partition = [original_partition[i] for i in perm]
+            logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
+            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate(
+                partition, subcircuit, network,
+                logical_phy_map=logical_phy_map,
+                optimization_level=0
             )
-            
-            # 2. 为每个排列计算 telegate 成本
-            time_slice_costs = []
-            for perm in all_perms:
-                telegate_cost = self._evaluate_hop_cost(network, D_hops, perm)
-                time_slice_costs.append(telegate_cost)
-            
-            telegate_costs.append(time_slice_costs)
+            t0_full.append(MappingRecord(
+                partition=partition,
+                costs=costs,
+                logical_phy_map=logical_phy_map
+            ))
 
-        # ---------- 预计算相邻时间片之间的 teledata 成本 ----------
-        # 使用D_move来估算，不要调用CompilerUtils.evaluate_teledata
-        teledata_costs: list[list[list[ExecCosts]]] = [] # teledata_costs[t][prev_idx][curr_idx] 对应从 t 到 t+1 的转移成本
-        
-        for t in range(k - 1):  # 从 t 到 t+1 的转移，共 k-1 个转移
-            record_current = mapping_record_list.records[t]
-            record_next = mapping_record_list.records[t + 1]
-            
-            # 计算D_move
-            D_move = self._compute_move_demand(
-                record_current.partition,  # 原始分区（未排列）
-                record_next.partition     # 原始分区（未排列）
-            )
+        # --------------------------
+        # t0 束搜索：保留 top-K
+        # --------------------------
+        t0_sorted = sorted(
+            enumerate(t0_full),
+            key=lambda x: (x[1].costs.total_fidelity_loss, x[1].costs.epairs)
+        )
+        t0_sorted = t0_sorted[:beam_width]
+        kept_indices_t0 = [i for i, _ in t0_sorted]
+        kept_records_t0 = [r for _, r in t0_sorted]
 
-            m_logical = D_move.shape[0]
-            
-            transition_costs = []
-            for prev_idx, prev_perm in enumerate(all_perms):
-                row_costs = []
-                for curr_idx, curr_perm in enumerate(all_perms):
-                    # 无需重复计算D_move！只需将原始D_move映射到物理QPU
-                    # 构建“原始逻辑QPU→物理QPU”的映射
-                    # 计算该排列对的切换成本（直接基于原始D_move映射）
-                    move_cost = self._evaluate_move_cost(
-                        network,
-                        D_move,
-                        prev_perm,
-                        curr_perm
-                    )
-                    row_costs.append(move_cost)
-                transition_costs.append(row_costs)
-            teledata_costs.append(transition_costs)
+        prev_bests = kept_records_t0 # 记录前序最好的MappingRecord
+        map_kept_to_original.append(kept_indices_t0)
+        back.append([])  # t0 无前驱
 
-        # ---------- 动态规划 ----------
-        # dp[t][idx]：时间片t处于状态idx的最小累计成本（fidelity_loss, num_comms）
-        dp = [[(inf, inf)] * num_states for _ in range(k)]
-        # back[t][idx]：记录最优路径的前驱状态索引
-        back = [[-1 for _ in range(num_states)] for _ in range(k)]
-
-        # 初始化第一个时间片
-        for idx in range(num_states):
-            cost = telegate_costs[0][idx]
-            dp[0][idx] = (cost.total_fidelity_loss, cost.num_comms)
-
-        # 递推后续时间片
+        # ==========================
+        # t = 1 ~ k-1 迭代
+        # ==========================
         for t in range(1, k):
-            for curr_idx in range(num_states):
-                curr_telegate = telegate_costs[t][curr_idx]
-                curr_telegate_tuple = (curr_telegate.total_fidelity_loss, curr_telegate.num_comms)
-                
-                # 寻找最优前驱状态
-                best_cost = (inf, inf)
-                best_prev_idx = -1
-
-                for prev_idx in range(num_states):
-                    # 前驱累计成本 + 当前telegate成本 + 转移成本
-                    prev_total = dp[t-1][prev_idx]
-                    transfer_cost = teledata_costs[t-1][prev_idx][curr_idx]
-                    transfer_tuple = (transfer_cost.total_fidelity_loss, transfer_cost.num_comms)
-                    
-                    # 计算总累计成本
-                    total_loss = prev_total[0] + curr_telegate_tuple[0] + transfer_tuple[0]
-                    total_comms = prev_total[1] + curr_telegate_tuple[1] + transfer_tuple[1]
-                    total_cost = (total_loss, total_comms)
-                    
-                    # 更新最优解（优先按保真度损失排序，其次通信次数）
-                    if total_cost < best_cost:
-                        best_cost = total_cost
-                        best_prev_idx = prev_idx
-    
-                dp[t][curr_idx] = best_cost
-                back[t][curr_idx] = best_prev_idx
-
-        # ---------- 回溯找到最优路径 ----------
-        best_last = min(range(num_states), key=lambda i: dp[k-1][i])
-        perm_indices = [0] * k
-        perm_indices[k-1] = best_last
-
-        # 反向推导最优路径
-        for t in range(k-2, -1, -1):
-            perm_indices[t] = back[t+1][perm_indices[t+1]]
-
-        # ---------- 更新映射记录 ----------
-        for t in range(k):
+            subc_start_time = time.time()
             record = mapping_record_list.records[t]
-            perm = all_perms[perm_indices[t]]
             original_partition = record.partition
-            
-            best_partition = [original_partition[idx] for idx in perm]
-            record.partition = copy.deepcopy(best_partition)
-
-            # 计算该时间片对应的成本对象
-
-            # 获取子线路
             subcircuit = CompilerUtils.get_subcircuit_by_level(
                 num_qubits=circuit.num_qubits,
                 circuit=circuit,
@@ -989,92 +891,465 @@ class LinkOrientedDPMapper(Mapper):
                 layer_start=record.layer_start,
                 layer_end=record.layer_end
             )
-            # print(subcircuit)
 
-            # 计算local和telegate损失
-            record.costs = CompilerUtils.evaluate_local_and_telegate(record.partition, subcircuit, network)
-            # print(f"[DEBUG] record.costs (local and telegate): {record.costs}")
+            curr_bests : list[MappingRecord] = []
+            back_t_full = [-1] * num_states
 
-            # 计算teledata损失
-            if t != 0:
-                prev_record = mapping_record_list.records[t - 1]
-                record.costs += CompilerUtils.evaluate_teledata(
-                    prev_record.partition,
-                    record.partition,
-                    network
-                )
-                # print(f"[DEBUG] record.costs (teledata): {record.costs}")
+            # 计算当前层所有状态
+            for curr_idx in range(num_states):
+                curr_perm = all_perms[curr_idx]
+                partition = [original_partition[i] for i in curr_perm]
 
-        # 输出耗时信息
+                best_record = None
+                best_prev_kept_idx = -1
+
+                # 只遍历上一层保留的K个状态
+                for prev_kept_idx in range(len(prev_bests)):
+                    prev_record = prev_bests[prev_kept_idx]
+                    curr_total_costs = copy.deepcopy(prev_record.costs)
+                    logical_phy_map = copy.deepcopy(prev_record.logical_phy_map)
+
+                    # 计算切换开销 + 执行开销
+                    teledata_costs, logical_phy_map = CompilerUtils.evaluate_teledata(
+                        prev_record.partition, partition, network, logical_phy_map
+                    )
+                    telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate(
+                        partition, subcircuit, network,
+                        logical_phy_map=logical_phy_map,
+                        optimization_level=0
+                    )
+
+                    curr_total_costs += teledata_costs
+                    curr_total_costs += telegate_costs
+
+                    # 更新最优
+                    if best_record is None or \
+                        (curr_total_costs.total_fidelity_loss, curr_total_costs.epairs) < \
+                        (best_record.costs.total_fidelity_loss, best_record.costs.epairs):
+                        best_record = MappingRecord(
+                            partition=partition,
+                            costs=curr_total_costs,
+                            logical_phy_map=logical_phy_map
+                        )
+                        best_prev_kept_idx = prev_kept_idx
+
+                assert best_record is not None
+                curr_bests.append(best_record)
+                back_t_full[curr_idx] = best_prev_kept_idx
+
+            # --------------------------
+            # 束搜索：当前层排序 + 裁剪 top-K
+            # --------------------------
+            curr_sorted = sorted(
+                enumerate(curr_bests),
+                key=lambda x: (x[1].costs.total_fidelity_loss, x[1].costs.epairs)
+            )
+            curr_sorted = curr_sorted[:beam_width]
+
+            kept_original_indices = [i for i, _ in curr_sorted]
+            kept_records = [r for _, r in curr_sorted]
+
+            # 裁剪 back 指针
+            back_t_kept = [back_t_full[i] for i in kept_original_indices]
+            back.append(back_t_kept)
+
+            # 更新滚动数组
+            prev_bests = kept_records
+            map_kept_to_original.append(kept_original_indices)
+            curr_bests = []
+
+            subc_end_time = time.time()
+            print(f"[DEBUG] subc: {t}, time: {subc_end_time-subc_start_time}")
+
+
+        # ==========================
+        # 回溯最优路径
+        # ==========================
+        # 最后一层最优 kept_idx
+        best_last_kept = 0
+        for idx, r in enumerate(prev_bests):
+            if (r.costs.total_fidelity_loss, r.costs.epairs) < \
+               (prev_bests[best_last_kept].costs.total_fidelity_loss, prev_bests[best_last_kept].costs.epairs):
+                best_last_kept = idx
+
+        # 存储每层的原始 perm idx
+        perm_original_indices = [0] * k
+        perm_original_indices[k-1] = map_kept_to_original[k-1][best_last_kept]
+
+        # 反向回溯
+        current_kept_idx = best_last_kept # 在保留项当中的最优解的编号
+        for t in range(k-2, -1, -1):
+            # 从 back 表找上一层 kept idx
+            current_kept_idx = back[t+1][current_kept_idx]
+            # 转为原始 perm idx
+            perm_original_indices[t] = map_kept_to_original[t][current_kept_idx]
+
+        # ==========================
+        # 生成最终映射结果
+        # ==========================
+        final_record_list = MappingRecordList()
+        for t in range(k):
+            record = mapping_record_list.records[t]
+            orig_idx = perm_original_indices[t]
+            perm = all_perms[orig_idx]
+            best_partition = [record.partition[i] for i in perm]
+
+            new_record = MappingRecord(
+                layer_start=record.layer_start,
+                layer_end=record.layer_end,
+                partition=best_partition,
+                mapping_type=record.mapping_type
+            )
+            final_record_list.add_record(new_record)
+
+        # 最终精确重评估（保持你原来的逻辑）
+        final_record_list = self._reevaluate_mapping_record_list(
+            final_record_list, circuit, circuit_layers, network
+        )
+
         end_time = time.time()
-        print(f"[INFO] [Time] Link-Oriented DP Mapper 完成，耗时 {end_time - start_time:.2f} 秒")
+        print(f"[INFO] Bounded DP 运行完成 | 束宽={beam_width} | 耗时={end_time - start_time:.2f}s")
 
-        # print("===================================================")
-        # for record in mapping_record_list.records:
-        #     print(f"[DEBUG] record.costs: {record.costs}")
+        return final_record_list
 
-        return mapping_record_list
-
-# class HybridMapper(Mapper):
-#     """
-#     混合方法映射器：根据问题规模动态选择
-#     """
-    
+# class NewDPMapper(Mapper):
 #     @property
 #     def name(self) -> str:
 #         """获取映射器名称"""
-#         return "HybridMapper"
+#         return "New DP Mapper"
 
 #     def map(self,
 #             mapping_record_list: MappingRecordList,
+#             circuit: QuantumCircuit,
 #             circuit_layers: list[Any],
-#             network: Network) -> MappingRecordList:
+#             network: Network
+#         ) -> MappingRecordList:
 #         start_time = time.time()
-        
-#         # 验证网络属性
-#         self._validate_network_attributes(network)
+#         k = len(mapping_record_list.records)
+#         n_physical = network.num_backends
 
-#         k = len(partition_plan)  # 时间片数量
-#         m = len(partition_plan[0]) # 第一个时间步的逻辑QPU数量
+#         # 所有可能的物理QPU排列（即映射状态）
+#         all_perms = list(itertools.permutations(range(n_physical)))
+#         num_states = len(all_perms)
 
-#         # TODO: 如果m较大，num_perms会非常大，需要限制或使用启发式方法
+#         # ---------- 预计算 local and telegate 成本（原有逻辑保持不变） ----------
+#         telegate_costs: list[list[ExecCosts]] = []
+#         for t in range(k):
+#             record = mapping_record_list.records[t]
+#             original_partition = record.partition
+#             subcircuit = CompilerUtils.get_subcircuit_by_level(
+#                 num_qubits=circuit.num_qubits,
+#                 circuit=circuit,
+#                 circuit_layers=circuit_layers,
+#                 layer_start=record.layer_start,
+#                 layer_end=record.layer_end
+#             )
+#             cost_list = []
+#             for perm in all_perms:
+#                 partition = [original_partition[idx] for idx in perm]
+#                 costs = CompilerUtils.evaluate_local_and_telegate(partition, subcircuit, network, optimization_level=0)
+#                 cost_list.append(costs)
+#             telegate_costs.append(cost_list)
 
-        
-#         # 生成所有可能的排列 (m!)
-#         all_perms = list(itertools.permutations(range(m)))
-#         num_perms = len(all_perms)
+#         # ---------- 优化后的：预计算 teledata 成本 ----------
+#         teledata_costs: list[list[list[ExecCosts]]] = []
+#         for t in range(k - 1):
+#             record_prev = mapping_record_list.records[t]
+#             record_curr = mapping_record_list.records[t+1]
+#             orig_part_prev = record_prev.partition
+#             orig_part_curr = record_curr.partition
 
-#         # dp[t][perm_idx] = 从时间步0到时间步t-1的最大保真度和
-#         dp = [[-float('inf')] * num_perms for _ in range(k)]
-#         # 路径记录: path[t][perm_idx] = 前一个时间步的排列索引
-#         path = [[-1] * num_perms for _ in range(k)]
-        
-#         # 初始化dp[0]：第一个时间步的fidelity loss
-#         # TODO: 假设
-#         for perm_idx, perm in enumerate(all_perms):
-#             dp[0][perm_idx] = evaluate_mapping(perm, partition_plan[0], network)
+#             # 【核心优化1】仅对原始分区运行1次图结构预计算
+#             D_move = self._compute_move_demand(orig_part_prev, orig_part_curr)
+
+#             # 【核心优化2】对每个排列，仅通过映射快速计算开销
+#             matrix: list[list[ExecCosts]] = [[ExecCosts()] * num_states for _ in range(num_states)]
+#             for prev_idx, perm_prev in enumerate(all_perms):
+#                 for curr_idx, perm_curr in enumerate(all_perms):
+#                     # 快速计算：图结构 + 物理映射 → 开销
+#                     costs = self._fast_evaluate_teledata(D_move, perm_prev, perm_curr, network)
+#                     matrix[prev_idx][curr_idx] = costs
+#             # print(f"[DEBUG] t: {t}, matrix: ")
+#             # pprint(matrix)
+#             teledata_costs.append(matrix)
+
+#         # ---------- 动态规划 ----------
+#         # dp[t][idx] 存储到时间片 t 状态 idx 的最小累计成本（元组：(fidelity_loss, num_comms)）
+#         # dp: list[list[tuple[float, int]]] = [[(float(inf), 9999999)] * num_states for _ in range(k)]
+#         dp: list[list[tuple[float, int]]] = [
+#             [(inf, -1) for _ in range(num_states)] for _ in range(k)
+#         ]
+#         # back[t][idx] 存储达到该状态的最优前一状态索引
+#         back: list[list[int]] = [[-1 for _ in range(num_states)] for _ in range(k)]
+
+#         # 初始化第一个时间片
+#         for idx in range(num_states):
+#             cost = telegate_costs[0][idx]
+#             dp[0][idx] = (cost.total_fidelity_loss, cost.num_comms)
+#             back[0][idx] = -1
+
+#         # 递推后续时间片
+#         for t in range(1, k):
+#             for curr_idx in range(num_states):
+#                 curr_telegate = telegate_costs[t][curr_idx]
+#                 curr_telegate_tuple = (curr_telegate.total_fidelity_loss, curr_telegate.num_comms)
+#                 best_cost = (inf, 0)
+#                 best_prev = -1
+#                 for prev_idx in range(num_states):
+#                     prev_cost = dp[t-1][prev_idx]
+#                     teledata_cost = teledata_costs[t-1][prev_idx][curr_idx]   # 从 t-1 到 t 的转移成本
+#                     # assert isinstance(prev_cost, tuple), f"Expected tuple, got {type(prev_cost)}"
+#                     # assert isinstance(tel, ExecCosts), f"Expected ExecCosts, got {type(tel)}"
+#                     tel_tuple = (teledata_cost.total_fidelity_loss, teledata_cost.num_comms)
+#                     total = (prev_cost[0] + curr_telegate_tuple[0] + tel_tuple[0],
+#                              prev_cost[1] + curr_telegate_tuple[1] + tel_tuple[1])
+#                     if total < best_cost:
+#                         best_cost = total
+#                         best_prev = prev_idx
+#                 dp[t][curr_idx] = best_cost
+#                 back[t][curr_idx] = best_prev
+
+#         # ---------- 回溯找到最优路径 ----------
+#         best_last = min(range(num_states), key=lambda i: dp[k-1][i])
+#         perm_indices = [0] * k
+#         perm_indices[k-1] = best_last
+#         for t in range(k-2, -1, -1):
+#             perm_indices[t] = back[t+1][perm_indices[t+1]]
+
+#         # ---------- 更新映射记录 ----------
+#         for t in range(k):
+#             record = mapping_record_list.records[t]
+#             perm = all_perms[perm_indices[t]]
+#             original_partition = record.partition
+            
+#             best_partition = [original_partition[idx] for idx in perm]
+#             record.partition = copy.deepcopy(best_partition)
+
+#             # 计算该时间片对应的成本对象
+
+#             # 获取子线路
+#             subcircuit = CompilerUtils.get_subcircuit_by_level(
+#                 num_qubits=circuit.num_qubits,
+#                 circuit=circuit,
+#                 circuit_layers=circuit_layers,
+#                 layer_start=record.layer_start,
+#                 layer_end=record.layer_end
+#             )
+#             # print(subcircuit)
+
+#             # 计算local和telegate损失
+#             record.costs = CompilerUtils.evaluate_local_and_telegate(record.partition, subcircuit, network)
+
+#         # for t in range(k):
+#         #     record = mapping_record_list.records[t]
+#         #     perm = all_perms[perm_indices[t]]
+#         #     original_partition = record.partition
+#         #     best_partition = [original_partition[idx] for idx in perm]
+#         #     record.partition = copy.deepcopy(best_partition)
+
+#         #     # 计算该时间片对应的成本对象
+#         #     record.costs = copy.deepcopy(telegate_costs[t][perm_indices[t]])
+
+#             if t != 0:
+#                 record.costs += teledata_costs[t-1][perm_indices[t-1]][perm_indices[t]]
+#                 # prev_record = mapping_record_list.records[t - 1]
+#                 # record.costs += CompilerUtils.evaluate_teledata(
+#                 #     prev_record.partition,
+#                 #     record.partition,
+#                 #     network
+#                 # )
 
 #         end_time = time.time()
-#         return {
-#             "partition_plan": partition_plan,
-#             "execution_time (sec)": end_time - start_time
-#         }
+#         print(f"[INFO] [Time] New DP Mapper completed in {end_time - start_time:.2f} seconds.")
+#         return mapping_record_list
 
-#     # 这里的evaluate mapping和真实的量子线路有关。
-#     # 实际上是要评估一段量子线路，在特定映射下的保真度损失。
-#     # 所以map函数的输入不能只是partition_plan，还需要量子线路的描述。
+
+# class LinkOrientedDPMapper(Mapper):
+#     @property
+#     def name(self) -> str:
+#         """获取映射器名称"""
+#         return "Link-Ori DP Mapper"
+    
+#     def map(self,
+#             mapping_record_list: MappingRecordList,
+#             circuit: QuantumCircuit,
+#             circuit_layers: list[Any],
+#             network: Network
+#         ) -> MappingRecordList:
+#         """
+#         使用动态规划为每个时间片选择最优的物理QPU映射（排列），
+#         使得所有时间片的通信相关成本最小。
+#         """
+#         start_time = time.time()
+
+#         k = len(mapping_record_list.records)          # 时间片数量
+#         n_physical = network.num_backends             # 物理QPU数量
+
+#         # 所有可能的物理QPU排列（即映射状态）
+#         all_perms = list(itertools.permutations(range(n_physical)))
+#         num_states = len(all_perms)
+
+#         # ---------- 预计算每个时间片各状态下的 telegate 成本 ----------
+#         telegate_costs: list[list[ExecCosts]] = [] # telegate_costs[t][idx] -> Costs 对象
+
+#         for t in range(k):
+#             record = mapping_record_list.records[t]
+#             original_partition = record.partition
+
+#             # 1. 统计每一对QPU间的远程操作数量
+#             D_hops = self._compute_hop_demand(
+#                 original_partition,
+#                 circuit,
+#                 circuit_layers,
+#                 record.layer_start,
+#                 record.layer_end
+#             )
+            
+#             # 2. 为每个排列计算 telegate 成本
+#             time_slice_costs = []
+#             for perm in all_perms:
+#                 telegate_cost = self._evaluate_hop_cost(network, D_hops, perm)
+#                 time_slice_costs.append(telegate_cost)
+            
+#             telegate_costs.append(time_slice_costs)
+
+#         # ---------- 预计算相邻时间片之间的 teledata 成本 ----------
+#         # 使用D_move来估算，不要调用CompilerUtils.evaluate_teledata
+#         teledata_costs: list[list[list[ExecCosts]]] = [] # teledata_costs[t][prev_idx][curr_idx] 对应从 t 到 t+1 的转移成本
+        
+#         for t in range(k - 1):  # 从 t 到 t+1 的转移，共 k-1 个转移
+#             record_current = mapping_record_list.records[t]
+#             record_next = mapping_record_list.records[t + 1]
+            
+#             # 计算D_move
+#             D_move = self._compute_move_demand(
+#                 record_current.partition,  # 原始分区（未排列）
+#                 record_next.partition     # 原始分区（未排列）
+#             )
+
+#             m_logical = D_move.shape[0]
+            
+#             transition_costs = []
+#             for prev_idx, prev_perm in enumerate(all_perms):
+#                 row_costs = []
+#                 for curr_idx, curr_perm in enumerate(all_perms):
+#                     # 无需重复计算D_move！只需将原始D_move映射到物理QPU
+#                     # 构建“原始逻辑QPU→物理QPU”的映射
+#                     # 计算该排列对的切换成本（直接基于原始D_move映射）
+#                     move_cost = self._evaluate_move_cost(
+#                         network,
+#                         D_move,
+#                         prev_perm,
+#                         curr_perm
+#                     )
+#                     row_costs.append(move_cost)
+#                 transition_costs.append(row_costs)
+#             teledata_costs.append(transition_costs)
+
+#         # ---------- 动态规划 ----------
+#         # dp[t][idx]：时间片t处于状态idx的最小累计成本（fidelity_loss, num_comms）
+#         dp = [[(inf, inf)] * num_states for _ in range(k)]
+#         # back[t][idx]：记录最优路径的前驱状态索引
+#         back = [[-1 for _ in range(num_states)] for _ in range(k)]
+
+#         # 初始化第一个时间片
+#         for idx in range(num_states):
+#             cost = telegate_costs[0][idx]
+#             dp[0][idx] = (cost.total_fidelity_loss, cost.num_comms)
+
+#         # 递推后续时间片
+#         for t in range(1, k):
+#             for curr_idx in range(num_states):
+#                 curr_telegate = telegate_costs[t][curr_idx]
+#                 curr_telegate_tuple = (curr_telegate.total_fidelity_loss, curr_telegate.num_comms)
+                
+#                 # 寻找最优前驱状态
+#                 best_cost = (inf, inf)
+#                 best_prev_idx = -1
+
+#                 for prev_idx in range(num_states):
+#                     # 前驱累计成本 + 当前telegate成本 + 转移成本
+#                     prev_total = dp[t-1][prev_idx]
+#                     transfer_cost = teledata_costs[t-1][prev_idx][curr_idx]
+#                     transfer_tuple = (transfer_cost.total_fidelity_loss, transfer_cost.num_comms)
+                    
+#                     # 计算总累计成本
+#                     total_loss = prev_total[0] + curr_telegate_tuple[0] + transfer_tuple[0]
+#                     total_comms = prev_total[1] + curr_telegate_tuple[1] + transfer_tuple[1]
+#                     total_cost = (total_loss, total_comms)
+                    
+#                     # 更新最优解（优先按保真度损失排序，其次通信次数）
+#                     if total_cost < best_cost:
+#                         best_cost = total_cost
+#                         best_prev_idx = prev_idx
+    
+#                 dp[t][curr_idx] = best_cost
+#                 back[t][curr_idx] = best_prev_idx
+
+#         # ---------- 回溯找到最优路径 ----------
+#         best_last = min(range(num_states), key=lambda i: dp[k-1][i])
+#         perm_indices = [0] * k
+#         perm_indices[k-1] = best_last
+
+#         # 反向推导最优路径
+#         for t in range(k-2, -1, -1):
+#             perm_indices[t] = back[t+1][perm_indices[t+1]]
+
+#         # ---------- 更新映射记录 ----------
+#         for t in range(k):
+#             record = mapping_record_list.records[t]
+#             perm = all_perms[perm_indices[t]]
+#             original_partition = record.partition
+            
+#             best_partition = [original_partition[idx] for idx in perm]
+#             record.partition = copy.deepcopy(best_partition)
+
+#             # 计算该时间片对应的成本对象
+
+#             # 获取子线路
+#             subcircuit = CompilerUtils.get_subcircuit_by_level(
+#                 num_qubits=circuit.num_qubits,
+#                 circuit=circuit,
+#                 circuit_layers=circuit_layers,
+#                 layer_start=record.layer_start,
+#                 layer_end=record.layer_end
+#             )
+#             # print(subcircuit)
+
+#             # 计算local和telegate损失
+#             record.costs = CompilerUtils.evaluate_local_and_telegate(record.partition, subcircuit, network)
+#             # print(f"[DEBUG] record.costs (local and telegate): {record.costs}")
+
+#             # 计算teledata损失
+#             if t != 0:
+#                 prev_record = mapping_record_list.records[t - 1]
+#                 record.costs += CompilerUtils.evaluate_teledata(
+#                     prev_record.partition,
+#                     record.partition,
+#                     network
+#                 )
+#                 # print(f"[DEBUG] record.costs (teledata): {record.costs}")
+
+#         # 输出耗时信息
+#         end_time = time.time()
+#         print(f"[INFO] [Time] Link-Oriented DP Mapper 完成，耗时 {end_time - start_time:.2f} 秒")
+
+#         # print("===================================================")
+#         # for record in mapping_record_list.records:
+#         #     print(f"[DEBUG] record.costs: {record.costs}")
+
+#         return mapping_record_list
 
 
 class MapperFactory:
     """映射器工厂类"""
     _registry = {
         "direct": "DirectMapper",
-        # "link_oriented": "LinkOrientedMapper",
-        # "exact": "ExactOptimizationMapper",
         "greedy": "GreedyMapper",
         "dp": "DPMapper",
-        "newdp": "NewDPMapper",
-        "linkdp": "LinkOrientedDPMapper"
+        "boundeddp": "BoundedDPMapper"
+        # "newdp": "NewDPMapper",
+        # "linkdp": "LinkOrientedDPMapper"
     }
     
     @classmethod

@@ -2,21 +2,22 @@
     "total_costs": {
         "num_comms": 100,
         "epairs": 182,
-        "total_fidelity_log_sum": -5.566338590851811,
-        "total_fidelity_loss": 5.484872898568053,
-        "geo_mean_fidelity": 0.9980224633869583,
-        "total_fidelity": 0.0038244577332002296,
-        "execution_time": 1.2499842643737793,
+        "total_fidelity_loss": 12.020783874584854,
+        "rgeo_mean_fid": 0.93,
+        "execution_time": 3.002919912338257,
+        "total_fidelity_log_sum": -12.283975611508772,
+        "total_fidelity": 4.6252709195809245e-06,
         "remote_hops": 18,
         "remote_swaps": 82,
-        "local_fidelity": 0.21523377550312286,
-        "remote_fidelity": 0.01776885493115712,
-        "local_fidelity_loss": 1.5347015456616895,
-        "remote_fidelity_loss": 3.9501713529063633,
-        "local_fidelity_log_sum": -1.536030513645821,
-        "remote_fidelity_log_sum": -4.03030807720599,
-        "local_gate_num": 2712
+        "local_fidelity_loss": 5.0207838745848585,
+        "remote_fidelity_loss": 6.999999999999995,
+        "local_fidelity_log_sum": -5.026906328025236,
+        "remote_fidelity_log_sum": -7.257069283483536,
+        "local_fidelity": 0.006559070828696957,
+        "remote_fidelity": 0.0007051716684236194,
+        "local_gate_num": 5684
     },
+    "num_records": 21,
     "records": [
         {
             "layer_start": 0,
@@ -51,20 +52,102 @@
             "costs": {
                 "num_comms": 0,
                 "epairs": 0,
-                "total_fidelity_log_sum": -0.08148409475456908,
                 "total_fidelity_loss": 0.08141349805269774,
-                "geo_mean_fidelity": 0.9994569202228714,
-                "total_fidelity": 0.9217473703554477,
+                "rgeo_mean_fid": 1.0,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.08148409475456908,
+                "total_fidelity": 0.9217473703554477,
                 "remote_hops": 0,
                 "remote_swaps": 0,
-                "local_fidelity": 0.9217473703554477,
-                "remote_fidelity": 1.0,
                 "local_fidelity_loss": 0.08141349805269774,
                 "remote_fidelity_loss": 0.0,
                 "local_fidelity_log_sum": -0.08148409475456908,
                 "remote_fidelity_log_sum": 0.0,
+                "local_fidelity": 0.9217473703554477,
+                "remote_fidelity": 1.0,
                 "local_gate_num": 150
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    0,
+                    3
+                ],
+                "16": [
+                    0,
+                    5
+                ],
+                "6": [
+                    0,
+                    4
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    7
+                ],
+                "1": [
+                    0,
+                    0
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    0,
+                    6
+                ],
+                "12": [
+                    0,
+                    2
+                ],
+                "11": [
+                    1,
+                    3
+                ],
+                "14": [
+                    1,
+                    4
+                ],
+                "15": [
+                    1,
+                    5
+                ],
+                "17": [
+                    1,
+                    7
+                ],
+                "18": [
+                    1,
+                    9
+                ],
+                "19": [
+                    1,
+                    8
+                ],
+                "0": [
+                    1,
+                    0
+                ],
+                "2": [
+                    1,
+                    1
+                ],
+                "3": [
+                    1,
+                    6
+                ],
+                "13": [
+                    1,
+                    2
+                ]
             },
             "extra_info": null
         },
@@ -101,20 +184,102 @@
             "costs": {
                 "num_comms": 4,
                 "epairs": 8,
-                "total_fidelity_log_sum": -0.24338990173846564,
-                "total_fidelity_loss": 0.24011371584852592,
-                "geo_mean_fidelity": 0.9983568251294251,
-                "total_fidelity": 0.7839657845509586,
+                "total_fidelity_loss": 0.5341081785140662,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.5446967596907177,
+                "total_fidelity": 0.5800176414038406,
                 "remote_hops": 0,
                 "remote_swaps": 4,
-                "local_fidelity": 0.9211083749903491,
-                "remote_fidelity": 0.8511113413328507,
-                "local_fidelity_loss": 0.08210686173227146,
-                "remote_fidelity_loss": 0.15800685411625448,
-                "local_fidelity_log_sum": -0.08217757865022604,
-                "remote_fidelity_log_sum": -0.1612123230882396,
-                "local_gate_num": 144
+                "local_fidelity_loss": 0.2541081785140665,
+                "remote_fidelity_loss": 0.2799999999999998,
+                "local_fidelity_log_sum": -0.2544139883513762,
+                "remote_fidelity_log_sum": -0.2902827713393415,
+                "local_fidelity": 0.7753707411384945,
+                "remote_fidelity": 0.7480520100000001,
+                "local_gate_num": 287
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    1,
+                    5
+                ],
+                "16": [
+                    0,
+                    5
+                ],
+                "6": [
+                    0,
+                    4
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    7
+                ],
+                "1": [
+                    1,
+                    8
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    1,
+                    1
+                ],
+                "12": [
+                    1,
+                    6
+                ],
+                "11": [
+                    1,
+                    3
+                ],
+                "14": [
+                    1,
+                    4
+                ],
+                "15": [
+                    0,
+                    3
+                ],
+                "17": [
+                    1,
+                    7
+                ],
+                "18": [
+                    1,
+                    9
+                ],
+                "19": [
+                    0,
+                    0
+                ],
+                "0": [
+                    1,
+                    0
+                ],
+                "2": [
+                    0,
+                    6
+                ],
+                "3": [
+                    0,
+                    2
+                ],
+                "13": [
+                    1,
+                    2
+                ]
             },
             "extra_info": null
         },
@@ -151,20 +316,102 @@
             "costs": {
                 "num_comms": 3,
                 "epairs": 6,
-                "total_fidelity_log_sum": -0.20300793428690145,
-                "total_fidelity_loss": 0.20053314119816937,
-                "geo_mean_fidelity": 0.9986199467947646,
-                "total_fidelity": 0.8162717648655448,
+                "total_fidelity_loss": 0.43148011650862655,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.43945224550832296,
+                "total_fidelity": 0.6443892915599648,
                 "remote_hops": 0,
                 "remote_swaps": 3,
-                "local_fidelity": 0.9211810410376697,
-                "remote_fidelity": 0.8861143776320567,
-                "local_fidelity_loss": 0.08202800061097851,
-                "remote_fidelity_loss": 0.11850514058719086,
-                "local_fidelity_log_sum": -0.08209869197072175,
-                "remote_fidelity_log_sum": -0.1209092423161797,
-                "local_gate_num": 144
+                "local_fidelity_loss": 0.2214801165086267,
+                "remote_fidelity_loss": 0.20999999999999985,
+                "local_fidelity_log_sum": -0.2217401670038168,
+                "remote_fidelity_log_sum": -0.21771207850450613,
+                "local_fidelity": 0.8011234956119792,
+                "remote_fidelity": 0.8043570000000001,
+                "local_gate_num": 263
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    1,
+                    5
+                ],
+                "16": [
+                    1,
+                    0
+                ],
+                "6": [
+                    1,
+                    2
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    7
+                ],
+                "1": [
+                    1,
+                    8
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    0,
+                    3
+                ],
+                "12": [
+                    1,
+                    6
+                ],
+                "11": [
+                    1,
+                    3
+                ],
+                "14": [
+                    1,
+                    4
+                ],
+                "15": [
+                    1,
+                    1
+                ],
+                "17": [
+                    1,
+                    7
+                ],
+                "18": [
+                    1,
+                    9
+                ],
+                "19": [
+                    0,
+                    0
+                ],
+                "0": [
+                    0,
+                    5
+                ],
+                "2": [
+                    0,
+                    6
+                ],
+                "3": [
+                    0,
+                    2
+                ],
+                "13": [
+                    0,
+                    4
+                ]
             },
             "extra_info": null
         },
@@ -201,20 +448,102 @@
             "costs": {
                 "num_comms": 4,
                 "epairs": 8,
-                "total_fidelity_log_sum": -0.24334448068658673,
-                "total_fidelity_loss": 0.24006830922517666,
-                "geo_mean_fidelity": 0.9983571315241827,
-                "total_fidelity": 0.7840013939102316,
+                "total_fidelity_loss": 0.6432853407277146,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.6540039173483888,
+                "total_fidelity": 0.5199597275898711,
                 "remote_hops": 0,
                 "remote_swaps": 4,
-                "local_fidelity": 0.9211502136518072,
-                "remote_fidelity": 0.8511113413328507,
-                "local_fidelity_loss": 0.08206145510892218,
-                "remote_fidelity_loss": 0.15800685411625448,
-                "local_fidelity_log_sum": -0.08213215759834713,
-                "remote_fidelity_log_sum": -0.1612123230882396,
-                "local_gate_num": 144
+                "local_fidelity_loss": 0.36328534072771473,
+                "remote_fidelity_loss": 0.2799999999999998,
+                "local_fidelity_log_sum": -0.3637211460090473,
+                "remote_fidelity_log_sum": -0.2902827713393415,
+                "local_fidelity": 0.6950849949455667,
+                "remote_fidelity": 0.7480520100000001,
+                "local_gate_num": 399
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    1,
+                    5
+                ],
+                "16": [
+                    0,
+                    0
+                ],
+                "6": [
+                    0,
+                    2
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    7
+                ],
+                "1": [
+                    0,
+                    6
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    0,
+                    3
+                ],
+                "12": [
+                    1,
+                    6
+                ],
+                "11": [
+                    1,
+                    3
+                ],
+                "14": [
+                    1,
+                    4
+                ],
+                "15": [
+                    1,
+                    1
+                ],
+                "17": [
+                    1,
+                    7
+                ],
+                "18": [
+                    0,
+                    4
+                ],
+                "19": [
+                    1,
+                    0
+                ],
+                "0": [
+                    0,
+                    5
+                ],
+                "2": [
+                    1,
+                    8
+                ],
+                "3": [
+                    1,
+                    2
+                ],
+                "13": [
+                    1,
+                    9
+                ]
             },
             "extra_info": null
         },
@@ -251,20 +580,102 @@
             "costs": {
                 "num_comms": 4,
                 "epairs": 8,
-                "total_fidelity_log_sum": -0.24393714080336654,
-                "total_fidelity_loss": 0.240660796264349,
-                "geo_mean_fidelity": 0.9983750740187548,
-                "total_fidelity": 0.7835368852140463,
+                "total_fidelity_loss": 0.4739605153962284,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.48445921097222583,
+                "total_fidelity": 0.6160302491001337,
                 "remote_hops": 0,
                 "remote_swaps": 4,
-                "local_fidelity": 0.920604446401828,
-                "remote_fidelity": 0.8511113413328507,
-                "local_fidelity_loss": 0.0826539421480945,
-                "remote_fidelity_loss": 0.15800685411625448,
-                "local_fidelity_log_sum": -0.08272481771512695,
-                "remote_fidelity_log_sum": -0.1612123230882396,
-                "local_gate_num": 146
+                "local_fidelity_loss": 0.1939605153962286,
+                "remote_fidelity_loss": 0.2799999999999998,
+                "local_fidelity_log_sum": -0.19417643963288433,
+                "remote_fidelity_log_sum": -0.2902827713393415,
+                "local_fidelity": 0.8235125911901949,
+                "remote_fidelity": 0.7480520100000001,
+                "local_gate_num": 240
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    0,
+                    0
+                ],
+                "16": [
+                    1,
+                    5
+                ],
+                "6": [
+                    0,
+                    2
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    7
+                ],
+                "1": [
+                    1,
+                    7
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    0,
+                    3
+                ],
+                "12": [
+                    1,
+                    6
+                ],
+                "11": [
+                    0,
+                    5
+                ],
+                "14": [
+                    1,
+                    4
+                ],
+                "15": [
+                    1,
+                    1
+                ],
+                "17": [
+                    0,
+                    6
+                ],
+                "18": [
+                    1,
+                    0
+                ],
+                "19": [
+                    0,
+                    4
+                ],
+                "0": [
+                    1,
+                    3
+                ],
+                "2": [
+                    1,
+                    8
+                ],
+                "3": [
+                    1,
+                    2
+                ],
+                "13": [
+                    1,
+                    9
+                ]
             },
             "extra_info": null
         },
@@ -301,20 +712,102 @@
             "costs": {
                 "num_comms": 3,
                 "epairs": 6,
-                "total_fidelity_log_sum": -0.20251418175260422,
-                "total_fidelity_loss": 0.2000394537765009,
-                "geo_mean_fidelity": 0.9985848192248827,
-                "total_fidelity": 0.8166749006345858,
+                "total_fidelity_loss": 0.5051972137970735,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.5132707019514944,
+                "total_fidelity": 0.5985347451500235,
                 "remote_hops": 0,
                 "remote_swaps": 3,
-                "local_fidelity": 0.9216359888177953,
-                "remote_fidelity": 0.8861143776320567,
-                "local_fidelity_loss": 0.08153431318931004,
-                "remote_fidelity_loss": 0.11850514058719086,
-                "local_fidelity_log_sum": -0.08160493943642451,
-                "remote_fidelity_log_sum": -0.1209092423161797,
-                "local_gate_num": 140
+                "local_fidelity_loss": 0.2951972137970736,
+                "remote_fidelity_loss": 0.20999999999999985,
+                "local_fidelity_log_sum": -0.2955586234469882,
+                "remote_fidelity_log_sum": -0.21771207850450613,
+                "local_fidelity": 0.7441157908118203,
+                "remote_fidelity": 0.8043570000000001,
+                "local_gate_num": 326
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    0,
+                    0
+                ],
+                "16": [
+                    1,
+                    5
+                ],
+                "6": [
+                    1,
+                    1
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    7
+                ],
+                "1": [
+                    1,
+                    7
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    0,
+                    3
+                ],
+                "12": [
+                    0,
+                    4
+                ],
+                "11": [
+                    0,
+                    5
+                ],
+                "14": [
+                    1,
+                    4
+                ],
+                "15": [
+                    0,
+                    2
+                ],
+                "17": [
+                    1,
+                    0
+                ],
+                "18": [
+                    0,
+                    6
+                ],
+                "19": [
+                    1,
+                    6
+                ],
+                "0": [
+                    1,
+                    3
+                ],
+                "2": [
+                    1,
+                    8
+                ],
+                "3": [
+                    1,
+                    2
+                ],
+                "13": [
+                    1,
+                    9
+                ]
             },
             "extra_info": null
         },
@@ -351,20 +844,102 @@
             "costs": {
                 "num_comms": 12,
                 "epairs": 18,
-                "total_fidelity_log_sum": -0.5432175175048825,
-                "total_fidelity_loss": 0.5335484650759553,
-                "geo_mean_fidelity": 0.995663688924943,
-                "total_fidelity": 0.5808762628655112,
+                "total_fidelity_loss": 1.045592398612269,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -1.0767191682504724,
+                "total_fidelity": 0.34071151110671444,
                 "remote_hops": 6,
                 "remote_swaps": 6,
-                "local_fidelity": 0.942159641233719,
-                "remote_fidelity": 0.616536983164422,
-                "local_fidelity_loss": 0.05952790272719193,
-                "remote_fidelity_loss": 0.47402056234876344,
-                "local_fidelity_log_sum": -0.05958054824016362,
-                "remote_fidelity_log_sum": -0.48363696926471883,
-                "local_gate_num": 113
+                "local_fidelity_loss": 0.20559239861226966,
+                "remote_fidelity_loss": 0.8399999999999994,
+                "local_fidelity_log_sum": -0.20587085423244791,
+                "remote_fidelity_log_sum": -0.8708483140180244,
+                "local_fidelity": 0.8139381861673186,
+                "remote_fidelity": 0.4185962974793709,
+                "local_gate_num": 223
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    1,
+                    9
+                ],
+                "16": [
+                    1,
+                    5
+                ],
+                "6": [
+                    1,
+                    1
+                ],
+                "7": [
+                    1,
+                    2
+                ],
+                "8": [
+                    0,
+                    7
+                ],
+                "1": [
+                    0,
+                    5
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    1,
+                    4
+                ],
+                "12": [
+                    1,
+                    6
+                ],
+                "11": [
+                    1,
+                    7
+                ],
+                "14": [
+                    0,
+                    3
+                ],
+                "15": [
+                    0,
+                    2
+                ],
+                "17": [
+                    0,
+                    6
+                ],
+                "18": [
+                    1,
+                    0
+                ],
+                "19": [
+                    0,
+                    4
+                ],
+                "0": [
+                    1,
+                    3
+                ],
+                "2": [
+                    1,
+                    8
+                ],
+                "3": [
+                    0,
+                    9
+                ],
+                "13": [
+                    0,
+                    0
+                ]
             },
             "extra_info": null
         },
@@ -401,20 +976,102 @@
             "costs": {
                 "num_comms": 6,
                 "epairs": 12,
-                "total_fidelity_log_sum": -0.3235717595745202,
-                "total_fidelity_loss": 0.31869283775070767,
-                "geo_mean_fidelity": 0.9977709586342691,
-                "total_fidelity": 0.7235600336992164,
+                "total_fidelity_loss": 0.7193846950417857,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.7351671230350247,
+                "total_fidelity": 0.4794253292632261,
                 "remote_hops": 0,
                 "remote_swaps": 6,
-                "local_fidelity": 0.9214992876163609,
-                "remote_fidelity": 0.7851986902462471,
-                "local_fidelity_loss": 0.08168255657632596,
-                "remote_fidelity_loss": 0.23701028117438172,
-                "local_fidelity_log_sum": -0.08175327494216082,
-                "remote_fidelity_log_sum": -0.24181848463235942,
-                "local_gate_num": 139
+                "local_fidelity_loss": 0.299384695041786,
+                "remote_fidelity_loss": 0.4199999999999997,
+                "local_fidelity_log_sum": -0.2997429660260125,
+                "remote_fidelity_log_sum": -0.4354241570090122,
+                "local_fidelity": 0.741008660606699,
+                "remote_fidelity": 0.6469901834490002,
+                "local_gate_num": 333
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    0,
+                    2
+                ],
+                "16": [
+                    1,
+                    5
+                ],
+                "6": [
+                    0,
+                    3
+                ],
+                "7": [
+                    0,
+                    4
+                ],
+                "8": [
+                    0,
+                    7
+                ],
+                "1": [
+                    0,
+                    5
+                ],
+                "4": [
+                    1,
+                    6
+                ],
+                "5": [
+                    1,
+                    4
+                ],
+                "12": [
+                    0,
+                    1
+                ],
+                "11": [
+                    0,
+                    9
+                ],
+                "14": [
+                    1,
+                    1
+                ],
+                "15": [
+                    1,
+                    9
+                ],
+                "17": [
+                    1,
+                    0
+                ],
+                "18": [
+                    0,
+                    6
+                ],
+                "19": [
+                    1,
+                    2
+                ],
+                "0": [
+                    1,
+                    3
+                ],
+                "2": [
+                    1,
+                    8
+                ],
+                "3": [
+                    1,
+                    7
+                ],
+                "13": [
+                    0,
+                    0
+                ]
             },
             "extra_info": null
         },
@@ -451,20 +1108,102 @@
             "costs": {
                 "num_comms": 4,
                 "epairs": 8,
-                "total_fidelity_log_sum": -0.2343382293820026,
-                "total_fidelity_loss": 0.23106895234115893,
-                "geo_mean_fidelity": 0.9982127575775862,
-                "total_fidelity": 0.7910941993380959,
+                "total_fidelity_loss": 0.5670466469405737,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.5776670944072076,
+                "total_fidelity": 0.5612060813906747,
                 "remote_hops": 0,
                 "remote_swaps": 4,
-                "local_fidelity": 0.9294837947984957,
-                "remote_fidelity": 0.8511113413328507,
-                "local_fidelity_loss": 0.07306209822490445,
-                "remote_fidelity_loss": 0.15800685411625448,
-                "local_fidelity_log_sum": -0.073125906293763,
-                "remote_fidelity_log_sum": -0.1612123230882396,
-                "local_gate_num": 127
+                "local_fidelity_loss": 0.2870466469405739,
+                "remote_fidelity_loss": 0.2799999999999998,
+                "local_fidelity_log_sum": -0.28738432306786615,
+                "remote_fidelity_log_sum": -0.2902827713393415,
+                "local_fidelity": 0.7502233452867464,
+                "remote_fidelity": 0.7480520100000001,
+                "local_gate_num": 320
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    1,
+                    7
+                ],
+                "16": [
+                    1,
+                    5
+                ],
+                "6": [
+                    0,
+                    3
+                ],
+                "7": [
+                    0,
+                    4
+                ],
+                "8": [
+                    1,
+                    8
+                ],
+                "1": [
+                    0,
+                    5
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    1,
+                    4
+                ],
+                "12": [
+                    1,
+                    6
+                ],
+                "11": [
+                    0,
+                    9
+                ],
+                "14": [
+                    0,
+                    0
+                ],
+                "15": [
+                    1,
+                    9
+                ],
+                "17": [
+                    1,
+                    0
+                ],
+                "18": [
+                    0,
+                    6
+                ],
+                "19": [
+                    1,
+                    2
+                ],
+                "0": [
+                    1,
+                    3
+                ],
+                "2": [
+                    0,
+                    7
+                ],
+                "3": [
+                    0,
+                    2
+                ],
+                "13": [
+                    1,
+                    1
+                ]
             },
             "extra_info": null
         },
@@ -501,20 +1240,102 @@
             "costs": {
                 "num_comms": 4,
                 "epairs": 8,
-                "total_fidelity_log_sum": -0.2351636805042458,
-                "total_fidelity_loss": 0.2318941201293953,
-                "geo_mean_fidelity": 0.998233414279012,
-                "total_fidelity": 0.7904414591830622,
+                "total_fidelity_loss": 0.5713718952745831,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.5820374138598285,
+                "total_fidelity": 0.5587587831689754,
                 "remote_hops": 0,
                 "remote_swaps": 4,
-                "local_fidelity": 0.9287168679308412,
-                "remote_fidelity": 0.8511113413328507,
-                "local_fidelity_loss": 0.07388726601314084,
-                "remote_fidelity_loss": 0.15800685411625448,
-                "local_fidelity_log_sum": -0.07395135741600621,
-                "remote_fidelity_log_sum": -0.1612123230882396,
-                "local_gate_num": 129
+                "local_fidelity_loss": 0.2913718952745833,
+                "remote_fidelity_loss": 0.2799999999999998,
+                "local_fidelity_log_sum": -0.2917546425204871,
+                "remote_fidelity_log_sum": -0.2902827713393415,
+                "local_fidelity": 0.7469517836988037,
+                "remote_fidelity": 0.7480520100000001,
+                "local_gate_num": 307
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    0,
+                    2
+                ],
+                "16": [
+                    0,
+                    0
+                ],
+                "6": [
+                    1,
+                    1
+                ],
+                "7": [
+                    0,
+                    4
+                ],
+                "8": [
+                    0,
+                    6
+                ],
+                "1": [
+                    0,
+                    5
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    1,
+                    4
+                ],
+                "12": [
+                    1,
+                    6
+                ],
+                "11": [
+                    0,
+                    9
+                ],
+                "14": [
+                    1,
+                    5
+                ],
+                "15": [
+                    1,
+                    9
+                ],
+                "17": [
+                    1,
+                    0
+                ],
+                "18": [
+                    1,
+                    8
+                ],
+                "19": [
+                    1,
+                    2
+                ],
+                "0": [
+                    1,
+                    3
+                ],
+                "2": [
+                    0,
+                    7
+                ],
+                "3": [
+                    1,
+                    7
+                ],
+                "13": [
+                    0,
+                    3
+                ]
             },
             "extra_info": null
         },
@@ -551,20 +1372,102 @@
             "costs": {
                 "num_comms": 4,
                 "epairs": 8,
-                "total_fidelity_log_sum": -0.24281235474838264,
-                "total_fidelity_loss": 0.2395362537246465,
-                "geo_mean_fidelity": 0.9982915149648018,
-                "total_fidelity": 0.7844186924053484,
+                "total_fidelity_loss": 0.49319159896305065,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.503735541500673,
+                "total_fidelity": 0.604269165843738,
                 "remote_hops": 0,
                 "remote_swaps": 4,
-                "local_fidelity": 0.9216405120121408,
-                "remote_fidelity": 0.8511113413328507,
-                "local_fidelity_loss": 0.08152939960839199,
-                "remote_fidelity_loss": 0.15800685411625448,
-                "local_fidelity_log_sum": -0.08160003166014305,
-                "remote_fidelity_log_sum": -0.1612123230882396,
-                "local_gate_num": 138
+                "local_fidelity_loss": 0.21319159896305082,
+                "remote_fidelity_loss": 0.2799999999999998,
+                "local_fidelity_log_sum": -0.21345277016133152,
+                "remote_fidelity_log_sum": -0.2902827713393415,
+                "local_fidelity": 0.8077903110556951,
+                "remote_fidelity": 0.7480520100000001,
+                "local_gate_num": 243
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    1,
+                    1
+                ],
+                "16": [
+                    1,
+                    2
+                ],
+                "6": [
+                    0,
+                    2
+                ],
+                "7": [
+                    0,
+                    4
+                ],
+                "8": [
+                    0,
+                    6
+                ],
+                "1": [
+                    1,
+                    7
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    0,
+                    7
+                ],
+                "12": [
+                    1,
+                    6
+                ],
+                "11": [
+                    0,
+                    9
+                ],
+                "14": [
+                    1,
+                    5
+                ],
+                "15": [
+                    1,
+                    9
+                ],
+                "17": [
+                    1,
+                    0
+                ],
+                "18": [
+                    1,
+                    8
+                ],
+                "19": [
+                    0,
+                    0
+                ],
+                "0": [
+                    1,
+                    3
+                ],
+                "2": [
+                    1,
+                    4
+                ],
+                "3": [
+                    0,
+                    5
+                ],
+                "13": [
+                    0,
+                    3
+                ]
             },
             "extra_info": null
         },
@@ -601,20 +1504,102 @@
             "costs": {
                 "num_comms": 9,
                 "epairs": 12,
-                "total_fidelity_log_sum": -0.42951661711612366,
-                "total_fidelity_loss": 0.42224679685790023,
-                "geo_mean_fidelity": 0.9967513744739865,
-                "total_fidelity": 0.6508236156964153,
+                "total_fidelity_loss": 0.9437952833761656,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.9673195856734071,
+                "total_fidelity": 0.38010050071120116,
                 "remote_hops": 6,
                 "remote_swaps": 3,
-                "local_fidelity": 0.9353926510800646,
-                "remote_fidelity": 0.6957758487250594,
-                "local_fidelity_loss": 0.06673137509632762,
-                "remote_fidelity_loss": 0.3555154217615726,
-                "local_fidelity_log_sum": -0.06678889016758453,
-                "remote_fidelity_log_sum": -0.3627277269485391,
-                "local_gate_num": 123
+                "local_fidelity_loss": 0.31379528337616597,
+                "remote_fidelity_loss": 0.6299999999999996,
+                "local_fidelity_log_sum": -0.31418335015988874,
+                "remote_fidelity_log_sum": -0.6531362355135184,
+                "local_fidelity": 0.7303850996570912,
+                "remote_fidelity": 0.5204110829884875,
+                "local_gate_num": 339
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    0,
+                    4
+                ],
+                "16": [
+                    0,
+                    3
+                ],
+                "6": [
+                    0,
+                    2
+                ],
+                "7": [
+                    1,
+                    1
+                ],
+                "8": [
+                    0,
+                    6
+                ],
+                "1": [
+                    1,
+                    7
+                ],
+                "4": [
+                    1,
+                    3
+                ],
+                "5": [
+                    0,
+                    7
+                ],
+                "12": [
+                    1,
+                    6
+                ],
+                "11": [
+                    0,
+                    9
+                ],
+                "14": [
+                    1,
+                    5
+                ],
+                "15": [
+                    1,
+                    9
+                ],
+                "17": [
+                    1,
+                    0
+                ],
+                "18": [
+                    1,
+                    8
+                ],
+                "19": [
+                    0,
+                    0
+                ],
+                "0": [
+                    0,
+                    1
+                ],
+                "2": [
+                    1,
+                    4
+                ],
+                "3": [
+                    0,
+                    5
+                ],
+                "13": [
+                    1,
+                    2
+                ]
             },
             "extra_info": null
         },
@@ -651,20 +1636,102 @@
             "costs": {
                 "num_comms": 5,
                 "epairs": 10,
-                "total_fidelity_log_sum": -0.28284639028353886,
-                "total_fidelity_loss": 0.27876896572340804,
-                "geo_mean_fidelity": 0.998024008062469,
-                "total_fidelity": 0.7536355447111395,
+                "total_fidelity_loss": 0.5964698453580078,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.6096223366017518,
+                "total_fidelity": 0.5435561115640042,
                 "remote_hops": 0,
                 "remote_swaps": 5,
-                "local_fidelity": 0.9218885083616579,
-                "remote_fidelity": 0.8174909849461833,
-                "local_fidelity_loss": 0.08126039807808996,
-                "remote_fidelity_loss": 0.1975085676453181,
-                "local_fidelity_log_sum": -0.08133098642323938,
-                "remote_fidelity_log_sum": -0.2015154038602995,
-                "local_gate_num": 138
+                "local_fidelity_loss": 0.2464698453580081,
+                "remote_fidelity_loss": 0.34999999999999976,
+                "local_fidelity_log_sum": -0.24676887242757498,
+                "remote_fidelity_log_sum": -0.36285346417417685,
+                "local_fidelity": 0.7813212575494528,
+                "remote_fidelity": 0.6956883693000001,
+                "local_gate_num": 278
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    1,
+                    7
+                ],
+                "16": [
+                    1,
+                    9
+                ],
+                "6": [
+                    0,
+                    2
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    6
+                ],
+                "1": [
+                    0,
+                    4
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    0,
+                    7
+                ],
+                "12": [
+                    1,
+                    6
+                ],
+                "11": [
+                    1,
+                    1
+                ],
+                "14": [
+                    1,
+                    5
+                ],
+                "15": [
+                    0,
+                    3
+                ],
+                "17": [
+                    1,
+                    0
+                ],
+                "18": [
+                    0,
+                    0
+                ],
+                "19": [
+                    1,
+                    8
+                ],
+                "0": [
+                    1,
+                    3
+                ],
+                "2": [
+                    1,
+                    4
+                ],
+                "3": [
+                    0,
+                    5
+                ],
+                "13": [
+                    1,
+                    2
+                ]
             },
             "extra_info": null
         },
@@ -701,20 +1768,102 @@
             "costs": {
                 "num_comms": 5,
                 "epairs": 10,
-                "total_fidelity_log_sum": -0.2756470381945547,
-                "total_fidelity_loss": 0.2715760613415825,
-                "geo_mean_fidelity": 0.9979450468640221,
-                "total_fidelity": 0.75908081001607,
+                "total_fidelity_loss": 0.5570521525791411,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.5701542238464802,
+                "total_fidelity": 0.5654382279162624,
                 "remote_hops": 0,
                 "remote_swaps": 5,
-                "local_fidelity": 0.9285494568065988,
-                "remote_fidelity": 0.8174909849461833,
-                "local_fidelity_loss": 0.07406749369626443,
-                "remote_fidelity_loss": 0.1975085676453181,
-                "local_fidelity_log_sum": -0.07413163433425522,
-                "remote_fidelity_log_sum": -0.2015154038602995,
-                "local_gate_num": 129
+                "local_fidelity_loss": 0.20705215257914134,
+                "remote_fidelity_loss": 0.34999999999999976,
+                "local_fidelity_log_sum": -0.20730075967230335,
+                "remote_fidelity_log_sum": -0.36285346417417685,
+                "local_fidelity": 0.8127751632317857,
+                "remote_fidelity": 0.6956883693000001,
+                "local_gate_num": 242
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    1,
+                    7
+                ],
+                "16": [
+                    0,
+                    7
+                ],
+                "6": [
+                    1,
+                    6
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    6
+                ],
+                "1": [
+                    1,
+                    3
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    1,
+                    9
+                ],
+                "12": [
+                    0,
+                    2
+                ],
+                "11": [
+                    1,
+                    1
+                ],
+                "14": [
+                    0,
+                    3
+                ],
+                "15": [
+                    1,
+                    5
+                ],
+                "17": [
+                    1,
+                    0
+                ],
+                "18": [
+                    1,
+                    4
+                ],
+                "19": [
+                    1,
+                    8
+                ],
+                "0": [
+                    0,
+                    4
+                ],
+                "2": [
+                    0,
+                    0
+                ],
+                "3": [
+                    0,
+                    5
+                ],
+                "13": [
+                    1,
+                    2
+                ]
             },
             "extra_info": null
         },
@@ -751,20 +1900,102 @@
             "costs": {
                 "num_comms": 9,
                 "epairs": 12,
-                "total_fidelity_log_sum": -0.4293552086390354,
-                "total_fidelity_loss": 0.4220854227215187,
-                "geo_mean_fidelity": 0.9967769704954094,
-                "total_fidelity": 0.650928672623389,
+                "total_fidelity_loss": 0.8817296253842902,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.905167664301537,
+                "total_fidelity": 0.4044740635561958,
                 "remote_hops": 6,
                 "remote_swaps": 3,
-                "local_fidelity": 0.9355436435687609,
-                "remote_fidelity": 0.6957758487250594,
-                "local_fidelity_loss": 0.06657000095994615,
-                "remote_fidelity_loss": 0.3555154217615726,
-                "local_fidelity_log_sum": -0.06662748169049632,
-                "remote_fidelity_log_sum": -0.3627277269485391,
-                "local_gate_num": 124
+                "local_fidelity_loss": 0.25172962538429067,
+                "remote_fidelity_loss": 0.6299999999999996,
+                "local_fidelity_log_sum": -0.2520314287880186,
+                "remote_fidelity_log_sum": -0.6531362355135184,
+                "local_fidelity": 0.7772203105927004,
+                "remote_fidelity": 0.5204110829884875,
+                "local_gate_num": 288
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    0,
+                    9
+                ],
+                "16": [
+                    0,
+                    7
+                ],
+                "6": [
+                    1,
+                    6
+                ],
+                "7": [
+                    1,
+                    7
+                ],
+                "8": [
+                    0,
+                    6
+                ],
+                "1": [
+                    1,
+                    3
+                ],
+                "4": [
+                    1,
+                    1
+                ],
+                "5": [
+                    1,
+                    9
+                ],
+                "12": [
+                    1,
+                    5
+                ],
+                "11": [
+                    0,
+                    1
+                ],
+                "14": [
+                    0,
+                    3
+                ],
+                "15": [
+                    0,
+                    2
+                ],
+                "17": [
+                    1,
+                    0
+                ],
+                "18": [
+                    1,
+                    4
+                ],
+                "19": [
+                    1,
+                    8
+                ],
+                "0": [
+                    0,
+                    4
+                ],
+                "2": [
+                    0,
+                    0
+                ],
+                "3": [
+                    0,
+                    5
+                ],
+                "13": [
+                    1,
+                    2
+                ]
             },
             "extra_info": null
         },
@@ -801,20 +2032,102 @@
             "costs": {
                 "num_comms": 4,
                 "epairs": 8,
-                "total_fidelity_log_sum": -0.23510200778450463,
-                "total_fidelity_loss": 0.23183254459425695,
-                "geo_mean_fidelity": 0.9982728020923574,
-                "total_fidelity": 0.7904902093609086,
+                "total_fidelity_loss": 0.4961912413940891,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.5067307438745132,
+                "total_fidelity": 0.6024619652206303,
                 "remote_hops": 0,
                 "remote_swaps": 4,
-                "local_fidelity": 0.9287741461921907,
-                "remote_fidelity": 0.8511113413328507,
-                "local_fidelity_loss": 0.07382569047800247,
-                "remote_fidelity_loss": 0.15800685411625448,
-                "local_fidelity_log_sum": -0.07388968469626503,
-                "remote_fidelity_log_sum": -0.1612123230882396,
-                "local_gate_num": 132
+                "local_fidelity_loss": 0.2161912413940893,
+                "remote_fidelity_loss": 0.2799999999999998,
+                "local_fidelity_log_sum": -0.2164479725351717,
+                "remote_fidelity_log_sum": -0.2902827713393415,
+                "local_fidelity": 0.805374435422786,
+                "remote_fidelity": 0.7480520100000001,
+                "local_gate_num": 255
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    1,
+                    7
+                ],
+                "16": [
+                    1,
+                    9
+                ],
+                "6": [
+                    0,
+                    2
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    6
+                ],
+                "1": [
+                    1,
+                    3
+                ],
+                "4": [
+                    1,
+                    1
+                ],
+                "5": [
+                    0,
+                    7
+                ],
+                "12": [
+                    1,
+                    5
+                ],
+                "11": [
+                    1,
+                    2
+                ],
+                "14": [
+                    0,
+                    3
+                ],
+                "15": [
+                    1,
+                    6
+                ],
+                "17": [
+                    1,
+                    0
+                ],
+                "18": [
+                    1,
+                    4
+                ],
+                "19": [
+                    1,
+                    8
+                ],
+                "0": [
+                    0,
+                    4
+                ],
+                "2": [
+                    0,
+                    0
+                ],
+                "3": [
+                    0,
+                    5
+                ],
+                "13": [
+                    0,
+                    1
+                ]
             },
             "extra_info": null
         },
@@ -851,20 +2164,102 @@
             "costs": {
                 "num_comms": 5,
                 "epairs": 10,
-                "total_fidelity_log_sum": -0.27522542072588946,
-                "total_fidelity_loss": 0.2711546902192627,
-                "geo_mean_fidelity": 0.997978330004391,
-                "total_fidelity": 0.759400919222776,
+                "total_fidelity_loss": 0.5293820961586703,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.542448970888904,
+                "total_fidelity": 0.5813228649469143,
                 "remote_hops": 0,
                 "remote_swaps": 5,
-                "local_fidelity": 0.9289410320197824,
-                "remote_fidelity": 0.8174909849461833,
-                "local_fidelity_loss": 0.07364612257394461,
-                "remote_fidelity_loss": 0.1975085676453181,
-                "local_fidelity_log_sum": -0.07371001686558996,
-                "remote_fidelity_log_sum": -0.2015154038602995,
-                "local_gate_num": 131
+                "local_fidelity_loss": 0.17938209615867048,
+                "remote_fidelity_loss": 0.34999999999999976,
+                "local_fidelity_log_sum": -0.17959550671472718,
+                "remote_fidelity_log_sum": -0.36285346417417685,
+                "local_fidelity": 0.8356081409436814,
+                "remote_fidelity": 0.6956883693000001,
+                "local_gate_num": 219
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    0,
+                    1
+                ],
+                "16": [
+                    1,
+                    9
+                ],
+                "6": [
+                    1,
+                    3
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    6
+                ],
+                "1": [
+                    0,
+                    2
+                ],
+                "4": [
+                    1,
+                    1
+                ],
+                "5": [
+                    1,
+                    0
+                ],
+                "12": [
+                    1,
+                    5
+                ],
+                "11": [
+                    1,
+                    2
+                ],
+                "14": [
+                    1,
+                    4
+                ],
+                "15": [
+                    1,
+                    6
+                ],
+                "17": [
+                    0,
+                    7
+                ],
+                "18": [
+                    0,
+                    3
+                ],
+                "19": [
+                    0,
+                    5
+                ],
+                "0": [
+                    0,
+                    4
+                ],
+                "2": [
+                    0,
+                    0
+                ],
+                "3": [
+                    1,
+                    8
+                ],
+                "13": [
+                    1,
+                    7
+                ]
             },
             "extra_info": null
         },
@@ -901,20 +2296,102 @@
             "costs": {
                 "num_comms": 5,
                 "epairs": 10,
-                "total_fidelity_log_sum": -0.2829994986148686,
-                "total_fidelity_loss": 0.2789220656980158,
-                "geo_mean_fidelity": 0.9980090303990208,
-                "total_fidelity": 0.75352016566343,
+                "total_fidelity_loss": 0.685524612328024,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.6987951990103133,
+                "total_fidelity": 0.49718395080972744,
                 "remote_hops": 0,
                 "remote_swaps": 5,
-                "local_fidelity": 0.9217473703554485,
-                "remote_fidelity": 0.8174909849461833,
-                "local_fidelity_loss": 0.08141349805269774,
-                "remote_fidelity_loss": 0.1975085676453181,
-                "local_fidelity_log_sum": -0.0814840947545691,
-                "remote_fidelity_log_sum": -0.2015154038602995,
-                "local_gate_num": 137
+                "local_fidelity_loss": 0.3355246123280242,
+                "remote_fidelity_loss": 0.34999999999999976,
+                "local_fidelity_log_sum": -0.33594173483613643,
+                "remote_fidelity_log_sum": -0.36285346417417685,
+                "local_fidelity": 0.7146647446614534,
+                "remote_fidelity": 0.6956883693000001,
+                "local_gate_num": 357
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    8
+                ],
+                "10": [
+                    0,
+                    1
+                ],
+                "16": [
+                    1,
+                    9
+                ],
+                "6": [
+                    0,
+                    2
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    6
+                ],
+                "1": [
+                    1,
+                    3
+                ],
+                "4": [
+                    0,
+                    5
+                ],
+                "5": [
+                    0,
+                    4
+                ],
+                "12": [
+                    1,
+                    5
+                ],
+                "11": [
+                    0,
+                    0
+                ],
+                "14": [
+                    1,
+                    4
+                ],
+                "15": [
+                    1,
+                    6
+                ],
+                "17": [
+                    0,
+                    7
+                ],
+                "18": [
+                    1,
+                    7
+                ],
+                "19": [
+                    1,
+                    1
+                ],
+                "0": [
+                    1,
+                    0
+                ],
+                "2": [
+                    1,
+                    2
+                ],
+                "3": [
+                    1,
+                    8
+                ],
+                "13": [
+                    0,
+                    3
+                ]
             },
             "extra_info": null
         },
@@ -951,20 +2428,102 @@
             "costs": {
                 "num_comms": 4,
                 "epairs": 8,
-                "total_fidelity_log_sum": -0.2427076346806954,
-                "total_fidelity_loss": 0.23943156545137534,
-                "geo_mean_fidelity": 0.9983275543420976,
-                "total_fidelity": 0.7845008410851452,
+                "total_fidelity_loss": 0.5461294249882773,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.5567550151759181,
+                "total_fidelity": 0.5730656392427385,
                 "remote_hops": 0,
                 "remote_swaps": 4,
-                "local_fidelity": 0.9217370313226085,
-                "remote_fidelity": 0.8511113413328507,
-                "local_fidelity_loss": 0.08142471133512087,
-                "remote_fidelity_loss": 0.15800685411625448,
-                "local_fidelity_log_sum": -0.0814953115924558,
-                "remote_fidelity_log_sum": -0.1612123230882396,
-                "local_gate_num": 141
+                "local_fidelity_loss": 0.2661294249882776,
+                "remote_fidelity_loss": 0.2799999999999998,
+                "local_fidelity_log_sum": -0.2664722438365766,
+                "remote_fidelity_log_sum": -0.2902827713393415,
+                "local_fidelity": 0.7660772667969148,
+                "remote_fidelity": 0.7480520100000001,
+                "local_gate_num": 287
+            },
+            "logical_phy_map": {
+                "9": [
+                    1,
+                    3
+                ],
+                "10": [
+                    0,
+                    1
+                ],
+                "16": [
+                    1,
+                    9
+                ],
+                "6": [
+                    0,
+                    2
+                ],
+                "7": [
+                    1,
+                    0
+                ],
+                "8": [
+                    0,
+                    6
+                ],
+                "1": [
+                    0,
+                    8
+                ],
+                "4": [
+                    0,
+                    5
+                ],
+                "5": [
+                    1,
+                    1
+                ],
+                "12": [
+                    1,
+                    5
+                ],
+                "11": [
+                    1,
+                    4
+                ],
+                "14": [
+                    0,
+                    0
+                ],
+                "15": [
+                    1,
+                    6
+                ],
+                "17": [
+                    0,
+                    7
+                ],
+                "18": [
+                    1,
+                    7
+                ],
+                "19": [
+                    0,
+                    4
+                ],
+                "0": [
+                    0,
+                    9
+                ],
+                "2": [
+                    1,
+                    2
+                ],
+                "3": [
+                    1,
+                    8
+                ],
+                "13": [
+                    0,
+                    3
+                ]
             },
             "extra_info": null
         },
@@ -1001,20 +2560,102 @@
             "costs": {
                 "num_comms": 6,
                 "epairs": 12,
-                "total_fidelity_log_sum": -0.3150741176693611,
-                "total_fidelity_loss": 0.3102020205193218,
-                "geo_mean_fidelity": 0.9976159213067413,
-                "total_fidelity": 0.7297347860230425,
+                "total_fidelity_loss": 0.7172161551485547,
+                "rgeo_mean_fid": 0.93,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.7330270611202412,
+                "total_fidelity": 0.4804524277865836,
                 "remote_hops": 0,
                 "remote_swaps": 6,
-                "local_fidelity": 0.9293632237137196,
-                "remote_fidelity": 0.7851986902462471,
-                "local_fidelity_loss": 0.07319173934494004,
-                "remote_fidelity_loss": 0.23701028117438172,
-                "local_fidelity_log_sum": -0.07325563303700167,
-                "remote_fidelity_log_sum": -0.24181848463235942,
-                "local_gate_num": 126
+                "local_fidelity_loss": 0.297216155148555,
+                "remote_fidelity_loss": 0.4199999999999997,
+                "local_fidelity_log_sum": -0.29760290411122897,
+                "remote_fidelity_log_sum": -0.4354241570090122,
+                "local_fidelity": 0.7425961630907123,
+                "remote_fidelity": 0.6469901834490002,
+                "local_gate_num": 311
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    3
+                ],
+                "10": [
+                    1,
+                    4
+                ],
+                "16": [
+                    0,
+                    0
+                ],
+                "6": [
+                    0,
+                    2
+                ],
+                "7": [
+                    1,
+                    0
+                ],
+                "8": [
+                    1,
+                    2
+                ],
+                "1": [
+                    0,
+                    8
+                ],
+                "4": [
+                    0,
+                    5
+                ],
+                "5": [
+                    1,
+                    1
+                ],
+                "12": [
+                    0,
+                    4
+                ],
+                "11": [
+                    0,
+                    1
+                ],
+                "14": [
+                    1,
+                    9
+                ],
+                "15": [
+                    1,
+                    6
+                ],
+                "17": [
+                    1,
+                    7
+                ],
+                "18": [
+                    0,
+                    7
+                ],
+                "19": [
+                    1,
+                    5
+                ],
+                "0": [
+                    0,
+                    9
+                ],
+                "2": [
+                    0,
+                    6
+                ],
+                "3": [
+                    1,
+                    8
+                ],
+                "13": [
+                    1,
+                    3
+                ]
             },
             "extra_info": null
         },
@@ -1051,20 +2692,102 @@
             "costs": {
                 "num_comms": 0,
                 "epairs": 0,
-                "total_fidelity_log_sum": -0.0010833814067116399,
-                "total_fidelity_loss": 0.001083222054125889,
-                "geo_mean_fidelity": 0.9999362737125642,
-                "total_fidelity": 0.9989172052390517,
+                "total_fidelity_loss": 0.001261340040964155,
+                "rgeo_mean_fid": 1.0,
                 "execution_time": 0.0,
+                "total_fidelity_log_sum": -0.0012615397367827747,
+                "total_fidelity": 0.9987392556699567,
                 "remote_hops": 0,
                 "remote_swaps": 0,
-                "local_fidelity": 0.9989172052390517,
-                "remote_fidelity": 1.0,
-                "local_fidelity_loss": 0.001083222054125889,
+                "local_fidelity_loss": 0.001261340040964155,
                 "remote_fidelity_loss": 0.0,
-                "local_fidelity_log_sum": -0.0010833814067116399,
+                "local_fidelity_log_sum": -0.0012615397367827747,
                 "remote_fidelity_log_sum": 0.0,
+                "local_fidelity": 0.9987392556699567,
+                "remote_fidelity": 1.0,
                 "local_gate_num": 17
+            },
+            "logical_phy_map": {
+                "9": [
+                    0,
+                    3
+                ],
+                "10": [
+                    1,
+                    4
+                ],
+                "16": [
+                    0,
+                    0
+                ],
+                "6": [
+                    0,
+                    2
+                ],
+                "7": [
+                    1,
+                    0
+                ],
+                "8": [
+                    1,
+                    2
+                ],
+                "1": [
+                    0,
+                    8
+                ],
+                "4": [
+                    0,
+                    5
+                ],
+                "5": [
+                    1,
+                    1
+                ],
+                "12": [
+                    0,
+                    4
+                ],
+                "11": [
+                    0,
+                    1
+                ],
+                "14": [
+                    1,
+                    9
+                ],
+                "15": [
+                    1,
+                    6
+                ],
+                "17": [
+                    1,
+                    7
+                ],
+                "18": [
+                    0,
+                    7
+                ],
+                "19": [
+                    1,
+                    5
+                ],
+                "0": [
+                    0,
+                    9
+                ],
+                "2": [
+                    0,
+                    6
+                ],
+                "3": [
+                    1,
+                    8
+                ],
+                "13": [
+                    1,
+                    3
+                ]
             },
             "extra_info": null
         }

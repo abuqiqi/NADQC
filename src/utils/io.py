@@ -41,7 +41,7 @@ def get_args():
                         help='Capacity of each QPU (comma-separated integers, e.g., "4" or "4,6,8")')
     parser.add_argument('--backend_name', '-bname', type=parse_str_list, required=False, default=['ibm_torino'],
                         help='Name of the backend (comma-separated strings, e.g., "ibm_torino" or "ibm_torino,ibm_osaka")')
-    parser.add_argument('--date', '-date', type=parse_str_list, required=False, default=['2025-11-09'],
+    parser.add_argument('--date', '-date', type=parse_str_list, required=False, default=['2026-03-01'],
                         help='Date of the backend properties (comma-separated strings in YYYY-MM-DD format, e.g., "2025-11-09" or "2025-11-09,2025-11-10")')
     
     parser.add_argument('--network', '-net', type=str, required=False, default='all_to_all',

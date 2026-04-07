@@ -9,6 +9,7 @@ import datetime
 from .oee import OEE
 from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
+from ..navi import MapperFactory
 
 class FGPrOEE(Compiler):
     """
@@ -40,11 +41,16 @@ class FGPrOEE(Compiler):
         # print(f"[DEBUG] network.Hops: {network.Hops}\n")
 
         start_time = time.time()
-        iteration_count = config.get("iteration", 50) if config else 50
+        iteration_count = config.get("iteration", 10) if config else 10
         circuit_name = config.get("circuit_name", "circ") if config else "circ"
         
         mapping_record_list = self._k_way_FGP_rOEE(circuit, network, iteration_count)
-        
+
+        # 调用direct mapper
+        mapper = MapperFactory.create_mapper("direct")
+        circuit_layers = self._circuit_to_layers(circuit)
+        mapping_record_list = mapper.map(mapping_record_list, circuit, circuit_layers, network)
+
         end_time = time.time()
 
         mapping_record_list.summarize_total_costs()
@@ -56,6 +62,21 @@ class FGPrOEE(Compiler):
         # print(f"[DEBUG] Total swaps: {sum(self.num_swaps)}, Total gates: {sum(self.num_gates)}")
         # print(f"[DEBUG] Total comms: {sum(self.num_swaps) + sum(self.num_gates)}\n")
         return mapping_record_list
+
+    def _circuit_to_layers(self, circuit: QuantumCircuit):
+        circuit_layers = []
+
+        dag = circuit_to_dag(circuit)
+        layers = list(dag.layers())
+
+        for _, layer in enumerate(layers):
+
+            all_gates = []
+            for node in layer["graph"].op_nodes():
+                all_gates.append(node)
+            circuit_layers.append(all_gates)
+
+        return circuit_layers
 
     def _k_way_FGP_rOEE(self, circuit: QuantumCircuit, 
                         network: Network, 
@@ -124,43 +145,6 @@ class FGPrOEE(Compiler):
 
         return mapping_record_list
 
-    # def _build_lookahead_graphs(self, circuit: QuantumCircuit, 
-    #                             circuit_layers: list, 
-    #                             level: int):
-    #     def lookahead_weight(n, sigma=1.0):
-    #         return 2 ** (-n / sigma)
-    #     lookahead_graph = nx.Graph()
-    #     lookahead_graph.add_nodes_from(range(circuit.num_qubits))
-    #     for current_level in range(level, len(circuit_layers)):
-    #         weight = lookahead_weight(current_level - level) # the lookahead weight of the current level
-    #         if current_level == level:
-    #             weight = 999 # float('inf')
-    #         for node in circuit_layers[current_level]["graph"].op_nodes():
-    #             # print(f"node.op: {node.op}, node.qargs: {node.qargs}, node.cargs: {node.cargs}")
-    #             if len(node.qargs) == 2:
-    #                 qubits = [node.qargs[i]._index for i in range(len(node.qargs))]
-    #                 if qubits[0] == None:
-    #                     qubits = [circuit.qubits.index(node.qargs[i]) for i in range(len(node.qargs))]
-    #                     # print(f"none: qubits: {qubits}")
-    #                     # exit(0)
-    #                 if lookahead_graph.has_edge(qubits[0], qubits[1]):
-    #                     lookahead_graph[qubits[0]][qubits[1]]['weight'] += weight
-    #                 else:
-    #                     lookahead_graph.add_edge(qubits[0], qubits[1], weight=weight)
-    #     # 返回当前层的图
-    #     time_slice_graph = nx.Graph()
-    #     time_slice_graph.add_nodes_from(range(circuit.num_qubits))
-    #     for node in circuit_layers[level]["graph"].op_nodes():
-    #         if len(node.qargs) == 2:
-    #             qubits = [node.qargs[i]._index for i in range(len(node.qargs))]
-    #             if qubits[0] == None:
-    #                 qubits = [circuit.qubits.index(node.qargs[i]) for i in range(len(node.qargs))]
-    #             if time_slice_graph.has_edge(qubits[0], qubits[1]):
-    #                 time_slice_graph[qubits[0]][qubits[1]]['weight'] += 1
-    #             else:
-    #                 time_slice_graph.add_edge(qubits[0], qubits[1], weight=1)
-    #     return lookahead_graph, time_slice_graph
-
     def _k_way_rOEE(self, partition: list[list[int]], 
                    lookahead_graph: nx.Graph, 
                    time_slice_graph: nx.Graph, 
@@ -190,7 +174,7 @@ class FGPrOEE(Compiler):
             for node in nodes:
                 current_col = node_to_part[node]  # 优化查找
                 for l in range(k):
-                    D[node, l] = OEE._calculate_d(lookahead_graph, node, partition[l], partition[current_col])
+                    D[node, l] = OEE._calculate_d(lookahead_graph, node, set(partition[l]), set(partition[current_col]))
             
             g_values = []
             exchange_pairs = []

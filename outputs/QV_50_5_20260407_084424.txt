@@ -1,0 +1,2434 @@
+========== Network Info ==========
+Network with 5 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9243
+  Backend 0 <-> Backend 2: Fidelity = 0.9057
+  Backend 0 <-> Backend 3: Fidelity = 0.9151
+  Backend 0 <-> Backend 4: Fidelity = 0.9046
+  Backend 1 <-> Backend 2: Fidelity = 0.9052
+  Backend 1 <-> Backend 3: Fidelity = 0.9007
+  Backend 1 <-> Backend 4: Fidelity = 0.9002
+  Backend 2 <-> Backend 3: Fidelity = 0.9288
+  Backend 2 <-> Backend 4: Fidelity = 0.9016
+  Backend 3 <-> Backend 4: Fidelity = 0.9159
+Hop weight: 0.5268025782891315
+Fidelity range: [0.9, 0.93]
+Backend sizes: [10, 10, 10, 10, 10]
+Backend Coupling Maps:
+  Backend 0 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+  Backend 1 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+  Backend 2 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+  Backend 3 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+  Backend 4 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+[INFO] QV #Qubits: 50
+[INFO] QV #Depths: 503
+[INFO] QV #Gates: 17412
+[INFO] QV #2Q Gates: 3699
+[INFO] 5 QPUs: [10, 10, 10, 10, 10]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['wbcp']
+Compiler: [WBCP]
+{'circuit_name': 'QV50'}
+{'circuit_name': 'QV50'}
+Compiling with [WBCP]...
+Set parameter Username
+Set parameter LicenseID to value 2789005
+Academic license - for non-commercial use only - expires 2027-03-09
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x6e387fdb
+Model has 0 linear objective coefficients
+Model has 180 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 8.7004416
+Presolve time: 0.00s
+Presolved: 190 rows, 205 columns, 590 nonzeros
+Variable types: 0 continuous, 205 integer (205 binary)
+
+Root relaxation: objective 0.000000e+00, 26 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    8.70044    0.00000   100%     -    0s
+H    0     0                       8.6943460    0.00000   100%     -    0s
+H    0     0                       8.6749378    0.00000   100%     -    0s
+     0     0    0.00000    0   10    8.67494    0.00000   100%     -    0s
+H    0     0                       8.6738097    0.00000   100%     -    0s
+H    0     0                       8.6342852    4.27193  50.5%     -    0s
+H    0     0                       8.6299836    4.27193  50.5%     -    0s
+     0     0    4.27193    0   45    8.62998    4.27193  50.5%     -    0s
+     0     0    5.87218    0   36    8.62998    5.87218  32.0%     -    0s
+     0     0    6.01559    0   64    8.62998    6.01559  30.3%     -    0s
+     0     0    6.01909    0   65    8.62998    6.01909  30.3%     -    0s
+     0     0    8.56138    0   55    8.62998    8.56138  0.79%     -    0s
+     0     0    8.58401    0   44    8.62998    8.58401  0.53%     -    0s
+H    0     0                       8.6263807    8.58401  0.49%     -    0s
+     0     0    8.62638    0   92    8.62638    8.62638  0.00%     -    0s
+
+Cutting planes:
+  Dual implied bound: 5
+  Clique: 6
+  MIR: 4
+  Zero half: 17
+  RLT: 115
+  Relax-and-lift: 3
+  BQP: 10
+
+Explored 1 nodes (667 simplex iterations) in 0.10 seconds (0.03 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 7: 8.62638 8.62998 8.63429 ... 8.70044
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 8.626380715777e+00, best bound 8.626380715777e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 8.626380715776854
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xd396f3d1
+Model has 0 linear objective coefficients
+Model has 140 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 7.4025817
+Presolve time: 0.00s
+Presolved: 150 rows, 165 columns, 470 nonzeros
+Variable types: 0 continuous, 165 integer (165 binary)
+
+Root relaxation: objective 0.000000e+00, 22 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    7.40258    0.00000   100%     -    0s
+H    0     0                       7.3984872    0.00000   100%     -    0s
+     0     0    0.00000    0   10    7.39849    0.00000   100%     -    0s
+H    0     0                       7.3957977    0.00000   100%     -    0s
+H    0     0                       7.3837864    3.07674  58.3%     -    0s
+     0     0    3.10094    0   16    7.38379    3.10094  58.0%     -    0s
+     0     0    3.10094    0   16    7.38379    3.10094  58.0%     -    0s
+     0     0    6.69259    0   45    7.38379    6.69259  9.36%     -    0s
+     0     0    6.70033    0   48    7.38379    6.70033  9.26%     -    0s
+H    0     0                       7.3734271    6.70033  9.13%     -    0s
+H    0     0                       7.3705991    7.30845  0.84%     -    0s
+     0     0    7.30845    0   57    7.37060    7.30845  0.84%     -    0s
+     0     0    7.37060    0   78    7.37060    7.37060  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Cover: 1
+  Dual implied bound: 1
+  Zero half: 1
+  RLT: 78
+  Relax-and-lift: 1
+  BQP: 3
+
+Explored 1 nodes (379 simplex iterations) in 0.05 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 6: 7.3706 7.37343 7.38379 ... 7.40258
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.370599134159e+00, best bound 7.370599134159e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 7.3705991341587245
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x231c33fb
+Model has 0 linear objective coefficients
+Model has 100 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 5e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 6.2643707
+Presolve time: 0.00s
+Presolved: 110 rows, 125 columns, 350 nonzeros
+Variable types: 0 continuous, 125 integer (125 binary)
+
+Root relaxation: objective 0.000000e+00, 24 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    6.26437    0.00000   100%     -    0s
+H    0     0                       6.1981779    0.00000   100%     -    0s
+H    0     0                       6.1636025    0.00000   100%     -    0s
+     0     0    0.00000    0   10    6.16360    0.00000   100%     -    0s
+H    0     0                       6.1598322    0.00000   100%     -    0s
+H    0     0                       6.1571581    0.00000   100%     -    0s
+H    0     0                       6.1459023    0.00000   100%     -    0s
+H    0     0                       6.1042452    2.05431  66.3%     -    0s
+     0     0    3.68344    0   20    6.10425    3.68344  39.7%     -    0s
+     0     0    3.68344    0   20    6.10425    3.68344  39.7%     -    0s
+     0     0    3.70910    0   14    6.10425    3.70910  39.2%     -    0s
+     0     0    3.70910    0   14    6.10425    3.70910  39.2%     -    0s
+     0     0    4.56221    0   17    6.10425    4.56221  25.3%     -    0s
+     0     0    5.69346    0   27    6.10425    5.69346  6.73%     -    0s
+     0     0    5.69346    0   25    6.10425    5.69346  6.73%     -    0s
+     0     0    6.06885    0   44    6.10425    6.06885  0.58%     -    0s
+     0     0    6.07815    0   20    6.10425    6.07815  0.43%     -    0s
+     0     0    6.10012    0   20    6.10425    6.10012  0.07%     -    0s
+
+Cutting planes:
+  Cover: 1
+  Dual implied bound: 2
+  MIR: 11
+  Zero half: 12
+  RLT: 49
+  Relax-and-lift: 4
+  BQP: 5
+
+Explored 1 nodes (290 simplex iterations) in 0.07 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 7: 6.10425 6.1459 6.15716 ... 6.26437
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 6.104245216274e+00, best bound 6.103644603243e+00, gap 0.0098%
+Physical mapping optimal solution found, objective = 6.104245216274468
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xea42e53a
+Model has 0 linear objective coefficients
+Model has 80 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 3.1111347
+Presolve time: 0.00s
+Presolved: 90 rows, 105 columns, 290 nonzeros
+Variable types: 0 continuous, 105 integer (105 binary)
+
+Root relaxation: objective 0.000000e+00, 18 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    8    3.11113    0.00000   100%     -    0s
+H    0     0                       3.1070710    0.00000   100%     -    0s
+H    0     0                       3.0990854    0.00000   100%     -    0s
+H    0     0                       3.0720991    0.00000   100%     -    0s
+     0     0    0.00000    0    8    3.07210    0.00000   100%     -    0s
+H    0     0                       3.0629269    0.00000   100%     -    0s
+H    0     0                       3.0572342    0.00000   100%     -    0s
+     0     0    3.05723    0   22    3.05723    3.05723  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 4
+  Zero half: 10
+  RLT: 37
+  Relax-and-lift: 3
+  BQP: 6
+
+Explored 1 nodes (112 simplex iterations) in 0.03 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 6: 3.05723 3.06293 3.0721 ... 3.11113
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 3.057234155435e+00, best bound 3.057234155435e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 3.0572341554348004
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x0c291ebe
+Model has 0 linear objective coefficients
+Model has 20 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 0.6270657
+Presolve time: 0.00s
+Presolved: 30 rows, 45 columns, 110 nonzeros
+Variable types: 0 continuous, 45 integer (45 binary)
+
+Root relaxation: objective 0.000000e+00, 13 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6    0.62707    0.00000   100%     -    0s
+H    0     0                       0.6258377    0.00000   100%     -    0s
+H    0     0                       0.6154784    0.00000   100%     -    0s
+H    0     0                       0.6054933    0.00000   100%     -    0s
+H    0     0                       0.6006391    0.00000   100%     -    0s
+     0     0    0.00000    0    6    0.60064    0.00000   100%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Clique: 1
+
+Explored 1 nodes (19 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 0.600639 0.605493 0.615478 ... 0.627066
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 6.006390927188e-01, best bound 6.006390927188e-01, gap 0.0000%
+Physical mapping optimal solution found, objective = 0.6006390927188024
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xc6a75d86
+Model has 0 linear objective coefficients
+Model has 160 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 6.2007766
+Presolve time: 0.00s
+Presolved: 170 rows, 185 columns, 530 nonzeros
+Variable types: 0 continuous, 185 integer (185 binary)
+
+Root relaxation: objective 0.000000e+00, 23 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    6.20078    0.00000   100%     -    0s
+H    0     0                       6.1801673    0.00000   100%     -    0s
+     0     0    2.46210    0   14    6.18017    2.46210  60.2%     -    0s
+     0     0    2.47388    0   16    6.18017    2.47388  60.0%     -    0s
+     0     0    2.47388    0   16    6.18017    2.47388  60.0%     -    0s
+H    0     0                       6.1734634    2.48326  59.8%     -    0s
+H    0     0                       6.1709711    4.25429  31.1%     -    0s
+     0     0    4.25429    0   48    6.17097    4.25429  31.1%     -    0s
+H    0     0                       6.1581984    5.82209  5.46%     -    0s
+     0     0    5.82209    0   35    6.15820    5.82209  5.46%     -    0s
+     0     0    5.82804    0   39    6.15820    5.82804  5.36%     -    0s
+     0     0 infeasible    0         6.15820    6.15820  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 3
+  Cover: 1
+  Implied bound: 14
+  Dual implied bound: 5
+  Clique: 2
+  MIR: 14
+  Zero half: 2
+  RLT: 66
+  Relax-and-lift: 2
+  BQP: 9
+
+Explored 1 nodes (433 simplex iterations) in 0.07 seconds (0.02 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 6.1582 6.17097 6.17346 ... 6.20078
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 6.158198385194e+00, best bound 6.158198385194e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 6.158198385193549
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xcb14256d
+Model has 0 linear objective coefficients
+Model has 120 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 5.0078064
+Presolve time: 0.00s
+Presolved: 130 rows, 145 columns, 410 nonzeros
+Variable types: 0 continuous, 145 integer (145 binary)
+
+Root relaxation: objective 0.000000e+00, 24 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    5.00781    0.00000   100%     -    0s
+H    0     0                       4.9390411    0.00000   100%     -    0s
+     0     0    0.00000    0   10    4.93904    0.00000   100%     -    0s
+H    0     0                       4.9360245    0.00000   100%     -    0s
+H    0     0                       4.9343741    3.67738  25.5%     -    0s
+     0     0    3.70809    0   15    4.93437    3.70809  24.9%     -    0s
+     0     0    3.71424    0   35    4.93437    3.71424  24.7%     -    0s
+H    0     0                       4.9132170    3.72718  24.1%     -    0s
+     0     0    3.72718    0   37    4.91322    3.72718  24.1%     -    0s
+     0     0    3.74572    0   44    4.91322    3.74572  23.8%     -    0s
+
+Cutting planes:
+  Gomory: 2
+  MIR: 9
+  Zero half: 5
+  RLT: 75
+  Relax-and-lift: 6
+  BQP: 8
+
+Explored 1 nodes (261 simplex iterations) in 0.06 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 4.91322 4.93437 4.93602 ... 5.00781
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 4.913217016688e+00, best bound 4.913217016688e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 4.913217016687717
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x428f7b11
+Model has 0 linear objective coefficients
+Model has 100 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 5e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 6.7648047
+Presolve time: 0.00s
+Presolved: 110 rows, 125 columns, 350 nonzeros
+Variable types: 0 continuous, 125 integer (125 binary)
+
+Root relaxation: objective 0.000000e+00, 28 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    6.76480    0.00000   100%     -    0s
+H    0     0                       6.7331862    0.00000   100%     -    0s
+     0     0    0.00000    0   10    6.73319    0.00000   100%     -    0s
+H    0     0                       6.7283320    0.00000   100%     -    0s
+     0     0    3.67907    0   18    6.72833    3.67907  45.3%     -    0s
+H    0     0                       6.7281207    3.67907  45.3%     -    0s
+     0     0    3.69116    0   19    6.72812    3.69116  45.1%     -    0s
+H    0     0                       6.6916986    6.67617  0.23%     -    0s
+     0     0    6.69170    0   31    6.69170    6.69170  0.00%     -    0s
+
+Cutting planes:
+  Cover: 1
+  MIR: 18
+  Zero half: 11
+  RLT: 51
+  Relax-and-lift: 3
+  BQP: 9
+
+Explored 1 nodes (233 simplex iterations) in 0.05 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 6.6917 6.72812 6.72833 ... 6.7648
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 6.691698627283e+00, best bound 6.691698627283e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 6.691698627283061
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xbacfa011
+Model has 0 linear objective coefficients
+Model has 60 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 3.0387546
+Presolve time: 0.00s
+Presolved: 70 rows, 85 columns, 230 nonzeros
+Variable types: 0 continuous, 85 integer (85 binary)
+
+Root relaxation: objective 0.000000e+00, 18 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    3.03875    0.00000   100%     -    0s
+H    0     0                       3.0332483    0.00000   100%     -    0s
+     0     0    0.00000    0   12    3.03325    0.00000   100%     -    0s
+H    0     0                       3.0228890    0.00000   100%     -    0s
+     0     0    3.02289    0   21    3.02289    3.02289  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  MIR: 8
+  Zero half: 11
+  RLT: 32
+  Relax-and-lift: 1
+  BQP: 9
+
+Explored 1 nodes (125 simplex iterations) in 0.03 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 3.02289 3.03325 3.03875 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 3.022888988575e+00, best bound 3.022888988575e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 3.022888988574513
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x4239e40e
+Model has 0 linear objective coefficients
+Model has 20 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 0.6303434
+Presolve time: 0.00s
+Presolved: 30 rows, 45 columns, 110 nonzeros
+Variable types: 0 continuous, 45 integer (45 binary)
+
+Root relaxation: objective 0.000000e+00, 15 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    9    0.63034    0.00000   100%     -    0s
+H    0     0                       0.6054933    0.00000   100%     -    0s
+H    0     0                       0.6006391    0.00000   100%     -    0s
+     0     0    0.00000    0    4    0.60064    0.00000   100%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Zero half: 2
+  RLT: 1
+
+Explored 1 nodes (21 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 0.600639 0.605493 0.630343 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 6.006390927188e-01, best bound 6.006390927188e-01, gap 0.0000%
+Physical mapping optimal solution found, objective = 0.6006390927188024
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x5c417652
+Model has 0 linear objective coefficients
+Model has 120 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 4.9825095
+Presolve time: 0.00s
+Presolved: 130 rows, 145 columns, 410 nonzeros
+Variable types: 0 continuous, 145 integer (145 binary)
+
+Root relaxation: objective 0.000000e+00, 23 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    4.98251    0.00000   100%     -    0s
+H    0     0                       4.9588096    0.00000   100%     -    0s
+H    0     0                       4.9205331    0.00000   100%     -    0s
+     0     0    0.00000    0   10    4.92053    0.00000   100%     -    0s
+     0     0    2.47265    0   20    4.92053    2.47265  49.7%     -    0s
+H    0     0                       4.9198986    4.85945  1.23%     -    0s
+     0     0    4.85945    0   41    4.91990    4.85945  1.23%     -    0s
+     0     0    4.86663    0   50    4.91990    4.86663  1.08%     -    0s
+     0     0    4.88234    0   53    4.91990    4.88234  0.76%     -    0s
+     0     0    4.88384    0   46    4.91990    4.88384  0.73%     -    0s
+     0     0    4.88630    0   64    4.91990    4.88630  0.68%     -    0s
+
+Cutting planes:
+  Dual implied bound: 1
+  Clique: 14
+  MIR: 1
+  RLT: 64
+  BQP: 2
+
+Explored 1 nodes (322 simplex iterations) in 0.07 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 4: 4.9199 4.92053 4.95881 4.98251 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 4.919898578897e+00, best bound 4.919898578897e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 4.919898578896957
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x35d84ab3
+Model has 0 linear objective coefficients
+Model has 180 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+00, 6e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 15.5118014
+Presolve time: 0.00s
+Presolved: 190 rows, 205 columns, 590 nonzeros
+Variable types: 0 continuous, 205 integer (205 binary)
+
+Root relaxation: objective 0.000000e+00, 25 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10   15.51180    0.00000   100%     -    0s
+H    0     0                      15.4861772    0.00000   100%     -    0s
+H    0     0                      15.4730658    0.00000   100%     -    0s
+     0     0    0.00000    0   10   15.47307    0.00000   100%     -    0s
+H    0     0                      15.4319892    0.00000   100%     -    0s
+H    0     0                      15.4133957    7.64403  50.4%     -    0s
+     0     0    7.65675    0   57   15.41340    7.65675  50.3%     -    0s
+     0     0    7.65755    0   33   15.41340    7.65755  50.3%     -    0s
+     0     0   15.32947    0   75   15.41340   15.32947  0.54%     -    0s
+     0     0   15.36911    0   89   15.41340   15.36911  0.29%     -    0s
+     0     0   15.39372    0   66   15.41340   15.39372  0.13%     -    0s
+     0     0          -    0        15.41340   15.41285  0.00%     -    0s
+
+Cutting planes:
+  Dual implied bound: 1
+  MIR: 4
+  RLT: 110
+  BQP: 1
+
+Explored 1 nodes (591 simplex iterations) in 0.10 seconds (0.03 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 15.4134 15.432 15.4731 ... 15.5118
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.541339569507e+01, best bound 1.541285450237e+01, gap 0.0035%
+Physical mapping optimal solution found, objective = 15.413395695065542
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x9557ba3e
+Model has 0 linear objective coefficients
+Model has 120 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 4.9607740
+Presolve time: 0.00s
+Presolved: 130 rows, 145 columns, 410 nonzeros
+Variable types: 0 continuous, 145 integer (145 binary)
+
+Root relaxation: objective 0.000000e+00, 22 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    4.96077    0.00000   100%     -    0s
+H    0     0                       4.9540935    0.00000   100%     -    0s
+H    0     0                       4.9333343    0.00000   100%     -    0s
+     0     0    0.00000    0   10    4.93333    0.00000   100%     -    0s
+H    0     0                       4.9095755    0.00000   100%     -    0s
+     0     0    3.08390    0   33    4.90958    3.08390  37.2%     -    0s
+H    0     0                       4.8943105    3.08390  37.0%     -    0s
+     0     0    3.10399    0   22    4.89431    3.10399  36.6%     -    0s
+     0     0    4.85807    0   43    4.89431    4.85807  0.74%     -    0s
+     0     0    4.86257    0   39    4.89431    4.86257  0.65%     -    0s
+     0     0    4.87069    0   51    4.89431    4.87069  0.48%     -    0s
+     0     0    4.88039    0   46    4.89431    4.88039  0.28%     -    0s
+     0     0 infeasible    0         4.89431    4.89431  0.00%     -    0s
+
+Cutting planes:
+  Zero half: 2
+  RLT: 58
+  BQP: 1
+
+Explored 1 nodes (317 simplex iterations) in 0.06 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 4.89431 4.90958 4.93333 ... 4.96077
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 4.894310546462e+00, best bound 4.894310546462e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 4.894310546462226
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x1bb75b75
+Model has 0 linear objective coefficients
+Model has 100 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 3.7492148
+Presolve time: 0.00s
+Presolved: 110 rows, 125 columns, 350 nonzeros
+Variable types: 0 continuous, 125 integer (125 binary)
+
+Root relaxation: objective 0.000000e+00, 32 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    3.74921    0.00000   100%     -    0s
+H    0     0                       3.6806596    0.00000   100%     -    0s
+     0     0    0.00000    0   10    3.68066    0.00000   100%     -    0s
+H    0     0                       3.6639554    0.00000   100%     -    0s
+     0     0    2.45292    0   14    3.66396    2.45292  33.1%     -    0s
+     0     0    2.45292    0   14    3.66396    2.45292  33.1%     -    0s
+     0     0     cutoff    0         3.66396    3.66396  0.00%     -    0s
+
+Cutting planes:
+  Dual implied bound: 2
+  MIR: 2
+  Zero half: 11
+  Mod-K: 1
+  RLT: 51
+  Relax-and-lift: 1
+  BQP: 4
+
+Explored 1 nodes (212 simplex iterations) in 0.05 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 3.66396 3.68066 3.74921 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 3.663955446120e+00, best bound 3.663955446120e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 3.6639554461195587
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x6ea5d855
+Model has 0 linear objective coefficients
+Model has 60 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 1.8620862
+Presolve time: 0.00s
+Presolved: 70 rows, 85 columns, 230 nonzeros
+Variable types: 0 continuous, 85 integer (85 binary)
+
+Root relaxation: objective 0.000000e+00, 18 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    8    1.86209    0.00000   100%     -    0s
+H    0     0                       1.8471988    0.00000   100%     -    0s
+H    0     0                       1.8216108    0.00000   100%     -    0s
+     0     0    0.00000    0   10    1.82161    0.00000   100%     -    0s
+     0     0    1.23133    0   11    1.82161    1.23133  32.4%     -    0s
+     0     0    1.23133    0   11    1.82161    1.23133  32.4%     -    0s
+
+Cutting planes:
+  Cover: 1
+  MIR: 1
+  Zero half: 7
+  RLT: 28
+  Relax-and-lift: 1
+  BQP: 5
+
+Explored 1 nodes (70 simplex iterations) in 0.03 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 1.82161 1.8472 1.86209 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.821610803137e+00, best bound 1.821610803137e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.821610803136908
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xe12e39f3
+Model has 0 linear objective coefficients
+Model has 120 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 4.3770502
+Presolve time: 0.00s
+Presolved: 130 rows, 145 columns, 410 nonzeros
+Variable types: 0 continuous, 145 integer (145 binary)
+
+Root relaxation: objective 0.000000e+00, 23 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    4.37705    0.00000   100%     -    0s
+H    0     0                       4.3412659    0.00000   100%     -    0s
+H    0     0                       4.3052331    0.00000   100%     -    0s
+     0     0    0.00000    0   10    4.30523    0.00000   100%     -    0s
+     0     0    2.46309    0   21    4.30523    2.46309  42.8%     -    0s
+     0     0    2.48326    0   34    4.30523    2.48326  42.3%     -    0s
+H    0     0                       4.2936715    4.25481  0.91%     -    0s
+     0     0    4.25481    0   44    4.29367    4.25481  0.91%     -    0s
+     0     0    4.26110    0   42    4.29367    4.26110  0.76%     -    0s
+     0     0    4.27095    0   62    4.29367    4.27095  0.53%     -    0s
+     0     0    4.27777    0   54    4.29367    4.27777  0.37%     -    0s
+     0     0     cutoff    0         4.29367    4.29367  0.00%     -    0s
+
+Cutting planes:
+  Zero half: 1
+  RLT: 62
+  BQP: 1
+
+Explored 1 nodes (337 simplex iterations) in 0.06 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 4: 4.29367 4.30523 4.34127 4.37705 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 4.293671453743e+00, best bound 4.293671453743e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 4.293671453743424
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xd73b53ec
+Model has 0 linear objective coefficients
+Model has 140 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+00, 6e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 11.8205154
+Presolve time: 0.00s
+Presolved: 150 rows, 165 columns, 470 nonzeros
+Variable types: 0 continuous, 165 integer (165 binary)
+
+Root relaxation: objective 0.000000e+00, 22 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10   11.82052    0.00000   100%     -    0s
+H    0     0                      11.6654956    0.00000   100%     -    0s
+     0     0    0.00000    0   10   11.66550    0.00000   100%     -    0s
+     0     0    5.38871    0   42   11.66550    5.38871  53.8%     -    0s
+     0     0    5.38916    0   49   11.66550    5.38916  53.8%     -    0s
+     0     0   11.62460    0   68   11.66550   11.62460  0.35%     -    0s
+     0     0   11.62645    0   52   11.66550   11.62645  0.33%     -    0s
+     0     0   11.62737    0   67   11.66550   11.62737  0.33%     -    0s
+     0     0   11.62780    0   70   11.66550   11.62780  0.32%     -    0s
+     0     0   11.62817    0   48   11.66550   11.62817  0.32%     -    0s
+
+Cutting planes:
+  Dual implied bound: 2
+  Clique: 4
+  Inf proof: 1
+  Zero half: 1
+  RLT: 75
+  BQP: 6
+
+Explored 1 nodes (336 simplex iterations) in 0.07 seconds (0.02 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 2: 11.6655 11.8205 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.166549563515e+01, best bound 1.166549563515e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 11.66549563514563
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x976a8010
+Model has 0 linear objective coefficients
+Model has 160 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 6.2047922
+Presolve time: 0.00s
+Presolved: 170 rows, 185 columns, 530 nonzeros
+Variable types: 0 continuous, 185 integer (185 binary)
+
+Root relaxation: objective 0.000000e+00, 23 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    6.20479    0.00000   100%     -    0s
+H    0     0                       6.1958213    0.00000   100%     -    0s
+H    0     0                       6.1921541    0.00000   100%     -    0s
+H    0     0                       6.1830485    0.00000   100%     -    0s
+     0     0    0.00000    0   10    6.18305    0.00000   100%     -    0s
+H    0     0                       6.1669555    0.00000   100%     -    0s
+H    0     0                       6.1661170    3.07674  50.1%     -    0s
+     0     0    3.10094    0   18    6.16612    3.10094  49.7%     -    0s
+     0     0    3.10970    0   18    6.16612    3.10970  49.6%     -    0s
+     0     2    3.60281    0   18    6.16612    3.60281  41.6%     -    0s
+H   13    11                       6.1636778    5.23581  15.1%  31.7    0s
+
+Cutting planes:
+  Gomory: 2
+  Zero half: 1
+  RLT: 63
+
+Explored 53 nodes (1147 simplex iterations) in 0.08 seconds (0.02 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 7: 6.16368 6.16612 6.16696 ... 6.20479
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 6.163677812627e+00, best bound 6.163677812627e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 6.163677812627375
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x6d674337
+Model has 0 linear objective coefficients
+Model has 80 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 2.4645421
+Presolve time: 0.00s
+Presolved: 90 rows, 105 columns, 290 nonzeros
+Variable types: 0 continuous, 105 integer (105 binary)
+
+Root relaxation: objective 0.000000e+00, 19 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   12    2.46454    0.00000   100%     -    0s
+H    0     0                       2.4596364    0.00000   100%     -    0s
+H    0     0                       2.4535788    0.00000   100%     -    0s
+     0     0    0.00000    0   10    2.45358    0.00000   100%     -    0s
+H    0     0                       2.4519542    0.00000   100%     -    0s
+     0     0    1.97875    0   24    2.45195    1.97875  19.3%     -    0s
+H    0     0                       2.4478379    1.97998  19.1%     -    0s
+     0     0    1.97998    0   28    2.44784    1.97998  19.1%     -    0s
+H    0     0                       2.4466099    1.97998  19.1%     -    0s
+     0     0    2.43384    0   18    2.44661    2.43384  0.52%     -    0s
+
+Cutting planes:
+  Dual implied bound: 1
+  Clique: 1
+  RLT: 36
+  BQP: 1
+
+Explored 1 nodes (200 simplex iterations) in 0.05 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 6: 2.44661 2.44784 2.45195 ... 2.46454
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.446609922913e+00, best bound 2.446609922913e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 2.446609922913474
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x3d86e882
+Model has 0 linear objective coefficients
+Model has 60 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 1.8708209
+Presolve time: 0.00s
+Presolved: 70 rows, 85 columns, 230 nonzeros
+Variable types: 0 continuous, 85 integer (85 binary)
+
+Root relaxation: objective 0.000000e+00, 17 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    8    1.87082    0.00000   100%     -    0s
+H    0     0                       1.8216108    0.00000   100%     -    0s
+     0     0    0.00000    0   10    1.82161    0.00000   100%     -    0s
+     0     0    1.22708    0   15    1.82161    1.22708  32.6%     -    0s
+     0     0    1.22708    0   15    1.82161    1.22708  32.6%     -    0s
+     0     0    1.82161    0   11    1.82161    1.82161  0.00%     -    0s
+
+Cutting planes:
+  Cover: 1
+  Zero half: 2
+  RLT: 16
+  BQP: 1
+
+Explored 1 nodes (80 simplex iterations) in 0.04 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 2: 1.82161 1.87082 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.821610803137e+00, best bound 1.821610803137e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.821610803136908
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x73316e0d
+Model has 0 linear objective coefficients
+Model has 120 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 7.4940831
+Presolve time: 0.00s
+Presolved: 130 rows, 145 columns, 410 nonzeros
+Variable types: 0 continuous, 145 integer (145 binary)
+
+Root relaxation: objective 0.000000e+00, 23 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    7.49408    0.00000   100%     -    0s
+H    0     0                       7.4003438    0.00000   100%     -    0s
+H    0     0                       7.3946323    0.00000   100%     -    0s
+     0     0    0.00000    0   10    7.39463    0.00000   100%     -    0s
+     0     0    3.05804    0   15    7.39463    3.05804  58.6%     -    0s
+H    0     0                       7.3935625    4.91100  33.6%     -    0s
+H    0     0                       7.3628146    4.91100  33.3%     -    0s
+     0     0    4.91100    0   28    7.36281    4.91100  33.3%     -    0s
+H    0     0                       7.3617315    7.28267  1.07%     -    0s
+     0     0    7.29568    0   52    7.36173    7.29568  0.90%     -    0s
+     0     0    7.29568    0   45    7.36173    7.29568  0.90%     -    0s
+     0     0    7.29660    0   45    7.36173    7.29660  0.88%     -    0s
+     0     0    7.30912    0   55    7.36173    7.30912  0.71%     -    0s
+     0     0    7.33302    0   33    7.36173    7.33302  0.39%     -    0s
+     0     0    7.34225    0   45    7.36173    7.34225  0.26%     -    0s
+     0     0    7.34983    0   39    7.36173    7.34983  0.16%     -    0s
+     0     0          -    0         7.36173    7.36136  0.01%     -    0s
+
+Cutting planes:
+  Dual implied bound: 1
+  MIR: 1
+  Zero half: 1
+  RLT: 63
+
+Explored 1 nodes (361 simplex iterations) in 0.06 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 6: 7.36173 7.36281 7.39356 ... 7.49408
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.361731474305e+00, best bound 7.361360260196e+00, gap 0.0050%
+Physical mapping optimal solution found, objective = 7.361731474305487
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x09850d49
+Model has 0 linear objective coefficients
+Model has 180 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+00, 5e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 14.2547918
+Presolve time: 0.00s
+Presolved: 190 rows, 205 columns, 590 nonzeros
+Variable types: 0 continuous, 205 integer (205 binary)
+
+Root relaxation: objective 0.000000e+00, 25 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10   14.25479    0.00000   100%     -    0s
+H    0     0                      14.2470522    0.00000   100%     -    0s
+     0     0    0.00000    0   10   14.24705    0.00000   100%     -    0s
+H    0     0                      14.2280966    6.10686  57.1%     -    0s
+H    0     0                      14.2268658    6.19690  56.4%     -    0s
+     0     0    6.19690    0   28   14.22687    6.19690  56.4%     -    0s
+     0     0    6.22242    0   28   14.22687    6.22242  56.3%     -    0s
+H    0     0                      14.2253518    6.47530  54.5%     -    0s
+     0     2    6.47530    0   28   14.22535    6.47530  54.5%     -    0s
+H   16    15                      14.2168806    9.78097  31.2%  24.9    0s
+*   45     7               6      14.2122136   13.11010  7.75%  18.5    0s
+*   57     5               7      14.2018085   13.19852  7.06%  16.4    0s
+
+Cutting planes:
+  MIR: 1
+  Zero half: 1
+  RLT: 65
+
+Explored 76 nodes (1317 simplex iterations) in 0.08 seconds (0.03 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 8: 14.2018 14.2122 14.2169 ... 14.2548
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.420180851142e+01, best bound 1.420180851142e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 14.20180851141848
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x7cc30bbb
+Model has 0 linear objective coefficients
+Model has 140 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 4.9876754
+Presolve time: 0.00s
+Presolved: 150 rows, 165 columns, 470 nonzeros
+Variable types: 0 continuous, 165 integer (165 binary)
+
+Root relaxation: objective 0.000000e+00, 22 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    4.98768    0.00000   100%     -    0s
+H    0     0                       4.9217611    0.00000   100%     -    0s
+     0     0    0.00000    0   10    4.92176    0.00000   100%     -    0s
+     0     0    2.48326    0   49    4.92176    2.48326  49.5%     -    0s
+     0     0    2.48326    0   54    4.92176    2.48326  49.5%     -    0s
+     0     0    4.92176    0   38    4.92176    4.92176  0.00%     -    0s
+
+Cutting planes:
+  Dual implied bound: 1
+  MIR: 7
+  Zero half: 5
+  RLT: 88
+  Relax-and-lift: 7
+  BQP: 23
+
+Explored 1 nodes (346 simplex iterations) in 0.06 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 2: 4.92176 4.98768 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 4.921761086885e+00, best bound 4.921761086885e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 4.921761086884925
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xce050125
+Model has 0 linear objective coefficients
+Model has 60 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 1.8671807
+Presolve time: 0.00s
+Presolved: 70 rows, 85 columns, 230 nonzeros
+Variable types: 0 continuous, 85 integer (85 binary)
+
+Root relaxation: objective 0.000000e+00, 16 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    1.86718    0.00000   100%     -    0s
+H    0     0                       1.8465714    0.00000   100%     -    0s
+     0     0    0.00000    0   10    1.84657    0.00000   100%     -    0s
+H    0     0                       1.8207722    0.00000   100%     -    0s
+     0     0    1.21612    0   19    1.82077    1.21612  33.2%     -    0s
+     0     0    1.21612    0   19    1.82077    1.21612  33.2%     -    0s
+     0     0    1.36959    0   17    1.82077    1.36959  24.8%     -    0s
+     0     0     cutoff    0         1.82077    1.82077  0.00%     -    0s
+
+Cutting planes:
+  Cover: 2
+  MIR: 6
+  Zero half: 16
+  RLT: 30
+  Relax-and-lift: 2
+
+Explored 1 nodes (128 simplex iterations) in 0.04 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 1.82077 1.84657 1.86718 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.820772235313e+00, best bound 1.820772235313e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.820772235312819
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xfe42d6e7
+Model has 0 linear objective coefficients
+Model has 20 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 0.6006391
+Presolve time: 0.00s
+Presolved: 30 rows, 45 columns, 110 nonzeros
+Variable types: 0 continuous, 45 integer (45 binary)
+
+Explored 1 nodes (0 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 2: 0.600639 0.600639 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 6.006390927188e-01, best bound 6.006390927188e-01, gap 0.0000%
+Physical mapping optimal solution found, objective = 0.6006390927188024
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x15e84b13
+Model has 0 linear objective coefficients
+Model has 140 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 4.3636254
+Presolve time: 0.00s
+Presolved: 150 rows, 165 columns, 470 nonzeros
+Variable types: 0 continuous, 165 integer (165 binary)
+
+Root relaxation: objective 0.000000e+00, 27 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    4.36363    0.00000   100%     -    0s
+H    0     0                       4.3447208    0.00000   100%     -    0s
+H    0     0                       4.3260009    0.00000   100%     -    0s
+     0     0    0.00000    0   10    4.32600    0.00000   100%     -    0s
+H    0     0                       4.3204980    2.46210  43.0%     -    0s
+     0     0    2.48326    0   22    4.32050    2.48326  42.5%     -    0s
+     0     0    2.49524    0   31    4.32050    2.49524  42.2%     -    0s
+     0     0    2.50402    0   34    4.32050    2.50402  42.0%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Cover: 1
+  Dual implied bound: 1
+  MIR: 13
+  Zero half: 16
+  RLT: 83
+  Relax-and-lift: 8
+  BQP: 8
+
+Explored 1 nodes (223 simplex iterations) in 0.07 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 4: 4.3205 4.326 4.34472 4.36363 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 4.320498047292e+00, best bound 4.320498047292e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 4.320498047291614
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xbdd72642
+Model has 0 linear objective coefficients
+Model has 120 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+00, 4e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 8.0035910
+Presolve time: 0.00s
+Presolved: 130 rows, 145 columns, 410 nonzeros
+Variable types: 0 continuous, 145 integer (145 binary)
+
+Root relaxation: objective 0.000000e+00, 22 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    8.00359    0.00000   100%     -    0s
+     0     0    0.00000    0   10    8.00359    0.00000   100%     -    0s
+H    0     0                       7.9867038    0.00000   100%     -    0s
+     0     0    4.30910    0   27    7.98670    4.30910  46.0%     -    0s
+     0     0    4.30910    0   27    7.98670    4.30910  46.0%     -    0s
+     0     0    5.21875    0   18    7.98670    5.21875  34.7%     -    0s
+     0     0    5.22447    0   18    7.98670    5.22447  34.6%     -    0s
+     0     0    7.90216    0   47    7.98670    7.90216  1.06%     -    0s
+     0     0    7.91143    0   50    7.98670    7.91143  0.94%     -    0s
+     0     0    7.93161    0   20    7.98670    7.93161  0.69%     -    0s
+     0     0    7.94930    0   50    7.98670    7.94930  0.47%     -    0s
+     0     0     cutoff    0         7.98670    7.98670  0.00%     -    0s
+
+Cutting planes:
+  Dual implied bound: 1
+  Clique: 4
+  MIR: 6
+  Zero half: 1
+  RLT: 64
+  Relax-and-lift: 1
+  BQP: 4
+
+Explored 1 nodes (358 simplex iterations) in 0.07 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 2: 7.9867 8.00359 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.986703814768e+00, best bound 7.986703814768e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 7.986703814768045
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xa51c9793
+Model has 0 linear objective coefficients
+Model has 120 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 4.9776880
+Presolve time: 0.00s
+Presolved: 130 rows, 145 columns, 410 nonzeros
+Variable types: 0 continuous, 145 integer (145 binary)
+
+Root relaxation: objective 0.000000e+00, 23 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    4.97769    0.00000   100%     -    0s
+H    0     0                       4.9746730    0.00000   100%     -    0s
+H    0     0                       4.9364140    0.00000   100%     -    0s
+H    0     0                       4.9350006    0.00000   100%     -    0s
+     0     0    0.00000    0   10    4.93500    0.00000   100%     -    0s
+H    0     0                       4.9101258    0.00000   100%     -    0s
+     0     0    3.70974    0   22    4.91013    3.70974  24.4%     -    0s
+
+Cutting planes:
+  Dual implied bound: 1
+  MIR: 5
+  Zero half: 4
+  Mod-K: 1
+  RLT: 64
+  Relax-and-lift: 5
+  BQP: 8
+
+Explored 1 nodes (141 simplex iterations) in 0.05 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 4.91013 4.935 4.93641 ... 4.97769
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 4.910125751420e+00, best bound 4.910125751420e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 4.910125751419517
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x3a791725
+Model has 0 linear objective coefficients
+Model has 60 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 1.8623265
+Presolve time: 0.00s
+Presolved: 70 rows, 85 columns, 230 nonzeros
+Variable types: 0 continuous, 85 integer (85 binary)
+
+Root relaxation: objective 0.000000e+00, 18 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    8    1.86233    0.00000   100%     -    0s
+H    0     0                       1.8319701    0.00000   100%     -    0s
+     0     0    0.00000    0   10    1.83197    0.00000   100%     -    0s
+H    0     0                       1.8216108    0.00000   100%     -    0s
+     0     0    1.22648    0   16    1.82161    1.22648  32.7%     -    0s
+     0     0    1.22648    0   16    1.82161    1.22648  32.7%     -    0s
+
+Cutting planes:
+  MIR: 5
+  Zero half: 8
+  RLT: 29
+  Relax-and-lift: 1
+  BQP: 3
+
+Explored 1 nodes (77 simplex iterations) in 0.03 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 1.82161 1.83197 1.86233 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.821610803137e+00, best bound 1.821610803137e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.821610803136908
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x293f777f
+Model has 0 linear objective coefficients
+Model has 20 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 0.6319680
+Presolve time: 0.00s
+Presolved: 30 rows, 45 columns, 110 nonzeros
+Variable types: 0 continuous, 45 integer (45 binary)
+
+Root relaxation: objective 0.000000e+00, 14 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    8    0.63197    0.00000   100%     -    0s
+H    0     0                       0.6054933    0.00000   100%     -    0s
+H    0     0                       0.6006391    0.00000   100%     -    0s
+     0     0    0.00000    0    6    0.60064    0.00000   100%     -    0s
+
+Cutting planes:
+  Gomory: 2
+  Clique: 2
+  Zero half: 1
+  Relax-and-lift: 1
+
+Explored 1 nodes (23 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 0.600639 0.605493 0.631968 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 6.006390927188e-01, best bound 6.006390927188e-01, gap 0.0000%
+Physical mapping optimal solution found, objective = 0.6006390927188024
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x1d3f8fef
+Model has 0 linear objective coefficients
+Model has 120 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 4.3132019
+Presolve time: 0.00s
+Presolved: 130 rows, 145 columns, 410 nonzeros
+Variable types: 0 continuous, 145 integer (145 binary)
+
+Root relaxation: objective 0.000000e+00, 22 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    4.31320    0.00000   100%     -    0s
+H    0     0                       4.3052331    0.00000   100%     -    0s
+H    0     0                       4.2936715    0.00000   100%     -    0s
+     0     0    0.00000    0   10    4.29367    0.00000   100%     -    0s
+     0     0    2.46870    0   31    4.29367    2.46870  42.5%     -    0s
+     0     0    2.46870    0   31    4.29367    2.46870  42.5%     -    0s
+     0     0    3.04847    0   18    4.29367    3.04847  29.0%     -    0s
+     0     0    3.07778    0   18    4.29367    3.07778  28.3%     -    0s
+     0     0    4.26048    0   27    4.29367    4.26048  0.77%     -    0s
+     0     0    4.28073    0   12    4.29367    4.28073  0.30%     -    0s
+     0     0     cutoff    0         4.29367    4.29367  0.00%     -    0s
+
+Cutting planes:
+  Cover: 2
+  Dual implied bound: 2
+  MIR: 3
+  Zero half: 7
+  RLT: 58
+  BQP: 4
+
+Explored 1 nodes (333 simplex iterations) in 0.06 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 4.29367 4.30523 4.3132 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 4.293671453743e+00, best bound 4.293671453743e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 4.293671453743425
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x77d6711c
+Model has 0 linear objective coefficients
+Model has 140 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+00, 5e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 10.4832468
+Presolve time: 0.00s
+Presolved: 150 rows, 165 columns, 470 nonzeros
+Variable types: 0 continuous, 165 integer (165 binary)
+
+Root relaxation: objective 0.000000e+00, 24 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10   10.48325    0.00000   100%     -    0s
+     0     0    0.00000    0   10   10.48325    0.00000   100%     -    0s
+H    0     0                      10.4696873    0.00000   100%     -    0s
+     0     0    4.35014    0   21   10.46969    4.35014  58.5%     -    0s
+H    0     0                      10.4477607    8.12199  22.3%     -    0s
+     0     0    8.12199    0   35   10.44776    8.12199  22.3%     -    0s
+     0     0    8.14396    0   33   10.44776    8.14396  22.1%     -    0s
+     0     0   10.33898    0   22   10.44776   10.33898  1.04%     -    0s
+     0     0   10.37224    0   65   10.44776   10.37224  0.72%     -    0s
+     0     0   10.37224    0   69   10.44776   10.37224  0.72%     -    0s
+     0     0   10.43430    0   52   10.44776   10.43430  0.13%     -    0s
+     0     0   10.43430    0   74   10.44776   10.43430  0.13%     -    0s
+     0     0   10.43430    0   69   10.44776   10.43430  0.13%     -    0s
+     0     0   10.43918    0   24   10.44776   10.43918  0.08%     -    0s
+
+Cutting planes:
+  Clique: 10
+  MIR: 1
+  RLT: 72
+  Relax-and-lift: 1
+  BQP: 9
+
+Explored 1 nodes (478 simplex iterations) in 0.11 seconds (0.02 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 10.4478 10.4697 10.4832 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.044776067439e+01, best bound 1.044776067439e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 10.447760674386664
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xe861d513
+Model has 0 linear objective coefficients
+Model has 120 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 5.6450425
+Presolve time: 0.00s
+Presolved: 130 rows, 145 columns, 410 nonzeros
+Variable types: 0 continuous, 145 integer (145 binary)
+
+Root relaxation: objective 0.000000e+00, 29 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    5.64504    0.00000   100%     -    0s
+H    0     0                       5.6139518    0.00000   100%     -    0s
+H    0     0                       5.5760423    0.00000   100%     -    0s
+     0     0    0.00000    0   10    5.57604    0.00000   100%     -    0s
+H    0     0                       5.5697825    0.00000   100%     -    0s
+H    0     0                       5.5563326    0.00000   100%     -    0s
+H    0     0                       5.5457481    3.69138  33.4%     -    0s
+H    0     0                       5.5353876    3.69138  33.3%     -    0s
+     0     0    3.71519    0   33    5.53539    3.71519  32.9%     -    0s
+H    0     0                       5.5311092    3.71519  32.8%     -    0s
+     0     0    3.75062    0   20    5.53111    3.75062  32.2%     -    0s
+
+Cutting planes:
+  Dual implied bound: 2
+  MIR: 27
+  Zero half: 17
+  RLT: 72
+  Relax-and-lift: 3
+  BQP: 9
+
+Explored 1 nodes (185 simplex iterations) in 0.05 seconds (0.01 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 8: 5.53111 5.53539 5.54575 ... 5.64504
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 5.531109246431e+00, best bound 5.531109246431e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 5.531109246431183
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xf2c6e1a4
+Model has 0 linear objective coefficients
+Model has 40 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 1.2577823
+Presolve time: 0.00s
+Presolved: 50 rows, 65 columns, 170 nonzeros
+Variable types: 0 continuous, 65 integer (65 binary)
+
+Root relaxation: objective 0.000000e+00, 16 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6    1.25778    0.00000   100%     -    0s
+H    0     0                       1.2425441    0.00000   100%     -    0s
+H    0     0                       1.2264768    0.00000   100%     -    0s
+H    0     0                       1.2152790    0.00000   100%     -    0s
+     0     0    0.00000    0   10    1.21528    0.00000   100%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Cover: 1
+  Zero half: 7
+  RLT: 12
+  Relax-and-lift: 1
+  BQP: 5
+
+Explored 1 nodes (32 simplex iterations) in 0.03 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 4: 1.21528 1.22648 1.24254 1.25778 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.215278950005e+00, best bound 1.215278950005e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.215278950005028
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xf68b69e0
+Model has 0 linear objective coefficients
+Model has 40 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 1.8663152
+Presolve time: 0.00s
+Presolved: 50 rows, 65 columns, 170 nonzeros
+Variable types: 0 continuous, 65 integer (65 binary)
+
+Root relaxation: objective 0.000000e+00, 18 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    8    1.86632    0.00000   100%     -    0s
+H    0     0                       1.8613003    0.00000   100%     -    0s
+H    0     0                       1.8283439    0.00000   100%     -    0s
+     0     0    0.00000    0   10    1.82834    0.00000   100%     -    0s
+H    0     0                       1.8067715    0.00000   100%     -    0s
+     0     0    0.00000    0   12    1.80677    0.00000   100%     -    0s
+     0     0    0.00000    0    8    1.80677    0.00000   100%     -    0s
+     0     0    0.60549    0   10    1.80677    0.60549  66.5%     -    0s
+     0     0     cutoff    0         1.80677    1.80677  0.00%     -    0s
+
+Cutting planes:
+  Cover: 1
+  Clique: 1
+  Zero half: 9
+  RLT: 19
+  Relax-and-lift: 1
+  BQP: 4
+
+Explored 1 nodes (105 simplex iterations) in 0.03 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 4: 1.80677 1.82834 1.8613 1.86632 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.806771470745e+00, best bound 1.806771470745e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.806771470745396
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x85091102
+Model has 0 linear objective coefficients
+Model has 160 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 6.8270037
+Presolve time: 0.00s
+Presolved: 170 rows, 185 columns, 530 nonzeros
+Variable types: 0 continuous, 185 integer (185 binary)
+
+Root relaxation: objective 0.000000e+00, 23 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    6.82700    0.00000   100%     -    0s
+H    0     0                       6.7873138    0.00000   100%     -    0s
+     0     0    0.00000    0   10    6.78731    0.00000   100%     -    0s
+H    0     0                       6.7807584    3.69222  45.5%     -    0s
+H    0     0                       6.7765159    3.71034  45.2%     -    0s
+     0     0    3.71034    0   41    6.77652    3.71034  45.2%     -    0s
+     0     0    3.72994    0   41    6.77652    3.72994  45.0%     -    0s
+H    0     0                       6.7722143    3.72994  44.9%     -    0s
+     0     2    3.72994    0   41    6.77221    3.72994  44.9%     -    0s
+
+Cutting planes:
+  RLT: 59
+  BQP: 1
+
+Explored 39 nodes (715 simplex iterations) in 0.07 seconds (0.02 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 6.77221 6.77652 6.78076 ... 6.827
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 6.772214295605e+00, best bound 6.772214295605e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 6.772214295605266
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xbb69af62
+Model has 0 linear objective coefficients
+Model has 140 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 5e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 9.8932981
+Presolve time: 0.00s
+Presolved: 150 rows, 165 columns, 470 nonzeros
+Variable types: 0 continuous, 165 integer (165 binary)
+
+Root relaxation: objective 0.000000e+00, 22 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    9.89330    0.00000   100%     -    0s
+H    0     0                       9.8615409    0.00000   100%     -    0s
+     0     0    0.00000    0   10    9.86154    0.00000   100%     -    0s
+     0     0    6.79210    0   33    9.86154    6.79210  31.1%     -    0s
+H    0     0                       9.8488041    6.79210  31.0%     -    0s
+     0     0    9.01906    0   33    9.84880    9.01906  8.42%     -    0s
+     0     0    9.08606    0   45    9.84880    9.08606  7.74%     -    0s
+     0     0    9.08832    0   41    9.84880    9.08832  7.72%     -    0s
+     0     0    9.73840    0   24    9.84880    9.73840  1.12%     -    0s
+     0     0    9.77961    0   34    9.84880    9.77961  0.70%     -    0s
+
+Cutting planes:
+  Cover: 1
+  Dual implied bound: 3
+  Clique: 6
+  MIR: 4
+  Zero half: 6
+  RLT: 73
+  Relax-and-lift: 1
+  BQP: 6
+
+Explored 1 nodes (384 simplex iterations) in 0.08 seconds (0.02 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 9.8488 9.86154 9.8933 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 9.848804051537e+00, best bound 9.848804051537e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 9.848804051536767
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x5ed5d42e
+Model has 0 linear objective coefficients
+Model has 140 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 4.9666779
+Presolve time: 0.00s
+Presolved: 150 rows, 165 columns, 470 nonzeros
+Variable types: 0 continuous, 165 integer (165 binary)
+
+Root relaxation: objective 0.000000e+00, 22 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   10    4.96668    0.00000   100%     -    0s
+H    0     0                       4.9618740    0.00000   100%     -    0s
+H    0     0                       4.9357619    0.00000   100%     -    0s
+     0     0    0.00000    0   10    4.93576    0.00000   100%     -    0s
+H    0     0                       4.9343485    2.46210  50.1%     -    0s
+     0     0    2.49524    0   17    4.93435    2.49524  49.4%     -    0s
+     0     0    2.49524    0   17    4.93435    2.49524  49.4%     -    0s
+H    0     0                       4.9162314    2.49524  49.2%     -    0s
+     0     0    2.49524    0   17    4.91623    2.49524  49.2%     -    0s
+     0     0    2.49524    0   17    4.91623    2.49524  49.2%     -    0s
+     0     2    3.05228    0   17    4.91623    3.05228  37.9%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Zero half: 2
+  RLT: 56
+
+Explored 26 nodes (646 simplex iterations) in 0.07 seconds (0.02 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 4.91623 4.93435 4.93576 ... 4.96668
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 4.916231434352e+00, best bound 4.916231434352e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 4.9162314343523486
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0x4d4f78e6
+Model has 0 linear objective coefficients
+Model has 40 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 1.2368373
+Presolve time: 0.00s
+Presolved: 50 rows, 65 columns, 170 nonzeros
+Variable types: 0 continuous, 65 integer (65 binary)
+
+Root relaxation: objective 0.000000e+00, 18 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    7    1.23684    0.00000   100%     -    0s
+H    0     0                       1.2319316    0.00000   100%     -    0s
+H    0     0                       1.2161175    0.00000   100%     -    0s
+H    0     0                       1.2152790    0.00000   100%     -    0s
+     0     0    1.21528    0   10    1.21528    1.21528  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  MIR: 6
+  Zero half: 4
+  RLT: 6
+  Relax-and-lift: 4
+  BQP: 2
+
+Explored 1 nodes (46 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 4: 1.21528 1.21612 1.23193 1.23684 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.215278950005e+00, best bound 1.215278950005e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.215278950005028
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 10 rows, 25 columns and 50 nonzeros (Min)
+Model fingerprint: 0xf5eb6e5d
+Model has 0 linear objective coefficients
+Model has 40 quadratic objective terms
+Variable types: 0 continuous, 25 integer (25 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 1.2161175
+Presolve time: 0.00s
+Presolved: 50 rows, 65 columns, 170 nonzeros
+Variable types: 0 continuous, 65 integer (65 binary)
+
+Root relaxation: objective 0.000000e+00, 21 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    7    1.21612    0.00000   100%     -    0s
+H    0     0                       1.2152790    0.00000   100%     -    0s
+     0     0    0.00000    0   10    1.21528    0.00000   100%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  MIR: 2
+  Zero half: 4
+  RLT: 14
+  BQP: 3
+
+Explored 1 nodes (46 simplex iterations) in 0.03 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 2: 1.21528 1.21612 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.215278950005e+00, best bound 1.215278950005e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.215278950005028
+✅ 成功保存 42 条映射记录到 JSON 文件：./outputs/QV50_net[10, 10, 10, 10, 10]_WBCP_20260407_084442.json
+ExecCosts(comms=1440, epairs=1925, rgeo_mean_fid=0.8829715512423653, fidelity=0.0000, loss=203.4739, rhops=955, rswaps=485, remote_fidelity_loss=171.02989091207985, remote_fidelity_log_sum=-179.22570796190112, remote_fidelity=1.4563441544154037e-78, local_fidelity_loss=32.44403110156055, local_fidelity_log_sum=-32.473817376893344, local_fidelity=7.884974749134543e-15, time=14.97), local_gate_num=41352
+{'F_eff': np.float64(0.6564729379265872), 'num_comms': 1440, 'epairs': 1925, 'total_fidelity_loss': 203.4739220136404, 'rgeo_mean_fid': np.float64(0.8829715512423653), 'execution_time': 14.970508098602295, 'total_fidelity_log_sum': np.float64(-211.69952533879447), 'total_fidelity': 1.1483236883615157e-92, 'remote_hops': 955, 'remote_swaps': 485, 'local_fidelity_loss': 32.44403110156055, 'remote_fidelity_loss': 171.02989091207985, 'local_fidelity_log_sum': np.float64(-32.473817376893344), 'remote_fidelity_log_sum': np.float64(-179.22570796190112), 'local_fidelity': 7.884974749134543e-15, 'remote_fidelity': 1.4563441544154037e-78, 'local_gate_num': 41352}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+   Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs  ... 2Q Gate Names    net_type                                           backends     fidelity                  Metrics          WBCP
+0       QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]                    F_eff  6.564729e-01
+1       QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]                num_comms  1.440000e+03
+2       QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]                   epairs  1.925000e+03
+3       QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]      total_fidelity_loss  2.034739e+02
+4       QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]            rgeo_mean_fid  8.829716e-01
+5       QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]           execution_time  1.497051e+01
+6       QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]   total_fidelity_log_sum -2.116995e+02
+7       QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]           total_fidelity  1.148324e-92
+8       QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]              remote_hops  9.550000e+02
+9       QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]             remote_swaps  4.850000e+02
+10      QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]      local_fidelity_loss  3.244403e+01
+11      QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]     remote_fidelity_loss  1.710299e+02
+12      QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]   local_fidelity_log_sum -3.247382e+01
+13      QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]  remote_fidelity_log_sum -1.792257e+02
+14      QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]           local_fidelity  7.884975e-15
+15      QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]          remote_fidelity  1.456344e-78
+16      QV       50   17412       3699     503      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]           local_gate_num  4.135200e+04
+
+[17 rows x 14 columns]
+[Total Runtime] 18.055171251296997 seconds
+
+

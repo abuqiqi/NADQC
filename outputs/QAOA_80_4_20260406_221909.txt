@@ -1,0 +1,1071 @@
+========== Network Info ==========
+Network with 4 backends (mesh_grid)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9198
+  Backend 1 <-> Backend 2: Fidelity = 0.9215
+  Backend 2 <-> Backend 3: Fidelity = 0.9051
+Hop weight: 0.4214420626313051
+Fidelity range: [0.9, 0.93]
+Backend sizes: [20, 20, 20, 20]
+Backend Coupling Maps:
+  Backend 0 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+  Backend 1 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+  Backend 2 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+  Backend 3 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+[INFO] QAOA #Qubits: 80
+[INFO] QAOA #Depths: 161
+[INFO] QAOA #Gates: 3480
+[INFO] QAOA #2Q Gates: 3160
+[INFO] 4 QPUs: [20, 20, 20, 20]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['staticoee', 'fgproee', 'wbcp', 'navi', 'navihybrid']
+Compiler: [Static OEE]
+{'circuit_name': 'QAOA80'}
+{'circuit_name': 'QAOA80'}
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QAOA80_net[20, 20, 20, 20]_Static OEE_20260406_221911.json
+ExecCosts(comms=4000, epairs=4000, rgeo_mean_fid=0.916050304232519, fidelity=0.0000, loss=343.4576, rhops=4000, rswaps=0, remote_fidelity_loss=335.6848346052736, remote_fidelity_log_sum=-350.73599412598486, remote_fidelity=4.756561827476822e-153, local_fidelity_loss=7.772738399450524, local_fidelity_log_sum=-7.780533219214592, local_fidelity=0.00041778934190217466, time=0.79), local_gate_num=7407
+Compiler: [FGP-rOEE]
+{'circuit_name': 'QAOA80'}
+{'circuit_name': 'QAOA80'}
+Compiling with [FGP-rOEE]...
+[INFO] num_depths: 161
+✅ 成功保存 161 条映射记录到 JSON 文件：./outputs/QAOA80_net[20, 20, 20, 20]_FGP-rOEE_20260406_222001.json
+ExecCosts(comms=781, epairs=1550, rgeo_mean_fid=0.8379240755051431, fidelity=0.0000, loss=278.8947, rhops=12, rswaps=769, remote_fidelity_loss=132.0781406485752, remote_fidelity_log_sum=-138.1024997938177, remote_fidelity=1.0540140559277449e-60, local_fidelity_loss=146.8165708800227, local_fidelity_log_sum=-146.96629384091992, local_fidelity=1.4905603315381935e-64, time=49.97), local_gate_num=141957
+Compiler: [WBCP]
+{'circuit_name': 'QAOA80'}
+{'circuit_name': 'QAOA80'}
+Compiling with [WBCP]...
+Set parameter Username
+Set parameter LicenseID to value 2789005
+Academic license - for non-commercial use only - expires 2027-03-09
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0x7b22d471
+Model has 0 linear objective coefficients
+Model has 12 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [3e+00, 2e+01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 6.0000000
+Presolve time: 0.00s
+Presolved: 20 rows, 28 columns, 68 nonzeros
+Variable types: 0 continuous, 28 integer (28 binary)
+
+Root relaxation: objective 0.000000e+00, 11 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    4    6.00000    0.00000   100%     -    0s
+H    0     0                       1.5152788    0.00000   100%     -    0s
+H    0     0                       1.5094586    0.00000   100%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Clique: 1
+
+Explored 1 nodes (11 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 1.50946 1.51528 6 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.509458611396e+00, best bound 1.509458611396e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 1.509458611395919
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0xc698b586
+Model has 0 linear objective coefficients
+Model has 12 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 32.0000000
+Presolve time: 0.00s
+Presolved: 20 rows, 28 columns, 68 nonzeros
+Variable types: 0 continuous, 28 integer (28 binary)
+
+Root relaxation: objective 0.000000e+00, 11 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    4   32.00000    0.00000   100%     -    0s
+H    0     0                       8.0814868    0.00000   100%     -    0s
+H    0     0                       8.0504459    0.00000   100%     -    0s
+     0     0    0.00000    0    4    8.05045    0.00000   100%     -    0s
+
+Explored 1 nodes (16 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 8.05045 8.08149 32 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 8.050445927445e+00, best bound 8.050445927445e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 8.050445927444901
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0xc698b586
+Model has 0 linear objective coefficients
+Model has 12 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 32.0000000
+Presolve time: 0.00s
+Presolved: 20 rows, 28 columns, 68 nonzeros
+Variable types: 0 continuous, 28 integer (28 binary)
+
+Root relaxation: objective 0.000000e+00, 11 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    4   32.00000    0.00000   100%     -    0s
+H    0     0                       8.0814868    0.00000   100%     -    0s
+H    0     0                       8.0504459    0.00000   100%     -    0s
+     0     0    0.00000    0    4    8.05045    0.00000   100%     -    0s
+
+Explored 1 nodes (16 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 8.05045 8.08149 32 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 8.050445927445e+00, best bound 8.050445927445e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 8.050445927444901
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0xe05cc7df
+Model has 0 linear objective coefficients
+Model has 24 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 38.0378344
+Presolve time: 0.00s
+Presolved: 32 rows, 40 columns, 104 nonzeros
+Variable types: 0 continuous, 40 integer (40 binary)
+
+Root relaxation: objective 0.000000e+00, 11 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6   38.03783    0.00000   100%     -    0s
+H    0     0                      32.0504459    0.00000   100%     -    0s
+H    0     0                      14.1115610    0.00000   100%     -    0s
+     0     0   14.11156    0    8   14.11156   14.11156  0.00%     -    0s
+
+Cutting planes:
+  Clique: 3
+  Zero half: 5
+  RLT: 2
+  Relax-and-lift: 2
+
+Explored 1 nodes (21 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 14.1116 32.0504 38.0378 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.411156102586e+01, best bound 1.411156102586e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 14.11156102586298
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0x0fa56e39
+Model has 0 linear objective coefficients
+Model has 24 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 40.0504459
+Presolve time: 0.00s
+Presolved: 32 rows, 40 columns, 104 nonzeros
+Variable types: 0 continuous, 40 integer (40 binary)
+
+Root relaxation: objective 0.000000e+00, 9 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6   40.05045    0.00000   100%     -    0s
+H    0     0                      16.1319327    0.00000   100%     -    0s
+     0     0   16.13193    0    8   16.13193   16.13193  0.00%     -    0s
+
+Cutting planes:
+  Clique: 2
+  MIR: 2
+  Zero half: 3
+  RLT: 3
+  Relax-and-lift: 1
+  BQP: 3
+
+Explored 1 nodes (23 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 2: 16.1319 40.0504 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.613193272534e+01, best bound 1.613193272534e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 16.131932725335673
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0x6a81a547
+Model has 0 linear objective coefficients
+Model has 36 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [3e+00, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 46.0504459
+Presolve time: 0.00s
+Presolved: 44 rows, 52 columns, 140 nonzeros
+Variable types: 0 continuous, 52 integer (52 binary)
+
+Root relaxation: objective 0.000000e+00, 12 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    8   46.05045    0.00000   100%     -    0s
+H    0     0                      17.9036999    0.00000   100%     -    0s
+H    0     0                      17.6953031    0.00000   100%     -    0s
+
+Cutting planes:
+  Clique: 3
+  MIR: 6
+  Zero half: 3
+  RLT: 3
+  Relax-and-lift: 2
+  BQP: 1
+
+Explored 1 nodes (12 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 17.6953 17.9037 46.0504 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.769530308050e+01, best bound 1.769530308050e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 17.695303080497943
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0xc2e19f60
+Model has 0 linear objective coefficients
+Model has 36 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 24.4699080
+Presolve time: 0.00s
+Presolved: 44 rows, 52 columns, 140 nonzeros
+Variable types: 0 continuous, 52 integer (52 binary)
+
+Explored 1 nodes (0 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 1: 24.4699 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.446990795287e+01, best bound 2.446990795287e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 24.469907952867782
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0xc2e19f60
+Model has 0 linear objective coefficients
+Model has 36 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 24.4699080
+Presolve time: 0.00s
+Presolved: 44 rows, 52 columns, 140 nonzeros
+Variable types: 0 continuous, 52 integer (52 binary)
+
+Explored 1 nodes (0 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 1: 24.4699 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.446990795287e+01, best bound 2.446990795287e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 24.469907952867782
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0xc2e19f60
+Model has 0 linear objective coefficients
+Model has 36 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 24.4699080
+Presolve time: 0.00s
+Presolved: 44 rows, 52 columns, 140 nonzeros
+Variable types: 0 continuous, 52 integer (52 binary)
+
+Explored 1 nodes (0 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 1: 24.4699 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.446990795287e+01, best bound 2.446990795287e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 24.469907952867782
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0x6c6b7422
+Model has 0 linear objective coefficients
+Model has 36 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 64.4194620
+Presolve time: 0.00s
+Presolved: 44 rows, 52 columns, 140 nonzeros
+Variable types: 0 continuous, 52 integer (52 binary)
+
+Root relaxation: objective 0.000000e+00, 15 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    8   64.41946    0.00000   100%     -    0s
+H    0     0                      64.1319327    0.00000   100%     -    0s
+H    0     0                      48.4194620    0.00000   100%     -    0s
+H    0     0                      24.4699080    0.00000   100%     -    0s
+     0     0    0.00000    0    8   24.46991    0.00000   100%     -    0s
+     0     0     cutoff    0        24.46991   24.46991  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  MIR: 4
+  Zero half: 6
+  RLT: 12
+  Relax-and-lift: 2
+  BQP: 3
+
+Explored 1 nodes (55 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 4: 24.4699 48.4195 64.1319 64.4195 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.446990795287e+01, best bound 2.446990795287e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 24.469907952867782
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0xbaa234b4
+Model has 0 linear objective coefficients
+Model has 36 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 61.2927213
+Presolve time: 0.00s
+Presolved: 44 rows, 52 columns, 140 nonzeros
+Variable types: 0 continuous, 52 integer (52 binary)
+
+Root relaxation: objective 0.000000e+00, 15 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    8   61.29272    0.00000   100%     -    0s
+H    0     0                      46.1319327    0.00000   100%     -    0s
+H    0     0                      45.2927213    0.00000   100%     -    0s
+H    0     0                      21.3431672    0.00000   100%     -    0s
+     0     0   21.34317    0   11   21.34317   21.34317  0.00%     -    0s
+
+Cutting planes:
+  MIR: 2
+  Zero half: 4
+  RLT: 8
+  BQP: 2
+
+Explored 1 nodes (45 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 4: 21.3432 45.2927 46.1319 61.2927 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.134316724254e+01, best bound 2.134316724254e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 21.34316724254324
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0x262f77b6
+Model has 0 linear objective coefficients
+Model has 24 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 80.0000000
+Presolve time: 0.00s
+Presolved: 32 rows, 40 columns, 104 nonzeros
+Variable types: 0 continuous, 40 integer (40 binary)
+
+Root relaxation: objective 0.000000e+00, 12 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6   80.00000    0.00000   100%     -    0s
+H    0     0                      40.0814868    0.00000   100%     -    0s
+H    0     0                      16.1319327    0.00000   100%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Clique: 2
+  Zero half: 1
+  RLT: 4
+  Relax-and-lift: 1
+
+Explored 1 nodes (12 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 16.1319 40.0815 80 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.613193272534e+01, best bound 1.613193272534e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 16.131932725335673
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0x9e4a4f51
+Model has 0 linear objective coefficients
+Model has 24 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 77.0000000
+Presolve time: 0.00s
+Presolved: 32 rows, 40 columns, 104 nonzeros
+Variable types: 0 continuous, 40 integer (40 binary)
+
+Root relaxation: objective 0.000000e+00, 12 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6   77.00000    0.00000   100%     -    0s
+H    0     0                      38.0814868    0.00000   100%     -    0s
+H    0     0                      15.6287799    0.00000   100%     -    0s
+H    0     0                      15.6268398    0.00000   100%     -    0s
+     0     0   15.62684    0   16   15.62684   15.62684  0.00%     -    0s
+
+Cutting planes:
+  Clique: 3
+  Zero half: 1
+  RLT: 4
+  Relax-and-lift: 1
+
+Explored 1 nodes (28 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 4: 15.6268 15.6288 38.0815 77 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.562683980047e+01, best bound 1.562683980047e+01, gap 0.0000%
+Physical mapping optimal solution found, objective = 15.6268398004675
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0x00c1ad11
+Model has 0 linear objective coefficients
+Model has 24 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 35.0000000
+Presolve time: 0.00s
+Presolved: 32 rows, 40 columns, 104 nonzeros
+Variable types: 0 continuous, 40 integer (40 binary)
+
+Root relaxation: objective 0.000000e+00, 12 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    8   35.00000    0.00000   100%     -    0s
+H    0     0                      32.5050929    0.00000   100%     -    0s
+H    0     0                      32.5031529    0.00000   100%     -    0s
+H    0     0                      10.0814868    0.00000   100%     -    0s
+H    0     0                       8.5555389    0.00000   100%     -    0s
+     0     0    8.55554    0    8    8.55554    8.55554  0.00%     -    0s
+
+Cutting planes:
+  Clique: 1
+  MIR: 1
+  Zero half: 4
+  RLT: 6
+  Relax-and-lift: 2
+  BQP: 2
+
+Explored 1 nodes (24 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 8.55554 10.0815 32.5032 ... 35
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 8.555538852313e+00, best bound 8.555538852313e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 8.555538852313074
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0x55c8ca8d
+Model has 0 linear objective coefficients
+Model has 12 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [2e+01, 1e+02]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 32.0000000
+Presolve time: 0.00s
+Presolved: 20 rows, 28 columns, 68 nonzeros
+Variable types: 0 continuous, 28 integer (28 binary)
+
+Root relaxation: objective 0.000000e+00, 12 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    7   32.00000    0.00000   100%     -    0s
+H    0     0                       8.0504459    0.00000   100%     -    0s
+     0     0    0.00000    0    4    8.05045    0.00000   100%     -    0s
+
+Explored 1 nodes (20 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 2: 8.05045 32 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 8.050445927445e+00, best bound 8.050445927445e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 8.050445927444901
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0x8aad4315
+Model has 0 linear objective coefficients
+Model has 12 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+01, 6e+01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 20.0000000
+Presolve time: 0.00s
+Presolved: 20 rows, 28 columns, 68 nonzeros
+Variable types: 0 continuous, 28 integer (28 binary)
+
+Root relaxation: objective 0.000000e+00, 12 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    7   20.00000    0.00000   100%     -    0s
+H    0     0                       5.0315287    0.00000   100%     -    0s
+     0     0    0.00000    0    4    5.03153    0.00000   100%     -    0s
+
+Explored 1 nodes (20 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 2: 5.03153 20 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 5.031528704653e+00, best bound 5.031528704653e+00, gap 0.0000%
+Physical mapping optimal solution found, objective = 5.031528704653063
+✅ 成功保存 21 条映射记录到 JSON 文件：./outputs/QAOA80_net[20, 20, 20, 20]_WBCP_20260406_222007.json
+ExecCosts(comms=1166, epairs=1558, rgeo_mean_fid=0.8914912971304958, fidelity=0.0000, loss=190.3786, rhops=774, rswaps=392, remote_fidelity_loss=128.2981192384229, remote_fidelity_log_sum=-133.92629800602842, remote_fidelity=6.863534076749007e-59, local_fidelity_loss=62.0804379345564, local_fidelity_log_sum=-62.14424439187516, local_fidelity=1.025882398633554e-27, time=5.68), local_gate_num=58918
+Compiler: [NAVI]
+{'circuit_name': 'QAOA80', 'mapper': 'boundeddp_neighbor'}
+{'circuit_name': 'QAOA80', 'mapper': 'boundeddp_neighbor'}
+Compiling with [NAVI]...
+[build_partition_table]
+[build_partition_table] Partition calculation times: 12025.
+[build_partition_table] Time: 9.62965440750122 seconds
+[build_slicing_table]
+[build_slicing_table] Time: 0.014297962188720703 seconds
+[construct_teledata_only_records]
+[INFO] [NeighborhoodBoundedDPMapper] beam_width: 5, n_subcs: 121, n_QPUs: 4
+[INFO] [NeighborhoodBoundedDPMapper] num_states=24, max_candidate_states=10, max_neighbor_swaps=1
+[DEBUG] subc: 1, candidates=10, kept=5, time: 1.2540295124053955
+[DEBUG] subc: 2, candidates=10, kept=5, time: 1.5682942867279053
+[DEBUG] subc: 3, candidates=10, kept=5, time: 1.476975679397583
+[DEBUG] subc: 4, candidates=10, kept=5, time: 1.4028921127319336
+[DEBUG] subc: 5, candidates=10, kept=5, time: 1.5796077251434326
+[DEBUG] subc: 6, candidates=10, kept=5, time: 1.610184669494629
+[DEBUG] subc: 7, candidates=10, kept=5, time: 1.770625114440918
+[DEBUG] subc: 8, candidates=10, kept=5, time: 1.7032744884490967
+[DEBUG] subc: 9, candidates=10, kept=5, time: 1.6388285160064697
+[DEBUG] subc: 10, candidates=10, kept=5, time: 1.749526023864746
+[DEBUG] subc: 11, candidates=10, kept=5, time: 1.7769057750701904
+[DEBUG] subc: 12, candidates=10, kept=5, time: 2.0267298221588135
+[DEBUG] subc: 13, candidates=10, kept=5, time: 1.8585257530212402
+[DEBUG] subc: 14, candidates=10, kept=5, time: 1.9700369834899902
+[DEBUG] subc: 15, candidates=10, kept=5, time: 1.8536312580108643
+[DEBUG] subc: 16, candidates=10, kept=5, time: 2.0389857292175293
+[DEBUG] subc: 17, candidates=10, kept=5, time: 2.076597213745117
+[DEBUG] subc: 18, candidates=10, kept=5, time: 2.1273117065429688
+[DEBUG] subc: 19, candidates=10, kept=5, time: 2.047250747680664
+[DEBUG] subc: 20, candidates=10, kept=5, time: 2.1777801513671875
+[DEBUG] subc: 21, candidates=10, kept=5, time: 2.1364898681640625
+[DEBUG] subc: 22, candidates=10, kept=5, time: 2.7284724712371826
+[DEBUG] subc: 23, candidates=10, kept=5, time: 2.7867603302001953
+[DEBUG] subc: 24, candidates=10, kept=5, time: 2.649690628051758
+[DEBUG] subc: 25, candidates=10, kept=5, time: 2.7934958934783936
+[DEBUG] subc: 26, candidates=10, kept=5, time: 2.8153076171875
+[DEBUG] subc: 27, candidates=10, kept=5, time: 2.972339630126953
+[DEBUG] subc: 28, candidates=10, kept=5, time: 2.7144293785095215
+[DEBUG] subc: 29, candidates=10, kept=5, time: 2.778388261795044
+[DEBUG] subc: 30, candidates=10, kept=5, time: 3.2136709690093994
+[DEBUG] subc: 31, candidates=10, kept=5, time: 3.0010178089141846
+[DEBUG] subc: 32, candidates=10, kept=5, time: 3.0494351387023926
+[DEBUG] subc: 33, candidates=10, kept=5, time: 2.9460654258728027
+[DEBUG] subc: 34, candidates=10, kept=5, time: 3.034254312515259
+[DEBUG] subc: 35, candidates=10, kept=5, time: 2.950998067855835
+[DEBUG] subc: 36, candidates=10, kept=5, time: 3.0437824726104736
+[DEBUG] subc: 37, candidates=10, kept=5, time: 3.3119864463806152
+[DEBUG] subc: 38, candidates=10, kept=5, time: 3.194171190261841
+[DEBUG] subc: 39, candidates=10, kept=5, time: 3.0475873947143555
+[DEBUG] subc: 40, candidates=10, kept=5, time: 3.3615148067474365
+[DEBUG] subc: 41, candidates=10, kept=5, time: 3.4070093631744385
+[DEBUG] subc: 42, candidates=10, kept=5, time: 3.687988758087158
+[DEBUG] subc: 43, candidates=10, kept=5, time: 3.493518114089966
+[DEBUG] subc: 44, candidates=10, kept=5, time: 3.5717947483062744
+[DEBUG] subc: 45, candidates=10, kept=5, time: 3.9285149574279785
+[DEBUG] subc: 46, candidates=10, kept=5, time: 3.5808887481689453
+[DEBUG] subc: 47, candidates=10, kept=5, time: 3.9671144485473633
+[DEBUG] subc: 48, candidates=10, kept=5, time: 3.6629257202148438
+[DEBUG] subc: 49, candidates=10, kept=5, time: 3.9784185886383057
+[DEBUG] subc: 50, candidates=10, kept=5, time: 4.083017826080322
+[DEBUG] subc: 51, candidates=10, kept=5, time: 4.437690496444702
+[DEBUG] subc: 52, candidates=10, kept=5, time: 4.107076406478882
+[DEBUG] subc: 53, candidates=10, kept=5, time: 3.8488221168518066
+[DEBUG] subc: 54, candidates=10, kept=5, time: 4.090979337692261
+[DEBUG] subc: 55, candidates=10, kept=5, time: 3.977052927017212
+[DEBUG] subc: 56, candidates=10, kept=5, time: 4.005315542221069
+[DEBUG] subc: 57, candidates=10, kept=5, time: 3.5135433673858643
+[DEBUG] subc: 58, candidates=10, kept=5, time: 3.0667479038238525
+[DEBUG] subc: 59, candidates=10, kept=5, time: 3.3106343746185303
+[DEBUG] subc: 60, candidates=10, kept=5, time: 3.6417908668518066
+[DEBUG] subc: 61, candidates=10, kept=5, time: 4.000226736068726
+[DEBUG] subc: 62, candidates=10, kept=5, time: 4.473544120788574
+[DEBUG] subc: 63, candidates=10, kept=5, time: 4.283820390701294
+[DEBUG] subc: 64, candidates=10, kept=5, time: 4.0407092571258545
+[DEBUG] subc: 65, candidates=10, kept=5, time: 3.926506996154785
+[DEBUG] subc: 66, candidates=10, kept=5, time: 3.945575714111328
+[DEBUG] subc: 67, candidates=10, kept=5, time: 3.88427996635437
+[DEBUG] subc: 68, candidates=10, kept=5, time: 3.7084596157073975
+[DEBUG] subc: 69, candidates=10, kept=5, time: 3.908071517944336
+[DEBUG] subc: 70, candidates=10, kept=5, time: 3.632441282272339
+[DEBUG] subc: 71, candidates=10, kept=5, time: 3.894432783126831
+[DEBUG] subc: 72, candidates=10, kept=5, time: 3.8879222869873047
+[DEBUG] subc: 73, candidates=10, kept=5, time: 3.5204718112945557
+[DEBUG] subc: 74, candidates=10, kept=5, time: 3.666107416152954
+[DEBUG] subc: 75, candidates=10, kept=5, time: 3.7181787490844727
+[DEBUG] subc: 76, candidates=10, kept=5, time: 3.3342459201812744
+[DEBUG] subc: 77, candidates=10, kept=5, time: 3.4775118827819824
+[DEBUG] subc: 78, candidates=10, kept=5, time: 3.604944944381714
+[DEBUG] subc: 79, candidates=10, kept=5, time: 3.52872633934021
+[DEBUG] subc: 80, candidates=10, kept=5, time: 3.49277925491333
+[DEBUG] subc: 81, candidates=10, kept=5, time: 2.9438469409942627
+[DEBUG] subc: 82, candidates=10, kept=5, time: 3.150416851043701
+[DEBUG] subc: 83, candidates=10, kept=5, time: 3.0111842155456543
+[DEBUG] subc: 84, candidates=10, kept=5, time: 3.544598340988159
+[DEBUG] subc: 85, candidates=10, kept=5, time: 3.3272173404693604
+[DEBUG] subc: 86, candidates=10, kept=5, time: 2.6146275997161865
+[DEBUG] subc: 87, candidates=10, kept=5, time: 2.235576629638672
+[DEBUG] subc: 88, candidates=10, kept=5, time: 2.7595129013061523
+[DEBUG] subc: 89, candidates=10, kept=5, time: 2.852141857147217
+[DEBUG] subc: 90, candidates=10, kept=5, time: 2.8250672817230225
+[DEBUG] subc: 91, candidates=10, kept=5, time: 2.6858839988708496
+[DEBUG] subc: 92, candidates=10, kept=5, time: 2.637791633605957
+[DEBUG] subc: 93, candidates=10, kept=5, time: 2.682455539703369
+[DEBUG] subc: 94, candidates=10, kept=5, time: 2.577866315841675
+[DEBUG] subc: 95, candidates=10, kept=5, time: 2.3624393939971924
+[DEBUG] subc: 96, candidates=10, kept=5, time: 2.5631728172302246
+[DEBUG] subc: 97, candidates=10, kept=5, time: 2.3979194164276123
+[DEBUG] subc: 98, candidates=10, kept=5, time: 2.4894115924835205
+[DEBUG] subc: 99, candidates=10, kept=5, time: 2.4194161891937256
+[DEBUG] subc: 100, candidates=10, kept=5, time: 2.4124255180358887
+[DEBUG] subc: 101, candidates=10, kept=5, time: 1.7290706634521484
+[DEBUG] subc: 102, candidates=10, kept=5, time: 1.8865275382995605
+[DEBUG] subc: 103, candidates=10, kept=5, time: 1.702160358428955
+[DEBUG] subc: 104, candidates=10, kept=5, time: 1.8645553588867188
+[DEBUG] subc: 105, candidates=10, kept=5, time: 1.608875036239624
+[DEBUG] subc: 106, candidates=10, kept=5, time: 1.838737964630127
+[DEBUG] subc: 107, candidates=10, kept=5, time: 1.8555388450622559
+[DEBUG] subc: 108, candidates=10, kept=5, time: 1.7900898456573486
+[DEBUG] subc: 109, candidates=10, kept=5, time: 1.5780725479125977
+[DEBUG] subc: 110, candidates=10, kept=5, time: 1.6617553234100342
+[DEBUG] subc: 111, candidates=10, kept=5, time: 1.4982707500457764
+[DEBUG] subc: 112, candidates=10, kept=5, time: 1.512223243713379
+[DEBUG] subc: 113, candidates=10, kept=5, time: 1.3056976795196533
+[DEBUG] subc: 114, candidates=10, kept=5, time: 1.3493311405181885
+[DEBUG] subc: 115, candidates=10, kept=5, time: 1.2386791706085205
+[DEBUG] subc: 116, candidates=10, kept=5, time: 1.3449764251708984
+[DEBUG] subc: 117, candidates=10, kept=5, time: 1.3820595741271973
+[DEBUG] subc: 118, candidates=10, kept=5, time: 1.283560037612915
+[DEBUG] subc: 119, candidates=10, kept=5, time: 1.240107774734497
+[DEBUG] subc: 120, candidates=10, kept=5, time: 2.739149570465088
+[INFO] Neighborhood Bounded DP 运行完成 | 束宽=5 | 耗时=349.17s
+✅ 成功保存 121 条映射记录到 JSON 文件：./outputs/QAOA80_net[20, 20, 20, 20]_NAVI_20260406_222606.json
+ExecCosts(comms=489, epairs=588, rgeo_mean_fid=0.9018474251238859, fidelity=0.0000, loss=215.5544, rhops=390, rswaps=99, remote_fidelity_loss=48.39649760773796, remote_fidelity_log_sum=-50.51855331259825, remote_fidelity=1.1483415065940823e-22, local_fidelity_loss=167.15792430075086, local_fidelity_log_sum=-167.33063474129602, local_fidelity=2.1341683672701348e-73, time=359.14), local_gate_num=160428
+Compiler: [NAVI Hybrid]
+{'circuit_name': 'QAOA80', 'hybrid_strategy': 'beam', 'hybrid_beam_width': 4, 'hybrid_max_merge_span': 12, 'telegate_cache': True, 'telegate_cache_mode': 'range_fallback', 'mapper': 'boundeddp_neighbor'}
+{'circuit_name': 'QAOA80', 'hybrid_strategy': 'beam', 'hybrid_beam_width': 4, 'hybrid_max_merge_span': 12, 'telegate_cache': True, 'telegate_cache_mode': 'range_fallback', 'mapper': 'boundeddp_neighbor'}
+Compiling with [NAVI Hybrid]...
+[build_partition_table]
+[build_partition_table] Partition calculation times: 12025.
+[build_partition_table] Time: 11.510241508483887 seconds
+[build_slicing_table] Time: 0.019169330596923828 seconds
+[partition assignment] Time: 0.599281s (599.281ms), candidates=121
+[construct_hybrid_records_beam] blocks=121, beam_width=4, max_merge_span=12
+[construct_hybrid_records_beam] best_epairs=360.0, Time: 79.37213659286499 seconds
+[telegate_cache] strict_hits=0, relaxed_hits=4062, misses=1386, hit_rate=74.56%
+[telegate_keys] calls=5448, strict_unique=5448, strict_repeat=0, range_unique=1386, range_repeat=4062
+[INFO] [NeighborhoodBoundedDPMapper] beam_width: 5, n_subcs: 61, n_QPUs: 4
+[INFO] [NeighborhoodBoundedDPMapper] num_states=24, max_candidate_states=10, max_neighbor_swaps=1
+[DEBUG] subc: 1, candidates=10, kept=5, time: 1.7179458141326904
+[DEBUG] subc: 2, candidates=10, kept=5, time: 1.932112455368042
+[DEBUG] subc: 3, candidates=10, kept=5, time: 1.9524476528167725
+[DEBUG] subc: 4, candidates=10, kept=5, time: 2.105302333831787
+[DEBUG] subc: 5, candidates=10, kept=5, time: 1.929245948791504
+[DEBUG] subc: 6, candidates=10, kept=5, time: 2.046072244644165
+[DEBUG] subc: 7, candidates=10, kept=5, time: 2.1641488075256348
+[DEBUG] subc: 8, candidates=10, kept=5, time: 2.24747896194458
+[DEBUG] subc: 9, candidates=10, kept=5, time: 2.396190881729126
+[DEBUG] subc: 10, candidates=10, kept=5, time: 2.616752862930298
+[DEBUG] subc: 11, candidates=10, kept=5, time: 3.510472297668457
+[DEBUG] subc: 12, candidates=10, kept=5, time: 2.484612464904785
+[DEBUG] subc: 13, candidates=10, kept=5, time: 2.9097189903259277
+[DEBUG] subc: 14, candidates=10, kept=5, time: 3.0634500980377197
+[DEBUG] subc: 15, candidates=10, kept=5, time: 3.0743978023529053
+[DEBUG] subc: 16, candidates=10, kept=5, time: 3.1119017601013184
+[DEBUG] subc: 17, candidates=10, kept=5, time: 3.277390718460083
+[DEBUG] subc: 18, candidates=10, kept=5, time: 3.4012434482574463
+[DEBUG] subc: 19, candidates=10, kept=5, time: 3.8236560821533203
+[DEBUG] subc: 20, candidates=10, kept=5, time: 3.9330332279205322
+[DEBUG] subc: 21, candidates=10, kept=5, time: 5.203901052474976
+[DEBUG] subc: 22, candidates=10, kept=5, time: 3.6761510372161865
+[DEBUG] subc: 23, candidates=10, kept=5, time: 4.096086502075195
+[DEBUG] subc: 24, candidates=10, kept=5, time: 4.13461446762085
+[DEBUG] subc: 25, candidates=10, kept=5, time: 4.282315015792847
+[DEBUG] subc: 26, candidates=10, kept=5, time: 4.125889539718628
+[DEBUG] subc: 27, candidates=10, kept=5, time: 4.078944683074951
+[DEBUG] subc: 28, candidates=10, kept=5, time: 4.25094199180603
+[DEBUG] subc: 29, candidates=10, kept=5, time: 4.951859712600708
+[DEBUG] subc: 30, candidates=10, kept=5, time: 6.731381893157959
+[DEBUG] subc: 31, candidates=10, kept=5, time: 3.4406862258911133
+[DEBUG] subc: 32, candidates=10, kept=5, time: 4.7432541847229
+[DEBUG] subc: 33, candidates=10, kept=5, time: 2.9004323482513428
+[DEBUG] subc: 34, candidates=10, kept=5, time: 3.882749557495117
+[DEBUG] subc: 35, candidates=10, kept=5, time: 2.8087077140808105
+[DEBUG] subc: 36, candidates=10, kept=5, time: 3.9174983501434326
+[DEBUG] subc: 37, candidates=10, kept=5, time: 2.7174301147460938
+[DEBUG] subc: 38, candidates=10, kept=5, time: 4.29419469833374
+[DEBUG] subc: 39, candidates=10, kept=5, time: 3.7981977462768555
+[DEBUG] subc: 40, candidates=10, kept=5, time: 4.982067346572876
+[DEBUG] subc: 41, candidates=10, kept=5, time: 2.9496495723724365
+[DEBUG] subc: 42, candidates=10, kept=5, time: 4.2096757888793945
+[DEBUG] subc: 43, candidates=10, kept=5, time: 2.847870111465454
+[DEBUG] subc: 44, candidates=10, kept=5, time: 3.9450485706329346
+[DEBUG] subc: 45, candidates=10, kept=5, time: 2.6222822666168213
+[DEBUG] subc: 46, candidates=10, kept=5, time: 3.8243508338928223
+[DEBUG] subc: 47, candidates=10, kept=5, time: 2.625243902206421
+[DEBUG] subc: 48, candidates=10, kept=5, time: 3.8607845306396484
+[DEBUG] subc: 49, candidates=10, kept=5, time: 2.6571500301361084
+[DEBUG] subc: 50, candidates=10, kept=5, time: 3.556795597076416
+[DEBUG] subc: 51, candidates=10, kept=5, time: 2.0740773677825928
+[DEBUG] subc: 52, candidates=10, kept=5, time: 2.8381741046905518
+[DEBUG] subc: 53, candidates=10, kept=5, time: 1.8649227619171143
+[DEBUG] subc: 54, candidates=10, kept=5, time: 2.7868216037750244
+[DEBUG] subc: 55, candidates=10, kept=5, time: 1.7636003494262695
+[DEBUG] subc: 56, candidates=10, kept=5, time: 2.4640920162200928
+[DEBUG] subc: 57, candidates=10, kept=5, time: 1.749600887298584
+[DEBUG] subc: 58, candidates=10, kept=5, time: 2.51181697845459
+[DEBUG] subc: 59, candidates=10, kept=5, time: 2.186828374862671
+[DEBUG] subc: 60, candidates=10, kept=5, time: 3.654574394226074
+[INFO] Neighborhood Bounded DP 运行完成 | 束宽=5 | 耗时=203.03s
+✅ 成功保存 61 条映射记录到 JSON 文件：./outputs/QAOA80_net[20, 20, 20, 20]_NAVI Hybrid_20260406_223101.json
+ExecCosts(comms=240, epairs=360, rgeo_mean_fid=0.8794013405306039, fidelity=0.0000, loss=129.5373, rhops=120, rswaps=120, remote_fidelity_loss=29.552426418559747, remote_fidelity_log_sum=-30.843335488083486, remote_fidelity=4.026332104811072e-14, local_fidelity_loss=99.9849110325152, local_fidelity_log_sum=-100.08682426839125, local_fidelity=3.410707757735464e-44, time=294.65), local_gate_num=95909
+{'F_eff': np.float64(0.1078719148974737), 'num_comms': 4000, 'epairs': 4000, 'total_fidelity_loss': 343.4575730047241, 'rgeo_mean_fid': np.float64(0.916050304232519), 'execution_time': 0.7915215492248535, 'total_fidelity_log_sum': np.float64(-358.51652734519945), 'total_fidelity': 1.9872408356185467e-156, 'remote_hops': 4000, 'remote_swaps': 0, 'local_fidelity_loss': 7.772738399450524, 'remote_fidelity_loss': 335.6848346052736, 'local_fidelity_log_sum': np.float64(-7.780533219214592), 'remote_fidelity_log_sum': np.float64(-350.73599412598486), 'local_fidelity': 0.00041778934190217466, 'remote_fidelity': 4.756561827476822e-153, 'local_gate_num': 7407}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+   Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs              QPUs  ...     fidelity                  Metrics     Static OEE       FGP-rOEE          WBCP          NAVI   NAVI Hybrid
+0     QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]                    F_eff   1.078719e-01   1.702285e-01  2.958717e-01  2.584377e-01  4.434231e-01
+1     QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]                num_comms   4.000000e+03   7.810000e+02  1.166000e+03  4.890000e+02  2.400000e+02
+2     QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]                   epairs   4.000000e+03   1.550000e+03  1.558000e+03  5.880000e+02  3.600000e+02
+3     QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]      total_fidelity_loss   3.434576e+02   2.788947e+02  1.903786e+02  2.155544e+02  1.295373e+02
+4     QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]            rgeo_mean_fid   9.160503e-01   8.379241e-01  8.914913e-01  9.018474e-01  8.794013e-01
+5     QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]           execution_time   7.915215e-01   4.997486e+01  5.680596e+00  3.591371e+02  2.946494e+02
+6     QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]   total_fidelity_log_sum  -3.585165e+02  -2.850688e+02 -1.960705e+02 -2.178492e+02 -1.309302e+02
+7     QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]           total_fidelity  1.987241e-156  1.571072e-124  7.041179e-86  2.450754e-95  1.373264e-57
+8     QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]              remote_hops   4.000000e+03   1.200000e+01  7.740000e+02  3.900000e+02  1.200000e+02
+9     QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]             remote_swaps   0.000000e+00   7.690000e+02  3.920000e+02  9.900000e+01  1.200000e+02
+10    QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]      local_fidelity_loss   7.772738e+00   1.468166e+02  6.208044e+01  1.671579e+02  9.998491e+01
+11    QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]     remote_fidelity_loss   3.356848e+02   1.320781e+02  1.282981e+02  4.839650e+01  2.955243e+01
+12    QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]   local_fidelity_log_sum  -7.780533e+00  -1.469663e+02 -6.214424e+01 -1.673306e+02 -1.000868e+02
+13    QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]  remote_fidelity_log_sum  -3.507360e+02  -1.381025e+02 -1.339263e+02 -5.051855e+01 -3.084334e+01
+14    QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]           local_fidelity   4.177893e-04   1.490560e-64  1.025882e-27  2.134168e-73  3.410708e-44
+15    QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]          remote_fidelity  4.756562e-153   1.054014e-60  6.863534e-59  1.148342e-22  4.026332e-14
+16    QAOA       80    3480       3160     161      4  [20, 20, 20, 20]  ...  [0.9, 0.93]           local_gate_num   7.407000e+03   1.419570e+05  5.891800e+04  1.604280e+05  9.590900e+04
+
+[17 rows x 18 columns]
+[Total Runtime] 711.9244658946991 seconds
+
+

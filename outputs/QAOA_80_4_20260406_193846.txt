@@ -1,0 +1,41 @@
+========== Network Info ==========
+Network with 4 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9034
+  Backend 0 <-> Backend 2: Fidelity = 0.9001
+  Backend 0 <-> Backend 3: Fidelity = 0.9294
+  Backend 1 <-> Backend 2: Fidelity = 0.9120
+  Backend 1 <-> Backend 3: Fidelity = 0.9225
+  Backend 2 <-> Backend 3: Fidelity = 0.9207
+Hop weight: 0.4214420626313051
+Fidelity range: [0.9, 0.93]
+Backend sizes: [20, 20, 20, 20]
+Backend Coupling Maps:
+  Backend 0 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+  Backend 1 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+  Backend 2 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+  Backend 3 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+[INFO] QAOA #Qubits: 80
+[INFO] QAOA #Depths: 161
+[INFO] QAOA #Gates: 3480
+[INFO] QAOA #2Q Gates: 3160
+[INFO] 4 QPUs: [20, 20, 20, 20]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['staticoee', 'fgproee', 'wbcp', 'navi', 'navihybrid']
+Compiler: [Static OEE]
+{'circuit_name': 'QAOA80'}
+{'circuit_name': 'QAOA80'}
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QAOA80_net[20, 20, 20, 20]_Static OEE_20260406_193848.json
+ExecCosts(comms=2400, epairs=2400, rgeo_mean_fid=0.9146294171221342, fidelity=0.0000, loss=212.6617, rhops=2400, rswaps=0, remote_fidelity_loss=204.7446198783899, remote_fidelity_log_sum=-214.16713045066479, remote_fidelity=9.736369343055156e-94, local_fidelity_loss=7.9170717151447905, local_fidelity_log_sum=-7.924965401179473, local_fidelity=0.00036160236062894433, time=0.67), local_gate_num=7607
+Compiler: [FGP-rOEE]
+{'circuit_name': 'QAOA80'}
+{'circuit_name': 'QAOA80'}
+Compiling with [FGP-rOEE]...
+[INFO] num_depths: 161

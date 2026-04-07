@@ -1,0 +1,109 @@
+========== Network Info ==========
+Network with 2 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9000
+Hop weight: 0.21072103131565256
+Fidelity range: [0.9, 0.9]
+Backend sizes: [10, 10]
+Backend Coupling Maps:
+  Backend 0 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+  Backend 1 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+[INFO] QV #Qubits: 20
+[INFO] QV #Depths: 202
+[INFO] QV #Gates: 2762
+[INFO] QV #2Q Gates: 579
+[INFO] 2 QPUs: [10, 10]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: autocomm -> QAutoComm
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['autocomm', 'navi', 'navihybrid']
+Compiler: [AutoComm]
+{'circuit_name': 'QV20'}
+{'circuit_name': 'QV20'}
+Compiling with [AutoComm]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QV20_net[10, 10]_AutoComm_20260407_231828.json
+ExecCosts(comms=198, epairs=216, rgeo_mean_fid=0.8942713722828775, fidelity=0.0000, loss=21.0000, rhops=186, rswaps=12, remote_fidelity_loss=20.999999999999975, remote_fidelity_log_sum=-22.125708288143507, remote_fidelity=2.459953978388055e-10, local_fidelity_loss=0.0, local_fidelity_log_sum=0.0, local_fidelity=1.0, time=0.63), local_gate_num=2471
+Compiler: [NAVI]
+{'circuit_name': 'QV20', 'mapper': 'boundeddp_neighbor'}
+{'circuit_name': 'QV20', 'mapper': 'boundeddp_neighbor'}
+Compiling with [NAVI]...
+[build_partition_table]
+[build_partition_table] Partition calculation times: 3662.
+[build_partition_table] Time: 0.5749742984771729 seconds
+[build_slicing_table]
+[build_slicing_table] Time: 0.018883943557739258 seconds
+[construct_teledata_only_records]
+[INFO] [NeighborhoodBoundedDPMapper] beam_width: 3, n_subcs: 18, n_QPUs: 2
+[INFO] [NeighborhoodBoundedDPMapper] mapping_budget: 1, group_size: 18, num_groups: 1
+[INFO] [NeighborhoodBoundedDPMapper] num_states=2, max_candidate_states=2, max_neighbor_swaps=1
+[INFO] Neighborhood Bounded DP 运行完成 | 耗时=3.19s
+✅ 成功保存 18 条映射记录到 JSON 文件：./outputs/QV20_net[10, 10]_NAVI_20260407_231832.json
+ExecCosts(comms=79, epairs=158, rgeo_mean_fid=0.81, fidelity=0.0000, loss=20.5907, rhops=0, rswaps=79, remote_fidelity_loss=15.799999999999997, remote_fidelity_log_sum=-16.646961473936546, remote_fidelity=5.892729306312439e-08, local_fidelity_loss=4.790743842867422, local_fidelity_log_sum=-4.79511868678572, local_fidelity=0.00827001722775789, time=4.01), local_gate_num=6091
+Compiler: [NAVI Hybrid]
+{'circuit_name': 'QV20', 'hybrid_strategy': 'beam', 'hybrid_beam_width': 4, 'hybrid_max_merge_span': 12, 'telegate_cache': True, 'telegate_cache_mode': 'range_fallback', 'mapper': 'boundeddp_neighbor'}
+{'circuit_name': 'QV20', 'hybrid_strategy': 'beam', 'hybrid_beam_width': 4, 'hybrid_max_merge_span': 12, 'telegate_cache': True, 'telegate_cache_mode': 'range_fallback', 'mapper': 'boundeddp_neighbor'}
+Compiling with [NAVI Hybrid]...
+[build_partition_table]
+[build_partition_table] Partition calculation times: 3662.
+[build_partition_table] Time: 0.5993726253509521 seconds
+[build_slicing_table] Time: 0.018977642059326172 seconds
+[partition assignment] Time: 0.000601s (0.601ms), candidates=18
+[construct_hybrid_records_beam] blocks=18, beam_width=4, max_merge_span=12
+[DEBUG] Position 0 completed in 0.3276693820953369 seconds
+[DEBUG] Position 1 completed in 0.2728555202484131 seconds
+[DEBUG] Position 2 completed in 0.2768890857696533 seconds
+[DEBUG] Position 3 completed in 0.2941558361053467 seconds
+[DEBUG] Position 4 completed in 0.28557515144348145 seconds
+[DEBUG] Position 5 completed in 0.2860524654388428 seconds
+[DEBUG] Position 6 completed in 0.27480554580688477 seconds
+[DEBUG] Position 7 completed in 0.18233633041381836 seconds
+[DEBUG] Position 8 completed in 0.1674506664276123 seconds
+[DEBUG] Position 9 completed in 0.14375972747802734 seconds
+[DEBUG] Position 10 completed in 0.14581060409545898 seconds
+[DEBUG] Position 11 completed in 0.08857011795043945 seconds
+[DEBUG] Position 12 completed in 0.07844352722167969 seconds
+[DEBUG] Position 13 completed in 0.056937217712402344 seconds
+[DEBUG] Position 14 completed in 0.041155338287353516 seconds
+[DEBUG] Position 15 completed in 0.021091699600219727 seconds
+[DEBUG] Position 16 completed in 0.009354591369628906 seconds
+[DEBUG] Position 17 completed in 0.005797147750854492 seconds
+[construct_hybrid_records_beam] best_epairs=94.0, Time: 2.960474729537964 seconds
+[telegate_cache] strict_hits=0, relaxed_hits=378, misses=150, hit_rate=71.59%
+[telegate_keys] calls=528, strict_unique=528, strict_repeat=0, range_unique=150, range_repeat=378
+[INFO] [NeighborhoodBoundedDPMapper] beam_width: 3, n_subcs: 14, n_QPUs: 2
+[INFO] [NeighborhoodBoundedDPMapper] mapping_budget: 1, group_size: 14, num_groups: 1
+[INFO] [NeighborhoodBoundedDPMapper] num_states=2, max_candidate_states=2, max_neighbor_swaps=1
+[INFO] Neighborhood Bounded DP 运行完成 | 耗时=2.88s
+✅ 成功保存 14 条映射记录到 JSON 文件：./outputs/QV20_net[10, 10]_NAVI Hybrid_20260407_231839.json
+ExecCosts(comms=56, epairs=94, rgeo_mean_fid=0.8379011446393114, fidelity=0.0000, loss=14.1587, rhops=18, rswaps=38, remote_fidelity_loss=9.399999999999999, remote_fidelity_log_sum=-9.90388847183567, remote_fidelity=4.997995805289313e-05, local_fidelity_loss=4.758708348286139, local_fidelity_log_sum=-4.76311313698741, local_fidelity=0.008538984946347646, time=6.49), local_gate_num=5981
+{'F_eff': np.float64(0.8962523999107148), 'num_comms': 198, 'epairs': 216, 'total_fidelity_loss': 20.999999999999975, 'rgeo_mean_fid': np.float64(0.8942713722828775), 'execution_time': 0.6341428756713867, 'total_fidelity_log_sum': np.float64(-22.125708288143507), 'total_fidelity': 2.459953978388055e-10, 'remote_hops': 186, 'remote_swaps': 12, 'local_fidelity_loss': 0.0, 'remote_fidelity_loss': 20.999999999999975, 'local_fidelity_log_sum': 0.0, 'remote_fidelity_log_sum': np.float64(-22.125708288143507), 'local_fidelity': 1.0, 'remote_fidelity': 2.459953978388055e-10, 'local_gate_num': 2471}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+   Circuit  #Qubits  #Gates  #2Q Gates  #Depth  ...    fidelity                  Metrics      AutoComm          NAVI   NAVI Hybrid
+0       QV       20    2762        579     202  ...  [0.9, 0.9]                    F_eff  8.962524e-01  8.992907e-01  9.299645e-01
+1       QV       20    2762        579     202  ...  [0.9, 0.9]                num_comms  1.980000e+02  7.900000e+01  5.600000e+01
+2       QV       20    2762        579     202  ...  [0.9, 0.9]                   epairs  2.160000e+02  1.580000e+02  9.400000e+01
+3       QV       20    2762        579     202  ...  [0.9, 0.9]      total_fidelity_loss  2.100000e+01  2.059074e+01  1.415871e+01
+4       QV       20    2762        579     202  ...  [0.9, 0.9]            rgeo_mean_fid  8.942714e-01  8.100000e-01  8.379011e-01
+5       QV       20    2762        579     202  ...  [0.9, 0.9]           execution_time  6.341429e-01  4.008760e+00  6.492764e+00
+6       QV       20    2762        579     202  ...  [0.9, 0.9]   total_fidelity_log_sum -2.212571e+01 -2.144208e+01 -1.466700e+01
+7       QV       20    2762        579     202  ...  [0.9, 0.9]           total_fidelity  2.459954e-10  4.873297e-10  4.267781e-07
+8       QV       20    2762        579     202  ...  [0.9, 0.9]              remote_hops  1.860000e+02  0.000000e+00  1.800000e+01
+9       QV       20    2762        579     202  ...  [0.9, 0.9]             remote_swaps  1.200000e+01  7.900000e+01  3.800000e+01
+10      QV       20    2762        579     202  ...  [0.9, 0.9]      local_fidelity_loss  0.000000e+00  4.790744e+00  4.758708e+00
+11      QV       20    2762        579     202  ...  [0.9, 0.9]     remote_fidelity_loss  2.100000e+01  1.580000e+01  9.400000e+00
+12      QV       20    2762        579     202  ...  [0.9, 0.9]   local_fidelity_log_sum  0.000000e+00 -4.795119e+00 -4.763113e+00
+13      QV       20    2762        579     202  ...  [0.9, 0.9]  remote_fidelity_log_sum -2.212571e+01 -1.664696e+01 -9.903888e+00
+14      QV       20    2762        579     202  ...  [0.9, 0.9]           local_fidelity  1.000000e+00  8.270017e-03  8.538985e-03
+15      QV       20    2762        579     202  ...  [0.9, 0.9]          remote_fidelity  2.459954e-10  5.892729e-08  4.997996e-05
+16      QV       20    2762        579     202  ...  [0.9, 0.9]           local_gate_num  2.471000e+03  6.091000e+03  5.981000e+03
+
+[17 rows x 16 columns]
+[Total Runtime] 12.410919904708862 seconds
+
+

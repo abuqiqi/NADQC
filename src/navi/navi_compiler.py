@@ -53,6 +53,13 @@ class CompilationContext:
     # --- 统计信息 (Statistics) ---
     swap_prefix_sums: list[int] = field(default_factory=list)
     epair_prefix_sums: list[int] = field(default_factory=list)
+    telegate_cache_hits: int = 0
+    telegate_cache_relaxed_hits: int = 0
+    telegate_cache_misses: int = 0
+    telegate_cache: dict[Any, MappingRecordList] = field(default_factory=dict)
+    telegate_total_calls: int = 0
+    telegate_strict_seen_keys: set[Any] = field(default_factory=set)
+    telegate_range_seen_keys: set[Any] = field(default_factory=set)
     
     # --- 运行时组件 (Runtime Components) ---
     partitioner: Optional[Partitioner] = None
@@ -109,7 +116,7 @@ class NAVI(Compiler):
         telegate_partitioner = TelegatePartitionerFactory.create_telegate_partitioner(telegate_partitioner_type)
         
         # mapper_type = config.get("mapper", "dp")
-        mapper_type = config.get("mapper", "boundeddp")
+        mapper_type = config.get("mapper", "boundeddp_neighbor")
         mapper = MapperFactory.create_mapper(mapper_type)
         
         # 3. 初始化上下文 (Context)
@@ -362,7 +369,7 @@ class NAVI(Compiler):
         ctx.map_to_circuit_layer = map_to_circuit_layer
 
         end_time = time.time()
-        print(f"[DEBUG] remove_single_qubit_gates: {end_time - start_time} seconds", file=sys.stderr)
+        print(f"[INFO] remove_single_qubit_gates: {end_time - start_time} seconds", file=sys.stderr)
         # print(f"[INFO] gate_density: {ctx.gate_density}")
         # print(f"[INFO] twoq_gate_density: {ctx.twoq_gate_density}")
         return

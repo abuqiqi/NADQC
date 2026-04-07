@@ -520,6 +520,7 @@ class CompilerUtils:
             # 否则需要引入额外的SWAP操作来调整量子比特位置，导致评估不准确
             transpiled_circuit = transpile(
                 subcircuit,
+                coupling_map=backend.coupling_map,
                 basis_gates=backend.basis_gates,
                 initial_layout=initial_layout,
                 optimization_level=optimization_level

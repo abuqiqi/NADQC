@@ -28,7 +28,9 @@ class Network:
 
     def info(self):
         return {
-            "net_type": self.net_type
+            "net_type": self.net_type,
+            "backends": [backend.name for backend in self.backends],
+            "fidelity": self.fidelity_range
         }
 
     def _build_network_coupling(self, network_config: dict) -> dict:

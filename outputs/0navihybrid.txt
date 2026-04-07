@@ -1,0 +1,126 @@
+========== Network Info ==========
+Network with 5 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9254
+  Backend 0 <-> Backend 2: Fidelity = 0.9145
+  Backend 0 <-> Backend 3: Fidelity = 0.9118
+  Backend 0 <-> Backend 4: Fidelity = 0.9051
+  Backend 1 <-> Backend 2: Fidelity = 0.9176
+  Backend 1 <-> Backend 3: Fidelity = 0.9231
+  Backend 1 <-> Backend 4: Fidelity = 0.9162
+  Backend 2 <-> Backend 3: Fidelity = 0.9127
+  Backend 2 <-> Backend 4: Fidelity = 0.9212
+  Backend 3 <-> Backend 4: Fidelity = 0.9114
+Hop weight: 0.5268025782891315
+Fidelity range: [0.9, 0.93]
+Backend sizes: [20, 20, 20, 20, 20]
+Backend Coupling Maps:
+  Backend 0 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+  Backend 1 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+  Backend 2 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+  Backend 3 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+  Backend 4 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 13], [11, 12], [11, 14], [12, 11], [12, 13], [13, 10], [13, 12], [14, 11], [14, 17], [15, 16], [15, 18], [16, 15], [16, 17], [17, 14], [17, 16], [18, 15], [18, 19], [19, 18]]
+[INFO] QFT #Qubits: 50
+[INFO] QFT #Depths: 199
+[INFO] QFT #Gates: 2475
+[INFO] QFT #2Q Gates: 949
+[INFO] 5 QPUs: [20, 20, 20, 20, 20]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['navihybrid']
+Compiler: [NAVI Hybrid]
+{'circuit_name': 'QFT50', 'hybrid_strategy': 'beam', 'hybrid_beam_width': 4, 'hybrid_max_merge_span': 12, 'telegate_cache': True, 'telegate_cache_mode': 'range_fallback', 'mapper': 'boundeddp_neighbor'}
+{'circuit_name': 'QFT50', 'hybrid_strategy': 'beam', 'hybrid_beam_width': 4, 'hybrid_max_merge_span': 12, 'telegate_cache': True, 'telegate_cache_mode': 'range_fallback', 'mapper': 'boundeddp_neighbor'}
+Compiling with [NAVI Hybrid]...
+[build_partition_table]
+[build_partition_table] Partition calculation times: 11751.
+[build_partition_table] Time: 5.136304140090942 seconds
+[build_slicing_table] Time: 0.024668216705322266 seconds
+[partition assignment] Time: 3.447882s (3447.882ms), candidates=46
+[construct_hybrid_records_beam] blocks=46, beam_width=4, max_merge_span=12
+[DEBUG] Position 0 completed in 0.4293551445007324 seconds
+[DEBUG] Position 1 completed in 0.26805734634399414 seconds
+[DEBUG] Position 2 completed in 0.32239270210266113 seconds
+[DEBUG] Position 3 completed in 0.25040221214294434 seconds
+[DEBUG] Position 4 completed in 0.23779797554016113 seconds
+[DEBUG] Position 5 completed in 0.22807693481445312 seconds
+[DEBUG] Position 6 completed in 0.24435138702392578 seconds
+[DEBUG] Position 7 completed in 0.2830770015716553 seconds
+[DEBUG] Position 8 completed in 0.32537174224853516 seconds
+[DEBUG] Position 9 completed in 0.3867497444152832 seconds
+[DEBUG] Position 10 completed in 0.3906211853027344 seconds
+[DEBUG] Position 11 completed in 0.3718876838684082 seconds
+[DEBUG] Position 12 completed in 0.4163799285888672 seconds
+[DEBUG] Position 13 completed in 0.3978867530822754 seconds
+[DEBUG] Position 14 completed in 0.3766312599182129 seconds
+[DEBUG] Position 15 completed in 0.4139714241027832 seconds
+[DEBUG] Position 16 completed in 0.4886159896850586 seconds
+[DEBUG] Position 17 completed in 0.47976160049438477 seconds
+[DEBUG] Position 18 completed in 0.44542813301086426 seconds
+[DEBUG] Position 19 completed in 0.5165047645568848 seconds
+[DEBUG] Position 20 completed in 0.3610413074493408 seconds
+[DEBUG] Position 21 completed in 0.40292811393737793 seconds
+[DEBUG] Position 22 completed in 0.44734883308410645 seconds
+[DEBUG] Position 23 completed in 0.40436315536499023 seconds
+[DEBUG] Position 24 completed in 0.40514636039733887 seconds
+[DEBUG] Position 25 completed in 0.36252593994140625 seconds
+[DEBUG] Position 26 completed in 0.3742382526397705 seconds
+[DEBUG] Position 27 completed in 0.45159459114074707 seconds
+[DEBUG] Position 28 completed in 0.3633890151977539 seconds
+[DEBUG] Position 29 completed in 0.3533332347869873 seconds
+[DEBUG] Position 30 completed in 0.3704359531402588 seconds
+[DEBUG] Position 31 completed in 0.3494284152984619 seconds
+[DEBUG] Position 32 completed in 0.342212438583374 seconds
+[DEBUG] Position 33 completed in 0.3542490005493164 seconds
+[DEBUG] Position 34 completed in 0.28113555908203125 seconds
+[DEBUG] Position 35 completed in 0.2763655185699463 seconds
+[DEBUG] Position 36 completed in 0.23285174369812012 seconds
+[DEBUG] Position 37 completed in 0.19823479652404785 seconds
+[DEBUG] Position 38 completed in 0.18110156059265137 seconds
+[DEBUG] Position 39 completed in 0.1559603214263916 seconds
+[DEBUG] Position 40 completed in 0.1368885040283203 seconds
+[DEBUG] Position 41 completed in 0.10735630989074707 seconds
+[DEBUG] Position 42 completed in 0.08347487449645996 seconds
+[DEBUG] Position 43 completed in 0.06354236602783203 seconds
+[DEBUG] Position 44 completed in 0.04448127746582031 seconds
+[DEBUG] Position 45 completed in 0.03443169593811035 seconds
+[construct_hybrid_records_beam] best_epairs=134.0, Time: 14.416897058486938 seconds
+[telegate_cache] strict_hits=0, relaxed_hits=1374, misses=486, hit_rate=73.87%
+[telegate_keys] calls=1860, strict_unique=1860, strict_repeat=0, range_unique=486, range_repeat=1374
+[INFO] [NeighborhoodBoundedDPMapper] beam_width: 3, n_subcs: 32, n_QPUs: 5
+[INFO] [NeighborhoodBoundedDPMapper] mapping_budget: 1, group_size: 32, num_groups: 1
+[INFO] [NeighborhoodBoundedDPMapper] num_states=120, max_candidate_states=6, max_neighbor_swaps=1
+[INFO] Neighborhood Bounded DP 运行完成 | 耗时=11.46s
+✅ 成功保存 32 条映射记录到 JSON 文件：./outputs/QFT50_net[20, 20, 20, 20, 20]_NAVI Hybrid_20260407_204444.json
+ExecCosts(comms=81, epairs=134, rgeo_mean_fid=0.8745677433271574, fidelity=0.0000, loss=39.1379, rhops=28, rswaps=53, remote_fidelity_loss=10.42613973453242, remote_fidelity_log_sum=-10.856067307320371, remote_fidelity=1.9287230612493525e-05, local_fidelity_loss=28.711710707612312, local_fidelity_log_sum=-28.741171183729268, local_fidelity=3.295095085973825e-13, time=34.55), local_gate_num=28799
+{'F_eff': np.float64(0.8195653846565152), 'num_comms': 81, 'epairs': 134, 'total_fidelity_loss': 39.13785044214473, 'rgeo_mean_fid': np.float64(0.8745677433271574), 'execution_time': 34.550851583480835, 'total_fidelity_log_sum': np.float64(-39.59723849104964), 'total_fidelity': 6.355325881327134e-18, 'remote_hops': 28, 'remote_swaps': 53, 'local_fidelity_loss': 28.711710707612312, 'remote_fidelity_loss': 10.42613973453242, 'local_fidelity_log_sum': np.float64(-28.741171183729268), 'remote_fidelity_log_sum': np.float64(-10.856067307320371), 'local_fidelity': 3.295095085973825e-13, 'remote_fidelity': 1.9287230612493525e-05, 'local_gate_num': 28799}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+   Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs  ... 2Q Gate Names    net_type                                           backends     fidelity                  Metrics   NAVI Hybrid
+0      QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]                    F_eff  8.195654e-01
+1      QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]                num_comms  8.100000e+01
+2      QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]                   epairs  1.340000e+02
+3      QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]      total_fidelity_loss  3.913785e+01
+4      QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]            rgeo_mean_fid  8.745677e-01
+5      QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]           execution_time  3.455085e+01
+6      QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]   total_fidelity_log_sum -3.959724e+01
+7      QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]           total_fidelity  6.355326e-18
+8      QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]              remote_hops  2.800000e+01
+9      QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]             remote_swaps  5.300000e+01
+10     QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]      local_fidelity_loss  2.871171e+01
+11     QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]     remote_fidelity_loss  1.042614e+01
+12     QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]   local_fidelity_log_sum -2.874117e+01
+13     QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]  remote_fidelity_log_sum -1.085607e+01
+14     QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]           local_fidelity  3.295095e-13
+15     QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]          remote_fidelity  1.928723e-05
+16     QFT       50    2475        949     199      5  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh, ...  [0.9, 0.93]           local_gate_num  2.879900e+04
+
+[17 rows x 14 columns]
+[Total Runtime] 36.202659606933594 seconds
+
+

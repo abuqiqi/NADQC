@@ -1,6 +1,23 @@
 {
     "ibm_quantum_token": "your_token",
     "ibm_quantum_instance": "your_instance",
-    
-    "device_properties_folder": "your_device_properties_folder"
+
+    "device_properties_folder": "your_device_properties_folder",
+    "output_folder": "your_output_folder",
+    "compiler_modules": ["src.baselines", "src.navi"],
+
+    "compile_config": {},
+    "compiler_config": {
+        "navihybrid": {
+            "hybrid_strategy": "beam",
+            "hybrid_beam_width": 4,
+            "hybrid_max_merge_span": 12,
+            "telegate_cache": true,
+            "telegate_cache_mode": "range_fallback"
+        }
+    },
+
+    "network_config": {
+        "fidelity_range": [0.90, 0.95]
+    }
 }

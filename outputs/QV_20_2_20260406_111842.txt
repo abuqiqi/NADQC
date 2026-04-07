@@ -1,0 +1,130 @@
+Sampling backend from ibm_marrakesh for ibm_marrakesh_sampled_12q ...
+Sampled subsystem saved to: /home/xls/project/NADQC/data/device_properties/ibm/ibm_marrakesh_sampled_12q/ibm_marrakesh_sampled_12q_2026-03-01.xlsx
+========== Network Info ==========
+Network with 2 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9000
+Hop weight: 0.21072103131565256
+Fidelity range: [0.9, 0.9]
+Backend sizes: [12, 12]
+Backend Coupling Maps:
+  Backend 0 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2], [3, 6], [4, 5], [4, 7], [5, 4], [5, 6], [6, 3], [6, 5], [7, 4], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 11], [11, 10]]
+  Backend 1 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2], [3, 6], [4, 5], [4, 7], [5, 4], [5, 6], [6, 3], [6, 5], [7, 4], [7, 8], [8, 7], [8, 9], [9, 8], [9, 10], [10, 9], [10, 11], [11, 10]]
+[INFO] QV #Qubits: 20
+[INFO] QV #Depths: 203
+[INFO] QV #Gates: 2790
+[INFO] QV #2Q Gates: 585
+[INFO] 2 QPUs: [12, 12]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['staticoee', 'fgproee', 'wbcp', 'navi', 'navihybrid']
+Compiler: [Static OEE]
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QV20_net[12, 12]_Static OEE_20260406_111846.json
+ExecCosts(comms=213, epairs=213, rgeo_mean_fid=0.9000000000000002, fidelity=0.0000, loss=23.6349, rhops=213, rswaps=0, remote_fidelity_loss=21.300000000000033, remote_fidelity_log_sum=-22.441789835116943, remote_fidelity=1.7933064502448899e-10, local_fidelity_loss=2.3348682684543176, local_fidelity_log_sum=-2.3371034383512237, local_fidelity=0.096607061661343, time=2.50), local_gate_num=3482
+Compiler: [FGP-rOEE]
+Compiling with [FGP-rOEE]...
+[INFO] num_depths: 203
+✅ 成功保存 203 条映射记录到 JSON 文件：./outputs/QV20_net[12, 12]_FGP-rOEE_20260406_111855.json
+ExecCosts(comms=50, epairs=100, rgeo_mean_fid=0.81, fidelity=0.0000, loss=25.2572, rhops=0, rswaps=50, remote_fidelity_loss=10.0, remote_fidelity_log_sum=-10.536051565782628, remote_fidelity=2.6561398887587598e-05, local_fidelity_loss=15.257247580517037, local_fidelity_log_sum=-15.271610512034293, local_fidelity=2.3314377536460445e-07, time=9.07), local_gate_num=17893
+Compiler: [WBCP]
+Compiling with [WBCP]...
+✅ 成功保存 21 条映射记录到 JSON 文件：./outputs/QV20_net[12, 12]_WBCP_20260406_111857.json
+ExecCosts(comms=67, epairs=134, rgeo_mean_fid=0.81, fidelity=0.0000, loss=19.2807, rhops=0, rswaps=67, remote_fidelity_loss=13.399999999999995, remote_fidelity_log_sum=-14.118309098148718, remote_fidelity=7.387479093976262e-07, local_fidelity_loss=5.880723992584976, local_fidelity_log_sum=-5.8863034912064185, local_fidelity=0.0027772237781514253, time=1.54), local_gate_num=7449
+Compiler: [NAVI]
+Compiling with [NAVI]...
+[build_partition_table]
+[build_partition_table] Partition calculation times: 3982.
+[build_partition_table] Time: 0.6989977359771729 seconds
+[build_slicing_table]
+[build_slicing_table] Time: 0.02048802375793457 seconds
+[construct_teledata_only_records]
+[INFO] [BoundedDPMapper] beam_width: 5, n_subcs: 15, n_QPUs: 2
+[DEBUG] subc: 1, time: 0.1344280242919922
+[DEBUG] subc: 2, time: 0.09594845771789551
+[DEBUG] subc: 3, time: 0.1091303825378418
+[DEBUG] subc: 4, time: 0.10070157051086426
+[DEBUG] subc: 5, time: 0.09889459609985352
+[DEBUG] subc: 6, time: 0.09637165069580078
+[DEBUG] subc: 7, time: 0.1079874038696289
+[DEBUG] subc: 8, time: 0.11272215843200684
+[DEBUG] subc: 9, time: 0.13699865341186523
+[DEBUG] subc: 10, time: 0.10570120811462402
+[DEBUG] subc: 11, time: 0.14704656600952148
+[DEBUG] subc: 12, time: 0.12685680389404297
+[DEBUG] subc: 13, time: 0.13663721084594727
+[DEBUG] subc: 14, time: 0.11710238456726074
+[INFO] Bounded DP 运行完成 | 束宽=5 | 耗时=2.93s
+✅ 成功保存 15 条映射记录到 JSON 文件：./outputs/QV20_net[12, 12]_NAVI_20260406_111900.json
+ExecCosts(comms=68, epairs=112, rgeo_mean_fid=0.8406877543479443, fidelity=0.0000, loss=16.7352, rhops=24, rswaps=44, remote_fidelity_loss=11.2, remote_fidelity_log_sum=-11.80037775367654, remote_fidelity=7.501723576108315e-06, local_fidelity_loss=5.535172996985251, local_fidelity_log_sum=-5.540397423522641, local_fidelity=0.00392496665422525, time=3.74), local_gate_num=6924
+Compiler: [NAVI Hybrid]
+Compiling with [NAVI Hybrid]...
+[build_partition_table]
+[build_partition_table] Partition calculation times: 3982.
+[build_partition_table] Time: 0.5938558578491211 seconds
+[build_slicing_table] Time: 0.015459299087524414 seconds
+[partition assignment] Time: 0.00s
+[construct_hybrid_records] Number of atomic blocks: 15
+[INFO] length: 2 / 15 Time: 0.11406469345092773
+[INFO] length: 3 / 15 Time: 0.12618517875671387
+[INFO] length: 4 / 15 Time: 0.00815892219543457
+[INFO] length: 5 / 15 Time: 0.010806798934936523
+[INFO] length: 6 / 15 Time: 0.01309347152709961
+[INFO] length: 7 / 15 Time: 0.016254425048828125
+[INFO] length: 8 / 15 Time: 0.01825571060180664
+[INFO] length: 9 / 15 Time: 0.019948720932006836
+[INFO] length: 10 / 15 Time: 0.020425796508789062
+[INFO] length: 11 / 15 Time: 0.01988387107849121
+[INFO] length: 12 / 15 Time: 0.018038034439086914
+[INFO] length: 13 / 15 Time: 0.026847124099731445
+[INFO] length: 14 / 15 Time: 0.019969940185546875
+[INFO] length: 15 / 15 Time: 0.007613182067871094
+[construct_hybrid_records] Time: 0.4416079521179199 seconds
+[INFO] [BoundedDPMapper] beam_width: 5, n_subcs: 14, n_QPUs: 2
+[DEBUG] subc: 1, time: 0.13050436973571777
+[DEBUG] subc: 2, time: 0.06597495079040527
+[DEBUG] subc: 3, time: 0.12340617179870605
+[DEBUG] subc: 4, time: 0.14261412620544434
+[DEBUG] subc: 5, time: 0.16209816932678223
+[DEBUG] subc: 6, time: 0.12783098220825195
+[DEBUG] subc: 7, time: 0.1294550895690918
+[DEBUG] subc: 8, time: 0.10201764106750488
+[DEBUG] subc: 9, time: 0.0883643627166748
+[DEBUG] subc: 10, time: 0.1306908130645752
+[DEBUG] subc: 11, time: 0.08297395706176758
+[DEBUG] subc: 12, time: 0.14705920219421387
+[DEBUG] subc: 13, time: 0.15176701545715332
+[INFO] Bounded DP 运行完成 | 束宽=5 | 耗时=3.17s
+✅ 成功保存 14 条映射记录到 JSON 文件：./outputs/QV20_net[12, 12]_NAVI Hybrid_20260406_111905.json
+ExecCosts(comms=68, epairs=103, rgeo_mean_fid=0.852493075161944, fidelity=0.0000, loss=15.0795, rhops=33, rswaps=35, remote_fidelity_loss=10.299999999999997, remote_fidelity_log_sum=-10.852133112756107, remote_fidelity=1.9363259789051356e-05, local_fidelity_loss=4.779485077544905, local_fidelity_log_sum=-4.78397338185514, local_fidelity=0.008362704646866554, time=4.24), local_gate_num=6138
+{'F_eff': np.float64(0.8850921512732719), 'num_comms': 213, 'epairs': 213, 'total_fidelity_loss': 23.63486826845435, 'rgeo_mean_fid': np.float64(0.9000000000000002), 'execution_time': 2.4988553524017334, 'total_fidelity_log_sum': np.float64(-24.778893273468167), 'total_fidelity': 1.7324606681649222e-11, 'remote_hops': 213, 'remote_swaps': 0, 'local_fidelity_loss': 2.3348682684543176, 'remote_fidelity_loss': 21.300000000000033, 'local_fidelity_log_sum': np.float64(-2.3371034383512237), 'remote_fidelity_log_sum': np.float64(-22.441789835116943), 'local_fidelity': 0.096607061661343, 'remote_fidelity': 1.7933064502448899e-10, 'local_gate_num': 3482}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+   Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs      QPUs  ...    fidelity                  Metrics    Static OEE      FGP-rOEE          WBCP          NAVI   NAVI Hybrid
+0       QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]                    F_eff  8.850922e-01  8.806180e-01  9.061550e-01  9.181243e-01  9.258666e-01
+1       QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]                num_comms  2.130000e+02  5.000000e+01  6.700000e+01  6.800000e+01  6.800000e+01
+2       QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]                   epairs  2.130000e+02  1.000000e+02  1.340000e+02  1.120000e+02  1.030000e+02
+3       QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]      total_fidelity_loss  2.363487e+01  2.525725e+01  1.928072e+01  1.673517e+01  1.507949e+01
+4       QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]            rgeo_mean_fid  9.000000e-01  8.100000e-01  8.100000e-01  8.406878e-01  8.524931e-01
+5       QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]           execution_time  2.498855e+00  9.071778e+00  1.542984e+00  3.738663e+00  4.244499e+00
+6       QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]   total_fidelity_log_sum -2.477889e+01 -2.580766e+01 -2.000461e+01 -1.734078e+01 -1.563611e+01
+7       QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]           total_fidelity  1.732461e-11  6.192625e-12  2.051668e-09  2.944401e-08  1.619292e-07
+8       QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]              remote_hops  2.130000e+02  0.000000e+00  0.000000e+00  2.400000e+01  3.300000e+01
+9       QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]             remote_swaps  0.000000e+00  5.000000e+01  6.700000e+01  4.400000e+01  3.500000e+01
+10      QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]      local_fidelity_loss  2.334868e+00  1.525725e+01  5.880724e+00  5.535173e+00  4.779485e+00
+11      QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]     remote_fidelity_loss  2.130000e+01  1.000000e+01  1.340000e+01  1.120000e+01  1.030000e+01
+12      QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]   local_fidelity_log_sum -2.337103e+00 -1.527161e+01 -5.886303e+00 -5.540397e+00 -4.783973e+00
+13      QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]  remote_fidelity_log_sum -2.244179e+01 -1.053605e+01 -1.411831e+01 -1.180038e+01 -1.085213e+01
+14      QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]           local_fidelity  9.660706e-02  2.331438e-07  2.777224e-03  3.924967e-03  8.362705e-03
+15      QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]          remote_fidelity  1.793306e-10  2.656140e-05  7.387479e-07  7.501724e-06  1.936326e-05
+16      QV       20    2790        585     203      2  [12, 12]  ...  [0.9, 0.9]           local_gate_num  3.482000e+03  1.789300e+04  7.449000e+03  6.924000e+03  6.138000e+03
+
+[17 rows x 18 columns]
+[Total Runtime] 22.94351816177368 seconds
+
+

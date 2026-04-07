@@ -21,9 +21,9 @@ def main(args):
         backend_list.append(backend)
         # pprint(backend.gate_dict)
 
-    fidelity_range = [0.90, 0.95]
+    fidelity_range = [0.90, 0.93]
     if args.core_count == 2:
-        fidelity_range = [0.93, 0.93]
+        fidelity_range = [0.90, 0.90]
 
     network_config = {
         **global_config.get('network_config', {}),
@@ -56,8 +56,9 @@ def main(args):
 
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     # compiler_ids = ["fgproee"] # , "staticoee", "wbcp", "navi"
-    # compiler_ids = ["wbcp", "navi"]
-    compiler_ids = ["staticoee", "fgproee", "wbcp", "navi", "navihybrid"] # 
+    # compiler_ids = ["wbcp"]
+    compiler_ids = ["autocomm", "navi", "navihybrid"] # "staticoee", "fgproee", "wbcp", 
+    # compiler_ids = ["navihybrid"]
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
     for compiler_id in compiler_ids:
@@ -65,7 +66,14 @@ def main(args):
 
     for compiler in compilers:
         print(f"Compiler: [{compiler.name}]")
-        result = compiler.compile(trans_circ, network, {"circuit_name": f"{args.circuit_name}{args.qubit_count}"})
+        compile_config = {
+            "circuit_name": f"{args.circuit_name}{args.qubit_count}",
+            **global_config.get("compile_config", {}),
+            **global_config.get("compiler_config", {}).get(compiler.compiler_id, {}),
+        }
+        print(compile_config)
+        print(compile_config, file=sys.stdout)
+        result = compiler.compile(trans_circ, network, compile_config)
         pprint(result.total_costs)
         result_info[compiler.name] = {
             "F_eff": np.exp(result.total_costs.total_fidelity_log_sum / task_info["#Depth"]),

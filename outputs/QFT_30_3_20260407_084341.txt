@@ -1,0 +1,107 @@
+========== Network Info ==========
+Network with 3 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9277
+  Backend 0 <-> Backend 2: Fidelity = 0.9134
+  Backend 1 <-> Backend 2: Fidelity = 0.9115
+Hop weight: 0.31608154697347884
+Fidelity range: [0.9, 0.93]
+Backend sizes: [10, 10, 10]
+Backend Coupling Maps:
+  Backend 0 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+  Backend 1 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+  Backend 2 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+[INFO] QFT #Qubits: 30
+[INFO] QFT #Depths: 119
+[INFO] QFT #Gates: 1215
+[INFO] QFT #2Q Gates: 429
+[INFO] 3 QPUs: [10, 10, 10]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['wbcp']
+Compiler: [WBCP]
+{'circuit_name': 'QFT30'}
+{'circuit_name': 'QFT30'}
+Compiling with [WBCP]...
+Set parameter Username
+Set parameter LicenseID to value 2789005
+Academic license - for non-commercial use only - expires 2027-03-09
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 6 rows, 9 columns and 18 nonzeros (Min)
+Model fingerprint: 0x1cbc7f2e
+Model has 0 linear objective coefficients
+Model has 6 quadratic objective terms
+Variable types: 0 continuous, 9 integer (9 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [8e-01, 8e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Presolve time: 0.00s
+Presolved: 12 rows, 15 columns, 36 nonzeros
+Variable types: 0 continuous, 15 integer (15 binary)
+Found heuristic solution: objective 0.4087784
+Found heuristic solution: objective 0.4066973
+Found heuristic solution: objective 0.3910794
+
+Root relaxation: objective 0.000000e+00, 7 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 infeasible    0         0.39108    0.39108  0.00%     -    0s
+
+Explored 1 nodes (7 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 3: 0.391079 0.406697 0.408778 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 3.910793864367e-01, best bound 3.910793864367e-01, gap 0.0000%
+Physical mapping optimal solution found, objective = 0.3910793864366977
+✅ 成功保存 60 条映射记录到 JSON 文件：./outputs/QFT30_net[10, 10, 10]_WBCP_20260407_084346.json
+ExecCosts(comms=112, epairs=182, rgeo_mean_fid=0.868858380158709, fidelity=0.0000, loss=23.5280, rhops=42, rswaps=70, remote_fidelity_loss=15.077641362511708, remote_fidelity_log_sum=-15.744415203413626, remote_fidelity=1.4530727432967164e-07, local_fidelity_loss=8.450407376372794, local_fidelity_log_sum=-8.458213292592907, local_fidelity=0.00021215078362478695, time=3.57), local_gate_num=9492
+{'F_eff': np.float64(0.8159653136204812), 'num_comms': 112, 'epairs': 182, 'total_fidelity_loss': 23.5280487388845, 'rgeo_mean_fid': np.float64(0.868858380158709), 'execution_time': 3.571234941482544, 'total_fidelity_log_sum': np.float64(-24.202628496006533), 'total_fidelity': 3.082705211542173e-11, 'remote_hops': 42, 'remote_swaps': 70, 'local_fidelity_loss': 8.450407376372794, 'remote_fidelity_loss': 15.077641362511708, 'local_fidelity_log_sum': np.float64(-8.458213292592907), 'remote_fidelity_log_sum': np.float64(-15.744415203413626), 'local_fidelity': 0.00021215078362478695, 'remote_fidelity': 1.4530727432967164e-07, 'local_gate_num': 9492}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+   Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs  ... 2Q Gate Names    net_type                                       backends     fidelity                  Metrics          WBCP
+0      QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]                    F_eff  8.159653e-01
+1      QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]                num_comms  1.120000e+02
+2      QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]                   epairs  1.820000e+02
+3      QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]      total_fidelity_loss  2.352805e+01
+4      QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]            rgeo_mean_fid  8.688584e-01
+5      QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]           execution_time  3.571235e+00
+6      QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]   total_fidelity_log_sum -2.420263e+01
+7      QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]           total_fidelity  3.082705e-11
+8      QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]              remote_hops  4.200000e+01
+9      QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]             remote_swaps  7.000000e+01
+10     QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]      local_fidelity_loss  8.450407e+00
+11     QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]     remote_fidelity_loss  1.507764e+01
+12     QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]   local_fidelity_log_sum -8.458213e+00
+13     QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]  remote_fidelity_log_sum -1.574442e+01
+14     QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]           local_fidelity  2.121508e-04
+15     QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]          remote_fidelity  1.453073e-07
+16     QFT       30    1215        429     119      3  ...     {cz, rzz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]           local_gate_num  9.492000e+03
+
+[17 rows x 14 columns]
+[Total Runtime] 4.768167495727539 seconds
+
+

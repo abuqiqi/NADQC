@@ -1,0 +1,58 @@
+========== Network Info ==========
+Network with 3 backends (all_to_all)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9117
+  Backend 0 <-> Backend 2: Fidelity = 0.9286
+  Backend 1 <-> Backend 2: Fidelity = 0.9073
+Hop weight: 0.31608154697347884
+Fidelity range: [0.9, 0.93]
+Backend sizes: [10, 10, 10]
+Backend Coupling Maps:
+  Backend 0 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+  Backend 1 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+  Backend 2 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 5], [3, 4], [3, 6], [4, 3], [4, 5], [5, 2], [5, 4], [6, 3], [6, 7], [7, 6], [7, 8], [8, 7], [8, 9], [9, 8]]
+[INFO] QAOA #Qubits: 30
+[INFO] QAOA #Depths: 61
+[INFO] QAOA #Gates: 555
+[INFO] QAOA #2Q Gates: 435
+[INFO] 3 QPUs: [10, 10, 10]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+Registered compiler IDs: ['wbcp']
+Compiler: [WBCP]
+{'circuit_name': 'QAOA30'}
+{'circuit_name': 'QAOA30'}
+Compiling with [WBCP]...
+✅ 成功保存 61 条映射记录到 JSON 文件：./outputs/QAOA30_net[10, 10, 10]_WBCP_20260407_084353.json
+ExecCosts(comms=181, epairs=221, rgeo_mean_fid=0.8958670449620633, fidelity=0.0000, loss=25.5524, rhops=141, rswaps=40, remote_fidelity_loss=19.026010900881893, remote_fidelity_log_sum=-19.903350844964397, remote_fidelity=2.270306835044884e-09, local_fidelity_loss=6.526356072770523, local_fidelity_log_sum=-6.532439615894801, local_fidelity=0.0014554507741977927, time=4.00), local_gate_num=6784
+{'F_eff': np.float64(0.6483182257122966), 'num_comms': 181, 'epairs': 221, 'total_fidelity_loss': 25.552366973652415, 'rgeo_mean_fid': np.float64(0.8958670449620633), 'execution_time': 3.998991012573242, 'total_fidelity_log_sum': np.float64(-26.4357904608592), 'total_fidelity': 3.3043198407326167e-12, 'remote_hops': 141, 'remote_swaps': 40, 'local_fidelity_loss': 6.526356072770523, 'remote_fidelity_loss': 19.026010900881893, 'local_fidelity_log_sum': np.float64(-6.532439615894801), 'remote_fidelity_log_sum': np.float64(-19.903350844964397), 'local_fidelity': 0.0014554507741977927, 'remote_fidelity': 2.270306835044884e-09, 'local_gate_num': 6784}
+✅ 数据已成功写入: /home/xls/project/NADQC/outputs/compiler_results.csv
+📊 本次写入数据预览:
+   Circuit  #Qubits  #Gates  #2Q Gates  #Depth  #QPUs  ... 2Q Gate Names    net_type                                       backends     fidelity                  Metrics          WBCP
+0     QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]                    F_eff  6.483182e-01
+1     QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]                num_comms  1.810000e+02
+2     QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]                   epairs  2.210000e+02
+3     QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]      total_fidelity_loss  2.555237e+01
+4     QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]            rgeo_mean_fid  8.958670e-01
+5     QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]           execution_time  3.998991e+00
+6     QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]   total_fidelity_log_sum -2.643579e+01
+7     QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]           total_fidelity  3.304320e-12
+8     QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]              remote_hops  1.410000e+02
+9     QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]             remote_swaps  4.000000e+01
+10    QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]      local_fidelity_loss  6.526356e+00
+11    QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]     remote_fidelity_loss  1.902601e+01
+12    QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]   local_fidelity_log_sum -6.532440e+00
+13    QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]  remote_fidelity_log_sum -1.990335e+01
+14    QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]           local_fidelity  1.455451e-03
+15    QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]          remote_fidelity  2.270307e-09
+16    QAOA       30     555        435      61      3  ...     {rzz, cz}  all_to_all  [ibm_marrakesh, ibm_marrakesh, ibm_marrakesh]  [0.9, 0.93]           local_gate_num  6.784000e+03
+
+[17 rows x 14 columns]
+[Total Runtime] 5.063655614852905 seconds
+
+

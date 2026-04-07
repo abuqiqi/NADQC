@@ -55,7 +55,12 @@ def main(args):
 
     for compiler in compilers:
         print(f"Compiler: [{compiler.name}]")
-        result = compiler.compile(trans_circ, network, {"circuit_name": f"{args.circuit_name}{args.qubit_count}"})
+        compile_config = {
+            "circuit_name": f"{args.circuit_name}{args.qubit_count}",
+            **global_config.get("compile_config", {}),
+            **global_config.get("compiler_config", {}).get(compiler.compiler_id, {}),
+        }
+        result = compiler.compile(trans_circ, network, compile_config)
         pprint(result.total_costs)
         result_info[compiler.name] = {
             "F_eff": np.exp(result.total_costs.total_fidelity_log_sum / task_info["#Depth"]),

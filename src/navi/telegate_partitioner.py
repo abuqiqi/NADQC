@@ -58,10 +58,16 @@ class DirectTelegatePartitioner(TelegatePartitioner):
         if not partition:
             partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
 
+        enable_cat_telegate = config.get("enable_cat_telegate", True) if config else True
+        cat_controls = config.get("cat_controls", []) if config else []
+
         # 计算telegate代价
-        # qig = CompilerUtils.build_qubit_interaction_graph(circuit)
-        # costs = CompilerUtils.evaluate_partition(qig, partition, network)
-        costs = CompilerUtils.evaluate_local_and_telegate(partition, circuit, network)
+        if enable_cat_telegate:
+            costs = CompilerUtils.evaluate_telegate_with_cat(
+                partition, circuit, network, cat_controls=cat_controls
+            )
+        else:
+            costs = CompilerUtils.evaluate_telegate(partition, circuit, network)
 
         return MappingRecord(
             layer_start  = layer_start,
@@ -89,6 +95,9 @@ class OEEPartitioner(TelegatePartitioner):
         layer_end = config.get("layer_end", circuit.depth() - 1) if config else circuit.depth() - 1
 
         add_teledata_costs = config.get("add_teledata_costs", True) if config else True
+        enable_cat_telegate = config.get("enable_cat_telegate", True) if config else True
+        cat_controls = config.get("cat_controls", []) if config else []
+        debug_cat_telegate = config.get("debug_cat_telegate", False) if config else False
 
         # 如果config里没有partition，就按顺序分配
         if not partition:
@@ -108,8 +117,22 @@ class OEEPartitioner(TelegatePartitioner):
         )
 
         # 评估当前线路的telegate代价
-        # 这里不考虑fidelity loss
-        costs = CompilerUtils.evaluate_telegate(partition, circuit, network)
+        if enable_cat_telegate:
+            costs = CompilerUtils.evaluate_telegate_with_cat(
+                partition, circuit, network, cat_controls=cat_controls
+            )
+        else:
+            costs = CompilerUtils.evaluate_telegate(partition, circuit, network)
+
+        if debug_cat_telegate:
+            plain_costs = CompilerUtils.evaluate_telegate(partition, circuit, network)
+            cat_costs = CompilerUtils.evaluate_telegate_with_cat(
+                partition, circuit, network, cat_controls=cat_controls
+            )
+            print(
+                f"[cat_debug][telegate_partitioner] layer=[{layer_start},{layer_end}] "
+                f"controls={len(cat_controls)} plain_epairs={plain_costs.epairs} cat_epairs={cat_costs.epairs}"
+            )
 
         # 评估和前一段线路的切分代价（如果prev_partition存在）
         if prev_partition and add_teledata_costs:
@@ -171,7 +194,7 @@ class PytketDQCPartitioner(TelegatePartitioner):
             partition[target].append(i)
 
         # TODO: 计算cat-ent的telegate代价
-        costs = CompilerUtils.evaluate_local_and_telegate(partition, circuit, network)
+        costs, _ = CompilerUtils.evaluate_local_and_telegate(partition, circuit, network)
         
         return MappingRecord(
             layer_start=layer_start,

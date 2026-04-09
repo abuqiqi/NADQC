@@ -46,7 +46,7 @@ class StaticOEE(Compiler):
             logical_phy_map = logical_phy_map
         )
 
-        _ = CompilerUtils.evaluate_local_and_telegate(record, circuit, network)
+        _ = CompilerUtils.evaluate_local_and_telegate_with_cat(record, circuit, network)
 
         mapping_record_list = MappingRecordList()
         mapping_record_list.add_record(record)
@@ -56,5 +56,5 @@ class StaticOEE(Compiler):
         mapping_record_list.update_total_costs(execution_time = end_time - start_time)
         
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
+        mapping_record_list.save_records(f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
         return mapping_record_list

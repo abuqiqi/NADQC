@@ -341,14 +341,6 @@ class Mapper(ABC):
         # 3.3 处理剩余边（1:1复刻原函数）
         remaining_edges = G.edges(data=True)
         for u, v, data in remaining_edges:
-            # path_len = network.Hops[u][v]
-            # num_rswaps = path_len * data['weight']
-            # w = network.move_fidelity[u][v]
-            # costs.remote_swaps += num_rswaps
-            # costs.epairs += num_rswaps
-            # costs.remote_fidelity_loss += (1 - w) * num_rswaps
-            # costs.remote_fidelity *= w ** num_rswaps
-            # costs.remote_fidelity_log_sum += num_rswaps * np.log(w)
             costs = CompilerUtils.update_remote_move_costs(
                 costs, u, v, data['weight'], network
             )
@@ -370,6 +362,9 @@ class Mapper(ABC):
         k = len(mapping_record_list.records)  # 时间片数量
 
         logical_phy_map = {}
+        mapper_cfg = getattr(self, "config", {}) if hasattr(self, "config") else {}
+        enable_cat_telegate = bool(mapper_cfg.get("enable_cat_telegate", True))
+        debug_cat_telegate = bool(mapper_cfg.get("debug_cat_telegate", False))
         for t in range(k):
             # print(f"\n\n\n[DEBUG] {t} / {k}")
 
@@ -413,7 +408,30 @@ class Mapper(ABC):
                 # print(f"[DEBUG] after teledata: {record.logical_phy_map}")
 
             # 计算local和telegate损失
-            _ = CompilerUtils.evaluate_local_and_telegate(record, subcircuit, network)
+            use_cat = enable_cat_telegate and record.mapping_type == "telegate"
+            rec_cat_controls = None
+            if record.extra_info is not None:
+                rec_cat_controls = record.extra_info.get("cat_controls")
+            if debug_cat_telegate and record.mapping_type == "telegate":
+                plain_costs = CompilerUtils.evaluate_telegate(record.partition, subcircuit, network)
+                cat_costs = CompilerUtils.evaluate_telegate_with_cat(
+                    record.partition,
+                    subcircuit,
+                    network,
+                    cat_controls=rec_cat_controls,
+                )
+                print(
+                    f"[cat_debug][mapper_reeval] t={t} layer=[{record.layer_start},{record.layer_end}] "
+                    f"plain_epairs={plain_costs.epairs} cat_epairs={cat_costs.epairs}"
+                )
+
+            tg_costs, curr_map = CompilerUtils.evaluate_local_and_telegate(
+                record,
+                subcircuit,
+                network,
+                enable_cat_telegate=use_cat,
+                cat_controls=rec_cat_controls,
+            )
             # print(f"[DEBUG] record (local and telegate): \n{record}\n\n")
 
             # print(f"[DEBUG] logical_phy_map: {record.logical_phy_map}")
@@ -778,7 +796,8 @@ class DPMapper(Mapper):
                 layer_start = record.layer_start,
                 layer_end = record.layer_end,
                 partition = best_partition,
-                mapping_type = record.mapping_type
+                mapping_type = record.mapping_type,
+                extra_info = copy.deepcopy(record.extra_info)
             )
 
             final_record_list.add_record(new_record)
@@ -950,6 +969,9 @@ class NeighborhoodBoundedDPMapper(Mapper):
             for seg_idx in range(seg_start, seg_end):
                 seg_record = mapping_record_list.records[seg_idx]
                 partition = _apply_perm(seg_record.partition, perm)
+                seg_cat_controls = None
+                if seg_record.extra_info is not None:
+                    seg_cat_controls = seg_record.extra_info.get("cat_controls")
 
                 if curr_prev_partition is not None:
                     td_costs, curr_map = CompilerUtils.evaluate_teledata(
@@ -970,6 +992,8 @@ class NeighborhoodBoundedDPMapper(Mapper):
                     network,
                     logical_phy_map=curr_map,
                     optimization_level=0,
+                    enable_cat_telegate=bool(getattr(self, "config", {}).get("enable_cat_telegate", True)) and seg_record.mapping_type == "telegate",
+                    cat_controls=seg_cat_controls,
                 )
                 group_costs += tg_costs
                 curr_prev_partition = partition
@@ -1165,7 +1189,8 @@ class NeighborhoodBoundedDPMapper(Mapper):
                 layer_start=record.layer_start,
                 layer_end=record.layer_end,
                 partition=best_partition,
-                mapping_type=record.mapping_type
+                mapping_type=record.mapping_type,
+                extra_info=copy.deepcopy(record.extra_info)
             )
             final_record_list.add_record(new_record)
 
@@ -1384,7 +1409,8 @@ class BoundedDPMapper(Mapper):
                 layer_start=record.layer_start,
                 layer_end=record.layer_end,
                 partition=best_partition,
-                mapping_type=record.mapping_type
+                mapping_type=record.mapping_type,
+                extra_info=copy.deepcopy(record.extra_info)
             )
             final_record_list.add_record(new_record)
 

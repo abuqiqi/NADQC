@@ -12,6 +12,14 @@
             "hybrid_strategy": "beam",
             "hybrid_beam_width": 4,
             "hybrid_max_merge_span": 12,
+            "hybrid_prune_trigger_ratio": 5,
+            "enable_cat_gate_reorder": true,
+            "debug_cat_gate_reorder": true,
+            "enable_ptable_telegate_hint": true,
+            "ptable_telegate_hint_max_span": 12,
+            "debug_ptable_telegate_hint": true,
+            "enable_cat_telegate": true,
+            "debug_cat_telegate": false,
             "telegate_cache": true,
             "telegate_cache_mode": "range_fallback"
         }

@@ -57,7 +57,7 @@ def main(args):
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     # compiler_ids = ["fgproee"] # , "staticoee", "wbcp", "navi"
     # compiler_ids = ["wbcp"]
-    compiler_ids = ["autocomm", "navi", "navihybrid"] # "staticoee", "fgproee", "wbcp", 
+    compiler_ids = ["autocomm"] # "staticoee", "fgproee", "wbcp", "navi", , "navihybrid", "navinew"
     # compiler_ids = ["navihybrid"]
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     # 获取全局配置
     args = get_args()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
+    filename = "0" # f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
     original_stdout = sys.stdout
     with open(f'outputs/{filename}.txt', 'w', buffering=1) as f:
         sys.stdout = f

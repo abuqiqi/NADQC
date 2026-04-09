@@ -56,7 +56,7 @@ class FGPrOEE(Compiler):
         mapping_record_list.summarize_total_costs()
         mapping_record_list.update_total_costs(execution_time = end_time - start_time)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        mapping_record_list.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
+        mapping_record_list.save_records(f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
         
         # print(f"[DEBUG] num_swaps: {self.num_swaps}\nnum_gates: {self.num_gates}")
         # print(f"[DEBUG] Total swaps: {sum(self.num_swaps)}, Total gates: {sum(self.num_gates)}")

@@ -1,6 +1,57 @@
 from .gate_util import *
 from .commute_func import *
 from .merge_func import *
+from ...compiler.compiler_utils import CommOp
+
+from qiskit import QuantumCircuit
+from qiskit.circuit import Gate
+
+def _autocomm_gate_to_qiskit_gate(gate_record):
+    """
+    将AutoComm门记录转换为Qiskit Gate对象，并返回作用全局量子比特列表。
+    """
+    gtype = str(gate_type(gate_record)).upper()
+    qids = [int(q) for q in gate_qubits(gate_record)]
+    params = [complex(p) if isinstance(p, complex) else p for p in gate_params(gate_record)]
+
+    qiskit_name_map = {
+        "CX": "cx",
+        "CZ": "cz",
+        "CRZ": "crz",
+        "CU1": "cu1",
+        "RZZ": "rzz",
+        "RX": "rx",
+        "RZ": "rz",
+        "H": "h",
+        "X": "x",
+        "SX": "sx",
+        "ID": "id",
+        "U3": "u3",
+    }
+    gate_name = qiskit_name_map.get(gtype, gtype.lower())
+    qgate = Gate(name=gate_name, num_qubits=len(qids), params=params)
+    setattr(qgate, "_autocomm_qids", qids)
+    return qgate, qids
+
+
+def _convert_gate_block_to_qiskit_gates(gate_block):
+    converted = []
+    for g in gate_block:
+        qgate, _ = _autocomm_gate_to_qiskit_gate(g)
+        converted.append(qgate)
+    return converted
+
+
+def _collect_gate_block_qubits(gate_block, source_qubit=None):
+    ordered = []
+    if source_qubit is not None:
+        ordered.append(int(source_qubit))
+    for g in gate_block:
+        for q in gate_qubits(g):
+            q = int(q)
+            if q not in ordered:
+                ordered.append(q)
+    return ordered
 
 # assume gates are formed of CX and single-qubit gates. It is okay to have other gates if related rules are defined
 def comm_aggregate(gate_list, qubit_node_mapping, allow_gate_pattern=True, allow_test_merge=False, refine_iter_cnt=3, check_commute_func=commute_func_right):
@@ -98,11 +149,10 @@ def comm_assign(gate_block_list, qubit_node_mapping):
             assigned_gate_block_list.append(gb)
     return assigned_gate_block_list
 
-def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=None, fidelity_metric=None, refine_iter_cnt=3, check_commute_func=commute_func_right, return_comm_events=False):
+def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=None, fidelity_metric=None, refine_iter_cnt=3, check_commute_func=commute_func_right, return_ops=False):
     if latency_metric == None:
-        latency_metric = {"1Q":0.1,"CX":1,"CZ":1,"CRZ":2.2,"CU1":2.2,"MS":5,"EP":12,"CB":1}
+        latency_metric = {"1Q":0.1,"CX":1,"CZ":1,"CRZ":2.2,"MS":5,"EP":12,"CB":1}
     assigned_gate_block_list = tp_comm_merge_iter(assigned_gate_block_list, qubit_node_mapping, refine_iter_cnt, check_commute_func)
-    comm_events = []
     # start scheduling
     dqb_list = [f"dq{i}" for i in range(len(qubit_node_mapping))]
     node_count = max(qubit_node_mapping) + 1
@@ -111,7 +161,8 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
     for qb in dqb_list+cqb_list:
         qb_slot[qb] = 0
     epr_cnt = 0
-    comm_costs = [0, 0, 0, 0]
+    comm_costs = [0, 0] # cat-ent, teleportation
+    op_list = QuantumCircuit(len(qubit_node_mapping))
     for gb in assigned_gate_block_list:
         if is_comm_block(gb):
             if gb[0][1] == 0: # cat-comm
@@ -136,7 +187,7 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                 # Measure and correction
                 qb_slot[scqb] += latency_metric["MS"]
                 qb_slot[tcqb] = max(qb_slot[tcqb],qb_slot[scqb]+latency_metric["CB"])+latency_metric["1Q"]
-                # main body
+                # main body (remote -> local gates)
                 source_qb = tcqb
                 H_offset = 0
                 for glocal in gb[1]:
@@ -155,7 +206,7 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                         elif gate_type(glocal) in ["CRZ", "CU1", "RZZ"]:
                             twoq_latency = latency_metric["CRZ"]
                         else:
-                            twoq_latency = latency_metric["CX"]
+                            raise ValueError(f"Unsupported gate type latency: {gate_type(glocal)}")
                         if ctrl == source:
                             qb_slot[source_qb] = max(qb_slot[source_qb], qb_slot[tgt_qb]) + twoq_latency
                             qb_slot[tgt_qb] = qb_slot[source_qb]
@@ -169,17 +220,30 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                 # finish up
                 source_qb = f"dq{source}"
                 qb_slot[tcqb] += latency_metric["1Q"]+latency_metric["MS"]
-                qb_slot[source_qb] = max(qb_slot[source_qb],qb_slot[tcqb]+latency_metric["CB"])+latency_metric["1Q"]
+                qb_slot[source_qb] = max(qb_slot[source_qb],qb_slot[tcqb]+latency_metric["CB"]) + latency_metric["1Q"]
                 epr_cnt += 1
                 comm_costs[0] += 1
-                comm_events.append({"model": "cat", "src": source_node, "dst": target_node, "epr": 1})
-            else:  # Tp-comm
-                # serial
+                involved_qubits = _collect_gate_block_qubits(gb[1], source_qubit=source)
+                gate_list = _convert_gate_block_to_qiskit_gates(gb[1])
+                op_list.append(
+                    CommOp(
+                        comm_type="cat",
+                        source_qubit=source,
+                        src_qpu=source_node,
+                        dst_qpu=target_node,
+                        involved_qubits=involved_qubits,
+                        gate_list=gate_list,
+                    ),
+                    [op_list.qubits[q] for q in involved_qubits],
+                )
+            else: # Tp-comm
                 # do parallel
                 if len(gb[0][0]) == 2:
+                    # gb[0][0] = [source, target_node]
+                    # source_node: source逻辑比特的“家节点”（初始驻留QPU）
+                    # target_node: 需要远程执行门块的目标QPU
                     source, target_node = gb[0][0]
                     source_node = qubit_node_mapping[source]
-                    comm_events.append({"model": "move", "src": source_node, "dst": target_node, "epr": 2})
                     scqb_idx = 0
                     if qb_slot[f"cq{source_node}-{0}"] > qb_slot[f"cq{source_node}-{1}"]:
                         scqb_idx = 1
@@ -189,7 +253,7 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                     source_qb = f"dq{source}"
                     scqb = f"cq{source_node}-{scqb_idx}"
                     tcqb = f"cq{target_node}-{tcqb_idx}"
-                    # do tp-comm
+                    # do tp-comm (outbound: source_node -> target_node)
                     # EP
                     qb_slot[scqb] = max(qb_slot[scqb],qb_slot[tcqb]) + latency_metric["EP"]
                     qb_slot[tcqb] = qb_slot[scqb]
@@ -222,7 +286,8 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                             elif gate_type(glocal) in ["CRZ", "CU1", "RZZ"]:
                                 twoq_latency = latency_metric["CRZ"]
                             else:
-                                twoq_latency = latency_metric["CX"]
+                                # twoq_latency = latency_metric["CX"]
+                                raise ValueError(f"Unsupported gate type latency: {gate_type(glocal)}")
                             if ctrl == source:
                                 qb_slot[source_qb] = max(qb_slot[source_qb], qb_slot[tgt_qb]) + twoq_latency
                                 qb_slot[tgt_qb] = qb_slot[source_qb]
@@ -233,6 +298,7 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                                 qb_slot[ctrl_qb] = max(qb_slot[ctrl_qb], qb_slot[tgt_qb]) + twoq_latency
                                 qb_slot[tgt_qb] = qb_slot[ctrl_qb]
                     # finish up
+                    # inbound: target_node -> source_node，把source相关量子态收回家节点
                     source_qb = f"dq{source}"
                     tcqb_new = f"cq{target_node}-{1-tcqb_idx}"
                     qb_slot[scqb] = max(qb_slot[scqb],qb_slot[tcqb_new]) + latency_metric["EP"]
@@ -245,8 +311,22 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                     qb_slot[source_qb] = max(qb_slot[source_qb], qb_slot[tcqb_new]+latency_metric["CB"]) + latency_metric["1Q"]
                     qb_slot[tcqb] += latency_metric["1Q"] + latency_metric["MS"]
                     qb_slot[source_qb] = max(qb_slot[source_qb], qb_slot[tcqb]+latency_metric["CB"]) + latency_metric["1Q"]
+                    # 一去一回两次tp，因此这里是 +2
                     epr_cnt += 2
-                    comm_costs[1] += 1
+                    comm_costs[1] += 2
+                    involved_qubits = _collect_gate_block_qubits(gb[1], source_qubit=source)
+                    gate_list = _convert_gate_block_to_qiskit_gates(gb[1])
+                    op_list.append(
+                        CommOp(
+                            comm_type="rtp", # round-trip teleportation
+                            source_qubit=source,
+                            src_qpu=source_node,
+                            dst_qpu=target_node,
+                            involved_qubits=involved_qubits,
+                            gate_list=gate_list,
+                        ),
+                        [op_list.qubits[q] for q in involved_qubits],
+                    )
                 # do serial
                 if len(gb[0][0]) > 2:
                     source = gb[0][0][0]
@@ -292,8 +372,20 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                         qb_slot[tcqb] = max(qb_slot[tcqb],qb_slot[source_qb]+latency_metric["CB"]) + latency_metric["1Q"]
                         qb_slot[source_qb] += latency_metric["1Q"] # reset
                         epr_cnt += 1
-                        comm_costs[2] += 1
-                        comm_events.append({"model": "swap", "src": source_node, "dst": target_node, "epr": 2})
+                        comm_costs[1] += 1
+                        involved_qubits = _collect_gate_block_qubits(gb[1+tnidx], source_qubit=source)
+                        gate_list = _convert_gate_block_to_qiskit_gates(gb[1+tnidx])
+                        op_list.append(
+                            CommOp(
+                                comm_type="tp",
+                                source_qubit=source,
+                                src_qpu=source_node,
+                                dst_qpu=target_node,
+                                involved_qubits=involved_qubits,
+                                gate_list=gate_list,
+                            ),
+                            [op_list.qubits[q] for q in involved_qubits],
+                        )
                         # main body
                         source_qb = tcqb
                         for glocal in gb[1+tnidx]:
@@ -312,7 +404,8 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                                 elif gate_type(glocal) in ["CRZ", "CU1", "RZZ"]:
                                     twoq_latency = latency_metric["CRZ"]
                                 else:
-                                    twoq_latency = latency_metric["CX"]
+                                    # twoq_latency = latency_metric["CX"]
+                                    raise ValueError(f"Unsupported gate type latency: {gate_type(glocal)}")
                                 if ctrl == source:
                                     qb_slot[source_qb] = max(qb_slot[source_qb], qb_slot[tgt_qb]) + twoq_latency
                                     qb_slot[tgt_qb] = qb_slot[source_qb]
@@ -342,42 +435,53 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                     qb_slot[tcqb] += latency_metric["1Q"] + latency_metric["MS"]
                     qb_slot[source_qb] = max(qb_slot[source_qb], qb_slot[tcqb]+latency_metric["CB"]) + latency_metric["1Q"]
                     epr_cnt += 1
-                    comm_costs[3] += 1
-                    comm_events.append({"model": "move", "src": source_node, "dst": target_node, "epr": 1})
-            local_gates = [gb] if (len(gb) > 0 and isinstance(gb[0], str)) else gb
-            for glocal in local_gates:
-                if not isinstance(glocal, list) or len(glocal) < 2:
-                    continue
-                if not isinstance(glocal[0], str) or not isinstance(glocal[1], list):
-                    continue
-                gqb = gate_qubits(glocal)
-                if len(gqb) == 1:
-                    qb_slot[f"dq{gqb[0]}"] += latency_metric["1Q"]
-                elif len(gqb) == 2: # must be local
-                    qb0, qb1 = gqb
-                    if gate_type(glocal) in ["CX", "CZ"]:
-                        qb_slot[f"dq{qb0}"] = max(qb_slot[f"dq{qb0}"], qb_slot[f"dq{qb1}"]) + latency_metric["CX"]
-                        qb_slot[f"dq{qb1}"] = qb_slot[f"dq{qb0}"]
-                    elif gate_type(glocal) in ["CRZ", "CU1", "RZZ"]:
-                        qb_slot[f"dq{qb0}"] = max(qb_slot[f"dq{qb0}"], qb_slot[f"dq{qb1}"]) + latency_metric["CRZ"]
-                        qb_slot[f"dq{qb1}"] = qb_slot[f"dq{qb0}"]
-                    else:
-                        qb_slot[f"dq{qb0}"] = max(qb_slot[f"dq{qb0}"], qb_slot[f"dq{qb1}"]) + latency_metric["CX"]
-                        qb_slot[f"dq{qb1}"] = qb_slot[f"dq{qb0}"]
+                    comm_costs[1] += 1
+                    op_list.append(
+                        CommOp(
+                            comm_type="tp",
+                            source_qubit=source,
+                            src_qpu=target_node,
+                            dst_qpu=qubit_node_mapping[source],
+                            involved_qubits=[int(source)],
+                            gate_list=[],
+                            # epr_weight=1,
+                        ),
+                        [op_list.qubits[int(source)]],
+                    )
+        else:
+            # 非通信块：按原生AutoComm逻辑统计本地门时延
+            gqb = gate_qubits(gb)
+            qgate, gate_qids = _autocomm_gate_to_qiskit_gate(gb)
+            op_list.append(qgate, [op_list.qubits[q] for q in gate_qids])
+            if len(gqb) == 1:
+                qb_slot[f"dq{gqb[0]}"] += latency_metric["1Q"]
+            elif len(gqb) == 2: # must be local
+                qb0, qb1 = gqb
+                if gate_type(gb) in ["CX", "CZ"]:
+                    qb_slot[f"dq{qb0}"] = max(qb_slot[f"dq{qb0}"], qb_slot[f"dq{qb1}"]) + latency_metric["CX"]
+                    qb_slot[f"dq{qb1}"] = qb_slot[f"dq{qb0}"]
+                elif gate_type(gb) in ["CRZ", "CU1", "RZZ"]:
+                    qb_slot[f"dq{qb0}"] = max(qb_slot[f"dq{qb0}"], qb_slot[f"dq{qb1}"]) + latency_metric["CRZ"]
+                    qb_slot[f"dq{qb1}"] = qb_slot[f"dq{qb0}"]
     all_latency =  max(qb_slot.values())
-    if return_comm_events:
-        return epr_cnt, all_latency, assigned_gate_block_list, comm_costs, comm_events
+    if return_ops:
+        return epr_cnt, all_latency, assigned_gate_block_list, comm_costs, op_list
     return epr_cnt, all_latency, assigned_gate_block_list, comm_costs
 
 
-def autocomm_full(gate_list, qubit_node_mapping, allow_gate_pattern=False, allow_test_merge=False, allow_local_view=False, aggregate_iter_cnt=1, schedule_iter_cnt=1, return_comm_events=False):
+def autocomm_full(gate_list, qubit_node_mapping, allow_gate_pattern=False, allow_test_merge=False, allow_local_view=False, aggregate_iter_cnt=1, schedule_iter_cnt=1, return_ops=False):
     if allow_local_view == False:
         g_list = comm_aggregate(gate_list, qubit_node_mapping, allow_gate_pattern=allow_gate_pattern, allow_test_merge=allow_test_merge, refine_iter_cnt=aggregate_iter_cnt)
         assigned_gate_block_list = comm_assign(g_list, qubit_node_mapping)
-        res = comm_schedule(assigned_gate_block_list, qubit_node_mapping, refine_iter_cnt=schedule_iter_cnt, return_comm_events=return_comm_events)
-        if return_comm_events:
-            epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs, comm_events = res
-            return epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs, comm_events
+        res = comm_schedule(
+            assigned_gate_block_list,
+            qubit_node_mapping,
+            refine_iter_cnt=schedule_iter_cnt,
+            return_ops=return_ops,
+        )
+        if return_ops:
+            epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs, op_list = res
+            return epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs, op_list
         epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs = res
         return epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs
     else:
@@ -385,10 +489,15 @@ def autocomm_full(gate_list, qubit_node_mapping, allow_gate_pattern=False, allow
         for sub_gate_list in gate_list:
             g_list += comm_aggregate(sub_gate_list, qubit_node_mapping, allow_gate_pattern=allow_gate_pattern, allow_test_merge=allow_test_merge, refine_iter_cnt=aggregate_iter_cnt)
         assigned_gate_block_list = comm_assign(g_list, qubit_node_mapping)
-        res = comm_schedule(assigned_gate_block_list, qubit_node_mapping, refine_iter_cnt=schedule_iter_cnt, return_comm_events=return_comm_events)
-        if return_comm_events:
-            epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs, comm_events = res
-            return epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs, comm_events
+        res = comm_schedule(
+            assigned_gate_block_list,
+            qubit_node_mapping,
+            refine_iter_cnt=schedule_iter_cnt,
+            return_ops=return_ops,
+        )
+        if return_ops:
+            epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs, op_list = res
+            return epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs, op_list
         epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs = res
         return epr_cnt, all_latency, assigned_gate_block_list_scheduled, comm_costs
 

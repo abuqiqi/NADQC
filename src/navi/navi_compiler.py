@@ -60,6 +60,7 @@ class CompilationContext:
     telegate_total_calls: int = 0
     telegate_strict_seen_keys: set[Any] = field(default_factory=set)
     telegate_range_seen_keys: set[Any] = field(default_factory=set)
+    ptable_telegate_hints: dict[tuple[int, int], dict[str, float]] = field(default_factory=dict)
     
     # --- 运行时组件 (Runtime Components) ---
     partitioner: Optional[Partitioner] = None
@@ -179,7 +180,7 @@ class NAVI(Compiler):
         final_result.summarize_total_costs()
         final_result.update_total_costs(execution_time = exec_time)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        final_result.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
+        final_result.save_records(f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
 
         return final_result
 

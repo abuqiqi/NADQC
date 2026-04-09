@@ -42,9 +42,9 @@ python main.py -cname QV -nq 100 -core 5 -cap 20
 # ##########
 # 4x20 mesh
 # ##########
-# python main.py -cname QAOA -nq 80 -core 4 -cap 20 -net mesh_grid
-# python main.py -cname QFT -nq 80 -core 4 -cap 20 -net mesh_grid
-# python main.py -cname QV -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname QAOA -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname QFT -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname QV -nq 80 -core 4 -cap 20 -net mesh_grid
 
 # python main.py -cname QV -nq 30 -core 3 -cap 10
 # python main.py -cname QV -nq 60 -core 3 -cap 20

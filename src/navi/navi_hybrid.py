@@ -164,6 +164,23 @@ class NAVIHybrid(Compiler):
         # ctx.hybrid_records = self._step_construct_hybrid_records_greedy_stack(ctx)
         # ctx.hybrid_records = self._step_construct_hybrid_records_sliding_window(ctx)
 
+        # 诊断：mapper 前混合候选的 CAT 使用情况
+        ctx.hybrid_records.summarize_total_costs()
+        pre_mapper_costs = ctx.hybrid_records.total_costs
+        pre_mapper_telegate = sum(1 for rec in ctx.hybrid_records.records if rec.mapping_type == "telegate")
+        pre_mapper_cat_records = sum(1 for rec in ctx.hybrid_records.records if rec.costs.cat_ents > 0)
+        print(
+            f"[cat_debug][hybrid_pre_mapper] records={len(ctx.hybrid_records.records)}, "
+            f"telegate_records={pre_mapper_telegate}, cat_records={pre_mapper_cat_records}, "
+            f"cat_ents={pre_mapper_costs.cat_ents}, epairs={pre_mapper_costs.epairs}"
+        )
+        print(
+            f"[cat_debug][hybrid_pre_mapper] records={len(ctx.hybrid_records.records)}, "
+            f"telegate_records={pre_mapper_telegate}, cat_records={pre_mapper_cat_records}, "
+            f"cat_ents={pre_mapper_costs.cat_ents}, epairs={pre_mapper_costs.epairs}",
+            file=sys.stderr,
+        )
+
         # Step 9: 最终映射 (考虑噪声)
         assert ctx.mapper is not None
         final_result = ctx.mapper.map(
@@ -178,9 +195,23 @@ class NAVIHybrid(Compiler):
         print(f"[INFO] NAVI Hybrid execution time: {exec_time} sec", file=sys.stderr)
 
         final_result.summarize_total_costs()
+        post_mapper_costs = final_result.total_costs
+        post_mapper_telegate = sum(1 for rec in final_result.records if rec.mapping_type == "telegate")
+        post_mapper_cat_records = sum(1 for rec in final_result.records if rec.costs.cat_ents > 0)
+        print(
+            f"[cat_debug][hybrid_post_mapper] records={len(final_result.records)}, "
+            f"telegate_records={post_mapper_telegate}, cat_records={post_mapper_cat_records}, "
+            f"cat_ents={post_mapper_costs.cat_ents}, epairs={post_mapper_costs.epairs}"
+        )
+        print(
+            f"[cat_debug][hybrid_post_mapper] records={len(final_result.records)}, "
+            f"telegate_records={post_mapper_telegate}, cat_records={post_mapper_cat_records}, "
+            f"cat_ents={post_mapper_costs.cat_ents}, epairs={post_mapper_costs.epairs}",
+            file=sys.stderr,
+        )
         final_result.update_total_costs(execution_time = exec_time)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        final_result.save_records(f"./outputs/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
+        final_result.save_records(f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
 
         return final_result
 
@@ -194,6 +225,21 @@ class NAVIHybrid(Compiler):
         Updates: ctx.multiq_layers, ctx.map_*, ctx.gate_density, ctx.twoq_gate_density
         """
         start_time = time.time()
+
+        if bool(ctx.config.get("enable_cat_gate_reorder", True)):
+            reordered_circuit, reorder_stats = self._reorder_cat_candidate_gates(ctx.circuit)
+            ctx.circuit = reordered_circuit
+            if bool(ctx.config.get("debug_cat_gate_reorder", True)):
+                print(
+                    f"[cat_debug][gate_reorder] runs={reorder_stats['runs']}, "
+                    f"gates={reorder_stats['gates']}, moved={reorder_stats['moved']}"
+                )
+                print(
+                    f"[cat_debug][gate_reorder] runs={reorder_stats['runs']}, "
+                    f"gates={reorder_stats['gates']}, moved={reorder_stats['moved']}",
+                    file=sys.stderr,
+                )
+
         ctx.dag = circuit_to_dag(ctx.circuit)
         
         circuit_layers = [] # 每一层存放的是原始量子线路上所有量子门，如果双量子比特门被拆分了，它也要被拆分
@@ -271,6 +317,82 @@ class NAVIHybrid(Compiler):
         # print(f"[INFO] twoq_gate_density: {ctx.twoq_gate_density}")
         return
 
+    def _reorder_cat_candidate_gates(self, circuit: QuantumCircuit) -> tuple[QuantumCircuit, dict[str, int]]:
+        """
+        在语义安全前提下，对连续的 CZ/RZZ 双比特门做局部重排，
+        让共享锚点（控制位）的门相邻，提高后续 CAT 机会。
+        """
+        reordered = QuantumCircuit(*circuit.qregs, *circuit.cregs)
+        qindex = {q: i for i, q in enumerate(circuit.qubits)}
+
+        runs = 0
+        total_gates = 0
+        moved_gates = 0
+        run_buffer: list[tuple[Any, list[Any], list[Any]]] = []
+
+        def _unpack_instruction(inst: Any) -> tuple[Any, list[Any], list[Any]]:
+            op = getattr(inst, "operation", inst[0])
+            qargs = list(getattr(inst, "qubits", inst[1]))
+            cargs = list(getattr(inst, "clbits", inst[2]))
+            return op, qargs, cargs
+
+        def _is_diag_twoq(op: Any, qargs: list[Any], cargs: list[Any]) -> bool:
+            return len(qargs) == 2 and len(cargs) == 0 and getattr(op, "name", "") in {"cz", "rzz"}
+
+        def _flush_run() -> None:
+            nonlocal runs, total_gates, moved_gates, run_buffer
+            if not run_buffer:
+                return
+
+            runs += 1
+            total_gates += len(run_buffer)
+
+            freq: dict[int, int] = {}
+            for _, qargs, _ in run_buffer:
+                q0 = qindex[qargs[0]]
+                q1 = qindex[qargs[1]]
+                freq[q0] = freq.get(q0, 0) + 1
+                freq[q1] = freq.get(q1, 0) + 1
+
+            decorated: list[tuple[tuple[int, int, int], tuple[Any, list[Any], list[Any]]]] = []
+            for idx, item in enumerate(run_buffer):
+                _, qargs, _ = item
+                q0 = qindex[qargs[0]]
+                q1 = qindex[qargs[1]]
+
+                if (freq[q0] > freq[q1]) or (freq[q0] == freq[q1] and q0 <= q1):
+                    anchor, target = q0, q1
+                else:
+                    anchor, target = q1, q0
+
+                decorated.append(((anchor, target, idx), item))
+
+            sorted_run = [item for _, item in sorted(decorated, key=lambda x: x[0])]
+
+            moved_gates += sum(1 for idx, item in enumerate(sorted_run) if item is not run_buffer[idx])
+
+            for op, qargs, cargs in sorted_run:
+                reordered.append(op, qargs, cargs)
+
+            run_buffer = []
+
+        for inst in circuit.data:
+            op, qargs, cargs = _unpack_instruction(inst)
+            if _is_diag_twoq(op, qargs, cargs):
+                run_buffer.append((op, qargs, cargs))
+            else:
+                _flush_run()
+                reordered.append(op, qargs, cargs)
+
+        _flush_run()
+
+        stats = {
+            "runs": runs,
+            "gates": total_gates,
+            "moved": moved_gates,
+        }
+        return reordered, stats
+
     def _step_build_partition_table(self, ctx: CompilationContext) -> list[Any]:
         """
         Build the P table.
@@ -333,9 +455,66 @@ class NAVIHybrid(Compiler):
                                 P[i+1][j] = P[i][j]
 
         print(f"[build_partition_table] Partition calculation times: {cnt}.")
+
+        # [disabled] 在P-table阶段预评估telegate hint。
+        # 相关逻辑按需求临时停用，仅保留代码以便后续恢复。
+        # self._build_telegate_hints_for_empty_partitions(ctx, P)
+
         print(f"[build_partition_table] Time: {time.time() - start_time} seconds")
         print(f"[build_partition_table] Time: {time.time() - start_time} seconds", file=sys.stderr)
         return P
+
+    def _build_telegate_hints_for_empty_partitions(self, ctx: CompilationContext, P: list[list[list[Any]]]) -> None:
+        """
+        针对无0-cut partition的区间，基于OEE进行telegate预评估并记录hint。
+        hint将用于hybrid beam打分先验，提升CAT候选被保留概率。
+        """
+        if not bool(ctx.config.get("enable_ptable_telegate_hint", True)):
+            ctx.ptable_telegate_hints = {}
+            return
+
+        num_depths = len(P)
+        max_span = int(ctx.config.get("ptable_telegate_hint_max_span", max(1, num_depths)))
+        max_span = max(1, max_span)
+        debug_hint = bool(ctx.config.get("debug_ptable_telegate_hint", True))
+
+        hints: dict[tuple[int, int], dict[str, float]] = {}
+        total_empty = 0
+        eval_count = 0
+        cat_positive = 0
+
+        for i in range(num_depths):
+            for j in range(i, num_depths):
+                if len(P[i][j]) > 0:
+                    continue
+                total_empty += 1
+                if j - i + 1 > max_span:
+                    continue
+
+                ori_left, ori_right = self.get_original_layer_idx(ctx, (i, j))
+                telegate_result = self._try_generate_telegate(ctx, ori_left, ori_right, None)
+                tg_costs = telegate_result.total_costs
+                hints[(ori_left, ori_right)] = {
+                    "epairs": float(tg_costs.epairs),
+                    "cat_ents": float(tg_costs.cat_ents),
+                    "span": float(j - i + 1),
+                }
+                eval_count += 1
+                if tg_costs.cat_ents > 0:
+                    cat_positive += 1
+
+        ctx.ptable_telegate_hints = hints
+
+        if debug_hint:
+            print(
+                f"[cat_debug][ptable_hint] empty_ranges={total_empty}, evaluated={eval_count}, "
+                f"cat_positive={cat_positive}, hint_max_span={max_span}"
+            )
+            print(
+                f"[cat_debug][ptable_hint] empty_ranges={total_empty}, evaluated={eval_count}, "
+                f"cat_positive={cat_positive}, hint_max_span={max_span}",
+                file=sys.stderr,
+            )
 
     def _step_build_slicing_table(self, ctx: CompilationContext) -> list[Any]:
         """
@@ -647,8 +826,8 @@ class NAVIHybrid(Compiler):
         blocks = ctx.subc_ranges
         K = len(blocks)
 
-        beam_width = int(ctx.config.get("hybrid_beam_width", 4))
-        max_merge_span = int(ctx.config.get("hybrid_max_merge_span", 12))
+        beam_width = int(ctx.config.get("hybrid_beam_width", 3))
+        max_merge_span = int(ctx.config.get("hybrid_max_merge_span", 21))
         # 仅当候选显著超出 beam_width 时才做前向剪枝，减少重复排序开销。
         prune_trigger_ratio = int(ctx.config.get("hybrid_prune_trigger_ratio", 5))
         beam_width = max(1, beam_width)
@@ -656,10 +835,12 @@ class NAVIHybrid(Compiler):
         prune_trigger_ratio = max(2, prune_trigger_ratio)
 
         print(
-            f"[construct_hybrid_records_beam] blocks={K}, beam_width={beam_width}, max_merge_span={max_merge_span}"
+            f"[construct_hybrid_records_beam] blocks={K}, beam_width={beam_width}, "
+            f"max_merge_span={max_merge_span}, objective=(min epairs, max cat_ents, max hint_hits)"
         )
         print(
-            f"[construct_hybrid_records_beam] blocks={K}, beam_width={beam_width}, max_merge_span={max_merge_span}",
+            f"[construct_hybrid_records_beam] blocks={K}, beam_width={beam_width}, "
+            f"max_merge_span={max_merge_span}, objective=(min epairs, max cat_ents, max hint_hits)",
             file=sys.stderr,
         )
 
@@ -677,26 +858,33 @@ class NAVIHybrid(Compiler):
             )
             original_records.append(record)
 
-        # states[pos] = [(epairs_cost, [records...]), ...]
-        states: dict[int, list[tuple[float, list[MappingRecord]]]] = {0: [(0.0, [])]}
+        # states[pos] = [(projected_epairs, projected_cat_ents, hint_hits, [records...]), ...]
+        states: dict[int, list[tuple[float, int, int, list[MappingRecord]]]] = {0: [(0.0, 0, 0, [])]}
+        # [disabled] ptable telegate hint 先验逻辑暂时停用。
+        # ptable_hints = getattr(ctx, "ptable_telegate_hints", {})
+
+        def _state_key(item: tuple[float, int, int, list[MappingRecord]]) -> tuple[float, int, int]:
+            projected_epairs, projected_cat_ents, hint_hits, _ = item
+            return (projected_epairs, -projected_cat_ents, -hint_hits)
 
         def _partition_sig(partition: list[list[int]]) -> tuple[tuple[int, ...], ...]:
             return tuple(tuple(sorted(part)) for part in partition)
 
-        def _prune(candidates: list[tuple[float, list[MappingRecord]]]) -> list[tuple[float, list[MappingRecord]]]:
+        def _prune(candidates: list[tuple[float, int, int, list[MappingRecord]]]) -> list[tuple[float, int, int, list[MappingRecord]]]:
             # 先按“末尾划分签名”去重，保留每种签名成本最小者，再按总成本截断
-            best_by_sig: dict[tuple[tuple[int, ...], ...], tuple[float, list[MappingRecord]]] = {}
-            for cost, recs in candidates:
+            best_by_sig: dict[tuple[tuple[int, ...], ...], tuple[float, int, int, list[MappingRecord]]] = {}
+            for item in candidates:
+                _, _, _, recs = item
                 if not recs:
                     sig = tuple()
                 else:
                     sig = _partition_sig(recs[-1].partition)
 
                 old = best_by_sig.get(sig)
-                if old is None or cost < old[0]:
-                    best_by_sig[sig] = (cost, recs)
+                if old is None or _state_key(item) < _state_key(old):
+                    best_by_sig[sig] = item
 
-            pruned = sorted(best_by_sig.values(), key=lambda x: x[0])
+            pruned = sorted(best_by_sig.values(), key=_state_key)
             return pruned[:beam_width]
 
         for pos in range(K):
@@ -708,7 +896,7 @@ class NAVIHybrid(Compiler):
             if not current_states:
                 continue
 
-            for base_cost, base_records in current_states:
+            for base_epairs, base_cat_ents, base_hint_hits, base_records in current_states:
                 prev_partition = base_records[-1].partition if base_records else None
 
                 # 选项 A：当前原子块保持 teledata
@@ -720,12 +908,12 @@ class NAVIHybrid(Compiler):
                     )
                     transition_cost = td_costs.epairs
 
-                next_cost = base_cost + transition_cost
-                states.setdefault(pos + 1, []).append((next_cost, base_records + [td_record]))
+                next_epairs = base_epairs + transition_cost
+                states.setdefault(pos + 1, []).append((next_epairs, base_cat_ents, base_hint_hits, base_records + [td_record]))
 
-                # 选项 B：从 pos 开始合并为 telegate，长度受 max_merge_span 约束
-                upper_end = min(K - 1, pos + max_merge_span - 1)
+                # 选项 B：从 pos 开始合并为 telegate。
                 start_layer = original_records[pos].layer_start
+                upper_end = min(K - 1, pos + max_merge_span - 1)
 
                 for end in range(pos, upper_end + 1):
                     end_layer = original_records[end].layer_end
@@ -741,8 +929,17 @@ class NAVIHybrid(Compiler):
                         )
                         transition_cost = tg_link_costs.epairs
 
-                    merged_cost = base_cost + transition_cost + telegate_result.total_costs.epairs
-                    states.setdefault(end + 1, []).append((merged_cost, base_records + [tg_record]))
+                    seg_cat_ents = int(telegate_result.total_costs.cat_ents)
+                    merged_epairs = base_epairs + transition_cost + telegate_result.total_costs.epairs
+                    merged_cat_ents = base_cat_ents + seg_cat_ents
+
+                    # [disabled] hint命中统计暂时停用。
+                    # hint = ptable_hints.get((start_layer, end_layer))
+                    # hint_hit = 1 if hint is not None and float(hint.get("cat_ents", 0.0)) > 0.0 else 0
+                    hint_hit = 0
+                    merged_hint_hits = base_hint_hits + hint_hit
+
+                    states.setdefault(end + 1, []).append((merged_epairs, merged_cat_ents, merged_hint_hits, base_records + [tg_record]))
 
             # 修剪不好的records路径，控制状态爆炸
             for prune_pos in range(pos + 1, min(K, pos + max_merge_span) + 1):
@@ -758,7 +955,7 @@ class NAVIHybrid(Compiler):
         if not final_candidates:
             raise RuntimeError("[ERROR] beam search failed to produce any hybrid plan.")
 
-        best_cost, best_records = min(final_candidates, key=lambda x: x[0])
+        best_projected_epairs, best_projected_cat_ents, best_hint_hits, best_records = min(final_candidates, key=_state_key)
         result = MappingRecordList()
         result.records = best_records
         result.summarize_total_costs()
@@ -766,10 +963,14 @@ class NAVIHybrid(Compiler):
         ctx.telegate_optimized = True
         end_time = time.time()
         print(
-            f"[construct_hybrid_records_beam] best_epairs={best_cost}, Time: {end_time - start_time} seconds"
+            f"[construct_hybrid_records_beam] best_key=(epairs={best_projected_epairs}, cat_ents={best_projected_cat_ents}, hint_hits={best_hint_hits}), "
+            f"best_epairs={result.total_costs.epairs}, best_cat_ents={result.total_costs.cat_ents}, "
+            f"Time: {end_time - start_time} seconds"
         )
         print(
-            f"[construct_hybrid_records_beam] best_epairs={best_cost}, Time: {end_time - start_time} seconds",
+            f"[construct_hybrid_records_beam] best_key=(epairs={best_projected_epairs}, cat_ents={best_projected_cat_ents}, hint_hits={best_hint_hits}), "
+            f"best_epairs={result.total_costs.epairs}, best_cat_ents={result.total_costs.cat_ents}, "
+            f"Time: {end_time - start_time} seconds",
             file=sys.stderr,
         )
         return result
@@ -994,6 +1195,7 @@ class NAVIHybrid(Compiler):
         
         # 1. 提取子电路
         sub_qc = self._get_ori_subc(ctx, ori_left, ori_right)
+        cat_controls = self._extract_cat_controls(sub_qc)
 
         # 2. 调用 partitioner
         assert ctx.telegate_partitioner is not None
@@ -1004,9 +1206,16 @@ class NAVIHybrid(Compiler):
                 "layer_start": ori_left,
                 "layer_end": ori_right,
                 "partition": prev_partition,
-                "add_teledata_costs": False
+                "add_teledata_costs": False,
+                "enable_cat_telegate": bool(ctx.config.get("enable_cat_telegate", True)),
+                "cat_controls": cat_controls,
+                "debug_cat_telegate": bool(ctx.config.get("debug_cat_telegate", False)),
             }
         )
+
+        if telegate_record.extra_info is None:
+            telegate_record.extra_info = {}
+        telegate_record.extra_info["cat_controls"] = list(cat_controls)
         
         record_list = MappingRecordList()
         record_list.add_record(telegate_record)
@@ -1025,6 +1234,16 @@ class NAVIHybrid(Compiler):
         
         # print(f"[DEBUG] Time: {time.time() - start_time}")
         return record_list
+
+    def _extract_cat_controls(self, circuit: QuantumCircuit) -> list[int]:
+        """
+        提取可用于CAT风格telegate复用的控制位候选。
+        与 CompilerUtils 的双锚点规则保持一致（cz/rzz 两端都可作为锚点）。
+        """
+        return CompilerUtils._extract_cat_controls_for_circuit(
+            circuit,
+            support={"cx", "cz", "rzz"},
+        )
 
     # Others
     def reconstruct_and_visualize_circuit(self, ctx: CompilationContext, verbose: bool = True) -> QuantumCircuit:

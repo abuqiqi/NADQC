@@ -1,0 +1,80 @@
+{
+    "total_costs": {
+        "total_fidelity_loss": 0.20855825629731722,
+        "epairs": 2,
+        "execution_time": 0.030155181884765625,
+        "num_comms": 2,
+        "rgeo_mean_fid": 0.9,
+        "total_fidelity_log_sum": -0.21928545322911996,
+        "total_fidelity": 0.8030924401007945,
+        "remote_hops": 2,
+        "remote_swaps": 0,
+        "cat_ents": 2,
+        "local_fidelity_loss": 0.008558256297317254,
+        "remote_fidelity_loss": 0.19999999999999996,
+        "local_fidelity_log_sum": -0.008564421913467407,
+        "remote_fidelity_log_sum": -0.21072103131565256,
+        "local_fidelity": 0.9914721482725858,
+        "remote_fidelity": 0.81,
+        "local_gate_num": 16
+    },
+    "num_records": 1,
+    "records": [
+        {
+            "layer_start": 0,
+            "layer_end": 5,
+            "partition": [
+                [
+                    0,
+                    1
+                ],
+                [
+                    2,
+                    3
+                ]
+            ],
+            "mapping_type": "autocomm",
+            "costs": {
+                "total_fidelity_loss": 0.20855825629731722,
+                "epairs": 2,
+                "execution_time": 0.0,
+                "num_comms": 2,
+                "rgeo_mean_fid": 0.9,
+                "total_fidelity_log_sum": -0.21928545322911996,
+                "total_fidelity": 0.8030924401007945,
+                "remote_hops": 2,
+                "remote_swaps": 0,
+                "cat_ents": 2,
+                "local_fidelity_loss": 0.008558256297317254,
+                "remote_fidelity_loss": 0.19999999999999996,
+                "local_fidelity_log_sum": -0.008564421913467407,
+                "remote_fidelity_log_sum": -0.21072103131565256,
+                "local_fidelity": 0.9914721482725858,
+                "remote_fidelity": 0.81,
+                "local_gate_num": 16
+            },
+            "logical_phy_map": {
+                "0": [
+                    0,
+                    0
+                ],
+                "1": [
+                    0,
+                    1
+                ],
+                "2": [
+                    1,
+                    0
+                ],
+                "3": [
+                    1,
+                    1
+                ]
+            },
+            "extra_info": {
+                "autocomm_latency": 29.7,
+                "autocomm_assigned_block_count": 16
+            }
+        }
+    ]
+}

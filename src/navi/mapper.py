@@ -34,7 +34,8 @@ class Mapper(ABC):
             mapping_record_list: MappingRecordList,
             circuit: QuantumCircuit,
             circuit_layers: list[Any],
-            network: Network) -> MappingRecordList:
+            network: Network,
+            config: Optional[dict[str, Any]] = None) -> MappingRecordList:
         """
         将量子线路映射到特定量子硬件
         :param partition_plan: 量子比特划分
@@ -43,316 +44,13 @@ class Mapper(ABC):
         """
         pass
 
-    def _compute_hop_demand(self,
-                            partition: list[list[int]],
-                            circuit: QuantumCircuit,
-                            circuit_layers: list,
-                            layer_start: int,
-                            layer_end: int
-        ) -> np.ndarray:
-        """
-        计算在原始排列下，每两个QPU之间的remote hops数量
-        """
-        m_logical = len(partition)
-        D_hop = np.zeros((m_logical, m_logical), dtype=int)
-
-        # 创建量子比特到逻辑 QPU 索引的快速查找表
-        qubit_to_logical = {}
-        for logical_idx, group in enumerate(partition):
-            for qubit in group:
-                qubit_to_logical[qubit] = logical_idx
-
-        # 遍历指定范围内的所有电路层
-        for layer_idx in range(layer_start, layer_end):
-            layer = circuit_layers[layer_idx]
-
-            # 遍历该层的所有门操作
-            for node in layer:
-                qubits = [circuit.qubits.index(node.qargs[i]) for i in range(len(node.qargs))]
-                assert all(q is not None for q in qubits), "量子比特索引获取失败"  # 增强断言
-                
-                # 只处理两量子比特门（单量子比特门无跨QPU通信需求）
-                if len(qubits) < 2:
-                    continue  # 跳过单比特门
-
-                # 生成相邻的量子比特对（按qargs顺序）
-                # 例如qubits = [0,1,2] → 生成(0,1)、(1,2)；qubits=[a,b,c,d] → (a,b)、(b,c)、(c,d)
-                for i in range(len(qubits) - 1):
-                    q1 = qubits[i]
-                    q2 = qubits[i + 1]
-                    
-                    # 获取相邻对所属的逻辑QPU并统计跨QPU hops
-                    qpu_a = qubit_to_logical[q1]
-                    qpu_b = qubit_to_logical[q2]
-                    if qpu_a != qpu_b:
-                        D_hop[qpu_a][qpu_b] += 1
-                        D_hop[qpu_b][qpu_a] += 1
-
-        return D_hop
-
-    def _compute_move_demand(self, 
-                             current_partition: list[list[int]], 
-                             next_partition: list[list[int]]
-        ) -> np.ndarray:
-        """
-        计算单次切换的通信需求
-        :param current_partition: 当前时间片的分区
-        :param next_partition: 下一时间片的分区
-        :return: D_move
-        """
-        # 创建量子比特到逻辑QPU的映射
-        current_qubit_to_logical = {}
-        for logical_idx, group in enumerate(current_partition):
-            for qubit in group:
-                current_qubit_to_logical[qubit] = logical_idx
-        
-        next_qubit_to_logical = {}
-        for logical_idx, group in enumerate(next_partition):
-            for qubit in group:
-                next_qubit_to_logical[qubit] = logical_idx
-        
-        # 初始化需求矩阵
-        m_logical_current = len(current_partition)
-        m_logical_next = len(next_partition)
-        D_move = np.zeros((m_logical_current, m_logical_next), dtype=int)
-        
-        # 记录每个量子比特的移动
-        # qubit_movements = {}
-        
-        # 计算需求
-        num_qubits = len(current_qubit_to_logical)
-        for qubit in range(num_qubits):
-            curr_logical = current_qubit_to_logical[qubit]
-            next_logical = next_qubit_to_logical[qubit]
-            # qubit_movements[qubit] = (curr_logical, next_logical)
-            D_move[curr_logical][next_logical] += 1
-
-        return D_move #, qubit_movements
-
-    def _evaluate_hop_cost(self, 
-                           network: Network,
-                           D_hops: np.ndarray,
-                           perm: tuple[int, ...]) -> ExecCosts:
-        """
-        计算单个时间片内 remote hops 导致的通信成本（telegate成本）
-        :param D_hops: 逻辑QPU间的hop需求矩阵
-        :param perm: 逻辑QPU到物理QPU的排列（映射）
-        :return: 封装后的成本对象
-        """
-        move_fidelity = network.move_fidelity  # 物理QPU间的有效保真度/权重矩阵
-        move_fidelity_loss = network.move_fidelity_loss
-        Hops  = network.Hops
-
-        costs = ExecCosts()
-
-        # 遍历所有逻辑QPU对
-        m_logical = D_hops.shape[0]
-
-        for i in range(m_logical):
-            for j in range(i + 1, m_logical): # j从i+1开始
-                hop_count = D_hops[i][j]
-                if hop_count == 0:
-                    continue
-
-                # 映射到物理QPU
-                physical_i = perm[i]
-                physical_j = perm[j]
-                
-                # 计算成本
-                # w_loss = move_fidelity_loss[physical_i][physical_j]
-                # w = move_fidelity[physical_i][physical_j]
-                # d = Hops[physical_i][physical_j]
-                
-                # costs.remote_fidelity_loss += w_loss * hop_count
-                # costs.remote_fidelity_log_sum += hop_count * np.log(w)
-                # costs.remote_fidelity *= (w ** hop_count)
-                # costs.remote_hops += d * hop_count
-                # costs.epairs += d * hop_count
-                costs = CompilerUtils.update_remote_move_costs(
-                    costs, physical_i, physical_j, hop_count, network
-                )
-
-        return costs
-
-    def _evaluate_move_cost(self, 
-                            network: Network,
-                            D_move: np.ndarray, 
-                            mapping_current: tuple[int, ...], 
-                            mapping_next: tuple[int, ...]) -> ExecCosts:
-        """
-        计算切换成本
-        :param D_move: 通信需求矩阵
-        :param mapping_current: 当前映射
-        :param mapping_next: 下一映射
-        :return: ExecCosts
-        """
-        move_fidelity = network.move_fidelity
-        Hops  = network.Hops
-        
-        costs = ExecCosts()
-
-        # 基于需求矩阵计算（可选）
-        for i in range(D_move.shape[0]):
-            for j in range(D_move.shape[1]):
-                demand = D_move[i][j]
-                if demand > 0:
-                    from_physical = mapping_current[i]
-                    to_physical = mapping_next[j]
-
-                    # 计算切换成本
-                    # w = move_fidelity[from_physical][to_physical]
-                    # d = Hops[from_physical][to_physical]
-
-                    # costs.remote_fidelity_loss += (1 - w) * demand
-                    # costs.remote_fidelity_log_sum += demand * np.log(w)
-                    # costs.remote_fidelity *= (w ** demand)
-                    # costs.remote_swaps += d * demand
-                    # costs.epairs += d * demand
-                    costs = CompilerUtils.update_remote_move_costs(
-                        costs, from_physical, to_physical, demand, network
-                    )
-
-        return costs
-
-    def _fast_evaluate_teledata(
-        self,
-        logical_move_count: np.ndarray,
-        perm_prev: tuple[int, ...],  # 物理QPU→逻辑prev QPU的排列
-        perm_curr: tuple[int, ...],  # 物理QPU→逻辑curr QPU的排列
-        network: Network
-    ) -> ExecCosts:
-        """
-        基于预计算的逻辑移动计数，快速计算teledata成本
-        完全复刻原函数的图处理、抵消、环计算逻辑，结果100%一致
-        """
-        costs = ExecCosts()
-
-        # 1. 构建逆映射：逻辑QPU→物理QPU
-        # perm_prev[p] = A → 物理QPU p对应逻辑prev QPU A → 逻辑A对应物理p
-        inv_prev = {A: p for p, A in enumerate(perm_prev)}
-        inv_curr = {B: p for p, B in enumerate(perm_curr)}
-
-        # 2. 生成物理QPU间的移动计数（无需遍历量子比特，仅矩阵映射）
-        n_phys = network.num_backends
-        phys_count = np.zeros((n_phys, n_phys), dtype=int)
-        m_prev, m_curr = logical_move_count.shape
-        for A in range(m_prev):
-            for B in range(m_curr):
-                cnt = logical_move_count[A][B]
-                if cnt == 0:
-                    continue
-                u = inv_prev[A]  # 逻辑A→物理u
-                v = inv_curr[B]  # 逻辑B→物理v
-                phys_count[u][v] += cnt
-
-        # 3. 1:1复刻原函数的图处理逻辑
-        G = nx.DiGraph()
-        G.add_nodes_from(range(n_phys))
-
-        # 3.1 处理边抵消（2节点环）
-        for u in range(n_phys):
-            for v in range(n_phys):
-                cnt = phys_count[u][v]
-                if cnt == 0 or u == v:
-                    continue
-                
-                # 检查反向边是否存在
-                if G.has_edge(v, u):
-                    # 可抵消的数量
-                    cancel_num = min(cnt, G[v][u]['weight'])
-                    if cancel_num == 0:
-                        continue
-                    
-                    # 1:1复刻原函数的抵消成本计算
-                    # num_rswaps = (2 * network.Hops[v][u] - 1) * cancel_num
-                    # w = network.move_fidelity[u][v]
-                    # costs.remote_swaps += num_rswaps
-                    # costs.epairs += 2 * num_rswaps
-                    # costs.remote_fidelity_loss += (1 - w) * num_rswaps
-                    # costs.remote_fidelity *= w ** num_rswaps
-                    # costs.remote_fidelity_log_sum += num_rswaps * np.log(w)
-                    costs = CompilerUtils.update_remote_swap_costs(
-                        costs, u, v, cancel_num, network
-                    )
-
-                    # 更新图的边权重
-                    if G[v][u]['weight'] > cancel_num:
-                        G[v][u]['weight'] -= cancel_num
-                    else:
-                        G.remove_edge(v, u)
-                    
-                    # 剩余未抵消的数量
-                    cnt -= cancel_num
-                    if cnt == 0:
-                        continue
-                
-                # 添加剩余的边到图中
-                if G.has_edge(u, v):
-                    G[u][v]['weight'] += cnt
-                else:
-                    G.add_edge(u, v, weight=cnt)
-
-        # 3.2 处理长度≥3的环（1:1复刻原函数）
-        all_cycles = nx.simple_cycles(G)
-        cycles_by_length = defaultdict(list)
-        for cycle in all_cycles:
-            length = len(cycle)
-            if 3 <= length <= network.num_backends:
-                cycles_by_length[length].append(cycle)
-
-        for length in sorted(cycles_by_length.keys()):
-            for cycle in cycles_by_length[length]:
-                exist = True
-                min_weight = float('inf')
-                for i in range(length):
-                    u = cycle[i]
-                    v = cycle[(i + 1) % length]
-                    if not G.has_edge(u, v):
-                        exist = False
-                        break
-                    min_weight = min(min_weight, G[u][v]['weight'])
-                if not exist:
-                    continue
-
-                # 计算环的成本
-                for i in range(length):
-                    u = cycle[i]
-                    v = cycle[(i + 1) % length]
-                    # num_rswaps = (2 * network.Hops[u][v] - 1) * min_weight
-                    # w = network.move_fidelity[u][v]
-                    # costs.remote_swaps += num_rswaps
-                    # costs.epairs += 2 * num_rswaps
-                    # costs.remote_fidelity_loss += (1 - w) * num_rswaps
-                    # costs.remote_fidelity *= w ** num_rswaps
-                    # costs.remote_fidelity_log_sum += num_rswaps * np.log(w)
-                    costs = CompilerUtils.update_remote_swap_costs(
-                        costs, u, v, int(min_weight), network
-                    )
-
-                # 更新图的边权重
-                for i in range(length):
-                    u = cycle[i]
-                    v = cycle[(i + 1) % length]
-                    if G[u][v]['weight'] > min_weight:
-                        G[u][v]['weight'] -= min_weight
-                    else:
-                        G.remove_edge(u, v)
-
-        # 3.3 处理剩余边（1:1复刻原函数）
-        remaining_edges = G.edges(data=True)
-        for u, v, data in remaining_edges:
-            costs = CompilerUtils.update_remote_move_costs(
-                costs, u, v, data['weight'], network
-            )
-
-        return costs
-
     def _reevaluate_mapping_record_list(
             self, 
             mapping_record_list: MappingRecordList,
             circuit: QuantumCircuit,
             circuit_layers: list[Any],
-            network: Network
+            network: Network,
+            config: Optional[dict[str, Any]] = None,
         ) -> MappingRecordList:
         """
         将量子线路映射到特定量子硬件（基线实现）
@@ -362,9 +60,9 @@ class Mapper(ABC):
         k = len(mapping_record_list.records)  # 时间片数量
 
         logical_phy_map = {}
-        mapper_cfg = getattr(self, "config", {}) if hasattr(self, "config") else {}
-        enable_cat_telegate = bool(mapper_cfg.get("enable_cat_telegate", True))
+        mapper_cfg = config or {}
         debug_cat_telegate = bool(mapper_cfg.get("debug_cat_telegate", False))
+        
         for t in range(k):
             # print(f"\n\n\n[DEBUG] {t} / {k}")
 
@@ -384,14 +82,22 @@ class Mapper(ABC):
             # print(f"[DEBUG] partition: {record.partition}")
             # print(f"[DEBUG] logical_phy_map: {logical_phy_map}")
 
-            # 获取子线路
-            subcircuit = CompilerUtils.get_subcircuit_by_level(
-                num_qubits=circuit.num_qubits,
-                circuit=circuit,
-                circuit_layers=circuit_layers,
-                layer_start=record.layer_start,
-                layer_end=record.layer_end
-            )
+            # TODO: 能否在构建MappingRecord的时候，都加上ops项？
+            # telegate partition的时候会构建子线路
+            # teledata的记录不需要考虑子线路，所以没有
+            if record.extra_info is not None and "ops" in record.extra_info:
+                subcircuit = record.extra_info["ops"]
+            else:
+                if record.mapping_type == "cat":
+                    raise ValueError(f"[ERROR] For cat-type record, extra_info should have ops.")
+                # 获取子线路
+                subcircuit = CompilerUtils.get_subcircuit_by_level(
+                    num_qubits=circuit.num_qubits,
+                    circuit=circuit,
+                    circuit_layers=circuit_layers,
+                    layer_start=record.layer_start,
+                    layer_end=record.layer_end
+                )
 
             # print(f"[DEBUG] original subcircuit:")
             # print(subcircuit)
@@ -408,29 +114,26 @@ class Mapper(ABC):
                 # print(f"[DEBUG] after teledata: {record.logical_phy_map}")
 
             # 计算local和telegate损失
-            use_cat = enable_cat_telegate and record.mapping_type == "telegate"
-            rec_cat_controls = None
-            if record.extra_info is not None:
-                rec_cat_controls = record.extra_info.get("cat_controls")
-            if debug_cat_telegate and record.mapping_type == "telegate":
-                plain_costs = CompilerUtils.evaluate_telegate(record.partition, subcircuit, network)
-                cat_costs = CompilerUtils.evaluate_telegate_with_cat(
-                    record.partition,
-                    subcircuit,
-                    network,
-                    cat_controls=rec_cat_controls,
-                )
-                print(
-                    f"[cat_debug][mapper_reeval] t={t} layer=[{record.layer_start},{record.layer_end}] "
-                    f"plain_epairs={plain_costs.epairs} cat_epairs={cat_costs.epairs}"
-                )
+            # rec_cat_controls = None
+            # if record.extra_info is not None:
+            #     rec_cat_controls = record.extra_info.get("cat_controls")
+            # if debug_cat_telegate and record.mapping_type in {"telegate", "cat"}:
+            #     plain_costs = CompilerUtils.evaluate_telegate_with_cat(record.partition, eval_circuit, network)
+            #     cat_costs = CompilerUtils.evaluate_telegate_with_my_cat(
+            #         record.partition,
+            #         eval_circuit,
+            #         network,
+            #         cat_controls=rec_cat_controls,
+            #     )
+            #     print(
+            #         f"[cat_debug][mapper_reeval] t={t} layer=[{record.layer_start},{record.layer_end}] "
+            #         f"plain_epairs={plain_costs.epairs} cat_epairs={cat_costs.epairs}"
+            #     )
 
-            tg_costs, curr_map = CompilerUtils.evaluate_local_and_telegate(
+            tg_costs, curr_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                 record,
                 subcircuit,
                 network,
-                enable_cat_telegate=use_cat,
-                cat_controls=rec_cat_controls,
             )
             # print(f"[DEBUG] record (local and telegate): \n{record}\n\n")
 
@@ -438,47 +141,6 @@ class Mapper(ABC):
             # print(f"[DEBUG] After mapping - Time slice {t}: \n{record} \n\n")
 
         return mapping_record_list
-
-    # def _evaluate_initial_mapping(self, network: Network, mapping: list[int], D_total: np.ndarray) -> float:
-    #     """
-    #     评估初始映射的质量
-    #     :param mapping: 映射
-    #     :param D_total: 总通信需求矩阵
-    #     :return: 映射得分
-    #     """
-    #     move_fidelity = network.move_fidelity
-    #     # pprint(move_fidelity)
-    #     mapping_score = 0.0
-    #     for i in range(D_total.shape[0]):
-    #         for j in range(D_total.shape[1]):
-    #             from_physical = mapping[i]
-    #             to_physical = mapping[j]
-    #             mapping_score += move_fidelity[from_physical][to_physical] * D_total[i][j]
-    #     return mapping_score
-
-    # def _validate_network_attributes(self, network):
-    #     """验证网络对象是否具有必要属性"""
-    #     if not hasattr(network, 'num_backends') or not hasattr(network, 'move_fidelity'):
-    #         raise AttributeError("Network must have 'num_backends' and 'move_fidelity' attributes")
-
-    # def _build_partition_plan(self, partition_plan, mapping_sequence):
-        
-    #     # 根据映射序列更新partition_plan
-    #     adjusted_partition_plan = []
-
-    #     for t, mapping in enumerate(mapping_sequence):
-    #         current_partition = partition_plan[t]
-            
-    #         # 构建新的分区
-    #         new_partition = [[] for _ in range(len(current_partition))]
-
-    #         for logical_idx, group in enumerate(current_partition):
-    #             physical_idx = mapping[logical_idx]
-    #             new_partition[physical_idx].extend(group)
-            
-    #         adjusted_partition_plan.append(new_partition)
-
-    #     return adjusted_partition_plan
 
 
 class DirectMapper(Mapper):
@@ -496,7 +158,8 @@ class DirectMapper(Mapper):
             mapping_record_list: MappingRecordList,
             circuit: QuantumCircuit,
             circuit_layers: list[Any],
-            network: Network) -> MappingRecordList:
+            network: Network,
+            config: Optional[dict[str, Any]] = None) -> MappingRecordList:
         """
         将量子线路映射到特定量子硬件（基线实现）
         """
@@ -504,7 +167,8 @@ class DirectMapper(Mapper):
             mapping_record_list,
             circuit,
             circuit_layers,
-            network
+            network,
+            config=config,
         )
         return mapping_record_list
 
@@ -520,7 +184,8 @@ class GreedyMapper(Mapper):
             mapping_record_list: MappingRecordList,
             circuit: QuantumCircuit,
             circuit_layers: list[Any],
-            network: Network
+            network: Network,
+            config: Optional[dict[str, Any]] = None,
         ) -> MappingRecordList:
 
         start_time = time.time()
@@ -592,7 +257,7 @@ class GreedyMapper(Mapper):
                     )
 
                 # 评估当前排列的local_and_telegate_cost
-                telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate(
+                telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                     partition,
                     subcircuit,
                     network,
@@ -642,7 +307,8 @@ class DPMapper(Mapper):
             mapping_record_list: MappingRecordList,
             circuit: QuantumCircuit,
             circuit_layers: list[Any],
-            network: Network
+            network: Network,
+            config: Optional[dict[str, Any]] = None,
         ) -> MappingRecordList:
         """
         使用动态规划为每个时间片选择最优的物理QPU映射（排列），
@@ -686,7 +352,7 @@ class DPMapper(Mapper):
         for perm in all_perms:
             partition = [original_partition[i] for i in perm]
             logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
-            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate(
+            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                 partition, subcircuit, network, logical_phy_map=logical_phy_map, optimization_level=0)
 
             prev_bests.append(MappingRecord(
@@ -737,7 +403,7 @@ class DPMapper(Mapper):
                     )
 
                     # 计算telegate costs
-                    telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate(
+                    telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                         partition,
                         subcircuit,
                         network,
@@ -806,7 +472,8 @@ class DPMapper(Mapper):
             final_record_list,
             circuit,
             circuit_layers,
-            network
+            network,
+            config=config,
         )
 
         end_time = time.time()
@@ -827,7 +494,7 @@ class NeighborhoodBoundedDPMapper(Mapper):
             circuit: QuantumCircuit,
             circuit_layers: list[Any],
             network: Network,
-            beam_width: int = 3  # 束宽
+            config: Optional[dict[str, Any]] = None,
         ) -> MappingRecordList:
         """
         带束搜索优化的动态规划映射器
@@ -839,7 +506,8 @@ class NeighborhoodBoundedDPMapper(Mapper):
         if k == 0:
             return mapping_record_list
 
-        mapper_cfg = getattr(self, "config", {}) if hasattr(self, "config") else {}
+        mapper_cfg = config or {}
+        beam_width = int(mapper_cfg.get("beam_width", 3))
 
         # 根据网络类型自适应设置mapping预算：
         # - all-to-all（或等效max_hop=1）默认较小预算
@@ -897,8 +565,11 @@ class NeighborhoodBoundedDPMapper(Mapper):
         #     max_neighbor_swaps = max(1, min(2, n_physical - 1))
 
         # max_candidate_states = int(min(num_states, max(beam_width, max_candidate_states_cfg)))
-        max_candidate_states = int(min(num_states, 2 * beam_width))
-        max_neighbor_swaps = 1
+        default_max_candidate_states = max(beam_width, 2 * beam_width)
+        max_candidate_states = int(mapper_cfg.get("max_candidate_states", default_max_candidate_states))
+        max_candidate_states = int(min(num_states, max(beam_width, max_candidate_states)))
+        max_neighbor_swaps = int(mapper_cfg.get("max_neighbor_swaps", 1))
+        max_neighbor_swaps = max(1, max_neighbor_swaps)
         print(
             f"[INFO] [NeighborhoodBoundedDPMapper] num_states={num_states}, max_candidate_states={max_candidate_states}, max_neighbor_swaps={max_neighbor_swaps}"
         )
@@ -979,21 +650,24 @@ class NeighborhoodBoundedDPMapper(Mapper):
                     )
                     group_costs += td_costs
 
-                subcircuit = CompilerUtils.get_subcircuit_by_level(
-                    num_qubits=circuit.num_qubits,
-                    circuit=circuit,
-                    circuit_layers=circuit_layers,
-                    layer_start=seg_record.layer_start,
-                    layer_end=seg_record.layer_end,
-                )
-                tg_costs, curr_map = CompilerUtils.evaluate_local_and_telegate(
+                if seg_record.extra_info is not None and "ops" in seg_record.extra_info:
+                    subcircuit = seg_record.extra_info["ops"]
+                else:
+                    if seg_record.mapping_type == "cat":
+                        raise ValueError("[ERROR] For cat-type record, extra_info should have ops.")
+                    subcircuit = CompilerUtils.get_subcircuit_by_level(
+                        num_qubits=circuit.num_qubits,
+                        circuit=circuit,
+                        circuit_layers=circuit_layers,
+                        layer_start=seg_record.layer_start,
+                        layer_end=seg_record.layer_end,
+                    )
+                tg_costs, curr_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                     partition,
                     subcircuit,
                     network,
                     logical_phy_map=curr_map,
                     optimization_level=0,
-                    enable_cat_telegate=bool(getattr(self, "config", {}).get("enable_cat_telegate", True)) and seg_record.mapping_type == "telegate",
-                    cat_controls=seg_cat_controls,
                 )
                 group_costs += tg_costs
                 curr_prev_partition = partition
@@ -1196,7 +870,7 @@ class NeighborhoodBoundedDPMapper(Mapper):
 
         # 最终精确重评估（保持你原来的逻辑）
         final_record_list = self._reevaluate_mapping_record_list(
-            final_record_list, circuit, circuit_layers, network
+            final_record_list, circuit, circuit_layers, network, config=config
         )
 
         end_time = time.time()
@@ -1216,13 +890,15 @@ class BoundedDPMapper(Mapper):
             circuit: QuantumCircuit,
             circuit_layers: list[Any],
             network: Network,
-            beam_width: int = 5  # 束宽
+            config: Optional[dict[str, Any]] = None,
         ) -> MappingRecordList:
         """
         原始版本：带束搜索的动态规划映射器。
         保留全状态枚举当前层（num_states = n_physical!），仅在前驱层做束裁剪。
         """
         start_time = time.time()
+        mapper_cfg = config or {}
+        beam_width = int(mapper_cfg.get("beam_width", 5))
         k = len(mapping_record_list.records)
         n_physical = network.num_backends
         print(f"[INFO] [BoundedDPMapper] beam_width: {beam_width}, n_subcs: {k}, n_QPUs: {n_physical}")
@@ -1262,7 +938,7 @@ class BoundedDPMapper(Mapper):
         for perm in all_perms:
             partition = [original_partition[i] for i in perm]
             logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
-            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate(
+            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                 partition, subcircuit, network,
                 logical_phy_map=logical_phy_map,
                 optimization_level=0
@@ -1324,7 +1000,7 @@ class BoundedDPMapper(Mapper):
                     teledata_costs, logical_phy_map = CompilerUtils.evaluate_teledata(
                         prev_record.partition, partition, network, logical_phy_map
                     )
-                    telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate(
+                    telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                         partition, subcircuit, network,
                         logical_phy_map=logical_phy_map,
                         optimization_level=0
@@ -1416,7 +1092,7 @@ class BoundedDPMapper(Mapper):
 
         # 最终精确重评估
         final_record_list = self._reevaluate_mapping_record_list(
-            final_record_list, circuit, circuit_layers, network
+            final_record_list, circuit, circuit_layers, network, config=config
         )
 
         end_time = time.time()

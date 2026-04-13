@@ -1,0 +1,838 @@
+{
+    "total_costs": {
+        "total_fidelity_loss": 4.81980827286678,
+        "epairs": 31,
+        "execution_time": 3.4028615951538086,
+        "num_comms": 22,
+        "rgeo_mean_fid": 0.8620322941659474,
+        "total_fidelity_log_sum": -4.987576918792829,
+        "total_fidelity": 0.006822175165236414,
+        "remote_hops": 13,
+        "remote_swaps": 9,
+        "cat_ents": 9,
+        "local_fidelity_loss": 1.719808272866781,
+        "remote_fidelity_loss": 3.0999999999999988,
+        "local_fidelity_log_sum": -1.7214009334002143,
+        "remote_fidelity_log_sum": -3.2661759853926147,
+        "local_fidelity": 0.17881546380090713,
+        "remote_fidelity": 0.03815204244769464,
+        "local_gate_num": 1995
+    },
+    "num_records": 6,
+    "records": [
+        {
+            "layer_start": 0,
+            "layer_end": 23,
+            "partition": [
+                [
+                    11,
+                    12,
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18,
+                    19,
+                    0
+                ],
+                [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10
+                ]
+            ],
+            "mapping_type": "cat",
+            "costs": {
+                "total_fidelity_loss": 0.6958377565053482,
+                "epairs": 5,
+                "execution_time": 0.0,
+                "num_comms": 5,
+                "rgeo_mean_fid": 0.9,
+                "total_fidelity_log_sum": -0.7228241340606116,
+                "total_fidelity": 0.485379541611875,
+                "remote_hops": 5,
+                "remote_swaps": 0,
+                "cat_ents": 5,
+                "local_fidelity_loss": 0.1958377565053483,
+                "remote_fidelity_loss": 0.4999999999999999,
+                "local_fidelity_log_sum": -0.19602155577148023,
+                "remote_fidelity_log_sum": -0.5268025782891315,
+                "local_fidelity": 0.8219945157612744,
+                "remote_fidelity": 0.5904900000000002,
+                "local_gate_num": 267
+            },
+            "logical_phy_map": {
+                "11": [
+                    0,
+                    2
+                ],
+                "12": [
+                    0,
+                    8
+                ],
+                "13": [
+                    0,
+                    0
+                ],
+                "14": [
+                    0,
+                    1
+                ],
+                "15": [
+                    0,
+                    7
+                ],
+                "16": [
+                    0,
+                    3
+                ],
+                "17": [
+                    0,
+                    9
+                ],
+                "18": [
+                    0,
+                    4
+                ],
+                "19": [
+                    0,
+                    6
+                ],
+                "0": [
+                    0,
+                    5
+                ],
+                "1": [
+                    1,
+                    3
+                ],
+                "2": [
+                    1,
+                    2
+                ],
+                "3": [
+                    1,
+                    8
+                ],
+                "4": [
+                    1,
+                    5
+                ],
+                "5": [
+                    1,
+                    7
+                ],
+                "6": [
+                    1,
+                    0
+                ],
+                "7": [
+                    1,
+                    4
+                ],
+                "8": [
+                    1,
+                    1
+                ],
+                "9": [
+                    1,
+                    6
+                ],
+                "10": [
+                    1,
+                    9
+                ]
+            },
+            "extra_info": {
+                "autocomm_latency": 94.60000000000001,
+                "autocomm_assigned_block_count": 111,
+                "comm_only_costs": true
+            }
+        },
+        {
+            "layer_start": 25,
+            "layer_end": 33,
+            "partition": [
+                [
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18,
+                    19,
+                    0,
+                    1,
+                    2
+                ],
+                [
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    12,
+                    11
+                ]
+            ],
+            "mapping_type": "cat",
+            "costs": {
+                "total_fidelity_loss": 1.336633829925237,
+                "epairs": 9,
+                "execution_time": 0.0,
+                "num_comms": 7,
+                "rgeo_mean_fid": 0.8733110206185932,
+                "total_fidelity_log_sum": -1.385285522603905,
+                "total_fidelity": 0.2502523368911823,
+                "remote_hops": 5,
+                "remote_swaps": 2,
+                "cat_ents": 1,
+                "local_fidelity_loss": 0.43663382992523714,
+                "remote_fidelity_loss": 0.8999999999999998,
+                "local_fidelity_log_sum": -0.4370408816834683,
+                "remote_fidelity_log_sum": -0.9482446409204366,
+                "local_fidelity": 0.645945023550838,
+                "remote_fidelity": 0.38742048900000015,
+                "local_gate_num": 479
+            },
+            "logical_phy_map": {
+                "11": [
+                    1,
+                    3
+                ],
+                "12": [
+                    1,
+                    2
+                ],
+                "13": [
+                    0,
+                    0
+                ],
+                "14": [
+                    0,
+                    1
+                ],
+                "15": [
+                    0,
+                    7
+                ],
+                "16": [
+                    0,
+                    3
+                ],
+                "17": [
+                    0,
+                    9
+                ],
+                "18": [
+                    0,
+                    4
+                ],
+                "19": [
+                    0,
+                    6
+                ],
+                "0": [
+                    0,
+                    5
+                ],
+                "1": [
+                    0,
+                    2
+                ],
+                "2": [
+                    0,
+                    8
+                ],
+                "3": [
+                    1,
+                    8
+                ],
+                "4": [
+                    1,
+                    5
+                ],
+                "5": [
+                    1,
+                    7
+                ],
+                "6": [
+                    1,
+                    0
+                ],
+                "7": [
+                    1,
+                    4
+                ],
+                "8": [
+                    1,
+                    1
+                ],
+                "9": [
+                    1,
+                    6
+                ],
+                "10": [
+                    1,
+                    9
+                ]
+            },
+            "extra_info": {
+                "autocomm_latency": 91.1,
+                "autocomm_assigned_block_count": 68,
+                "comm_only_costs": true
+            }
+        },
+        {
+            "layer_start": 35,
+            "layer_end": 37,
+            "partition": [
+                [
+                    15,
+                    16,
+                    17,
+                    18,
+                    19,
+                    0,
+                    1,
+                    2,
+                    4,
+                    3
+                ],
+                [
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    12,
+                    11,
+                    14,
+                    13
+                ]
+            ],
+            "mapping_type": "cat",
+            "costs": {
+                "total_fidelity_loss": 0.7509237025351605,
+                "epairs": 5,
+                "execution_time": 0.0,
+                "num_comms": 3,
+                "rgeo_mean_fid": 0.838952776607542,
+                "total_fidelity_log_sum": -0.7779534950601981,
+                "total_fidelity": 0.4593451020709826,
+                "remote_hops": 1,
+                "remote_swaps": 2,
+                "cat_ents": 1,
+                "local_fidelity_loss": 0.25092370253516055,
+                "remote_fidelity_loss": 0.4999999999999999,
+                "local_fidelity_log_sum": -0.25115091677106677,
+                "remote_fidelity_log_sum": -0.5268025782891314,
+                "local_fidelity": 0.7779049637944461,
+                "remote_fidelity": 0.5904900000000002,
+                "local_gate_num": 275
+            },
+            "logical_phy_map": {
+                "11": [
+                    1,
+                    3
+                ],
+                "12": [
+                    1,
+                    2
+                ],
+                "13": [
+                    1,
+                    8
+                ],
+                "14": [
+                    1,
+                    5
+                ],
+                "15": [
+                    0,
+                    7
+                ],
+                "16": [
+                    0,
+                    3
+                ],
+                "17": [
+                    0,
+                    9
+                ],
+                "18": [
+                    0,
+                    4
+                ],
+                "19": [
+                    0,
+                    6
+                ],
+                "0": [
+                    0,
+                    5
+                ],
+                "1": [
+                    0,
+                    2
+                ],
+                "2": [
+                    0,
+                    8
+                ],
+                "3": [
+                    0,
+                    0
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    1,
+                    7
+                ],
+                "6": [
+                    1,
+                    0
+                ],
+                "7": [
+                    1,
+                    4
+                ],
+                "8": [
+                    1,
+                    1
+                ],
+                "9": [
+                    1,
+                    6
+                ],
+                "10": [
+                    1,
+                    9
+                ]
+            },
+            "extra_info": {
+                "autocomm_latency": 27.5,
+                "autocomm_assigned_block_count": 23,
+                "comm_only_costs": true
+            }
+        },
+        {
+            "layer_start": 39,
+            "layer_end": 45,
+            "partition": [
+                [
+                    17,
+                    18,
+                    19,
+                    0,
+                    1,
+                    2,
+                    4,
+                    3,
+                    5,
+                    6
+                ],
+                [
+                    7,
+                    8,
+                    9,
+                    10,
+                    12,
+                    11,
+                    14,
+                    13,
+                    16,
+                    15
+                ]
+            ],
+            "mapping_type": "cat",
+            "costs": {
+                "total_fidelity_loss": 0.9450165205730434,
+                "epairs": 6,
+                "execution_time": 0.0,
+                "num_comms": 4,
+                "rgeo_mean_fid": 0.8538149682454624,
+                "total_fidelity_log_sum": -0.9775014208190754,
+                "total_fidelity": 0.3762500158401161,
+                "remote_hops": 2,
+                "remote_swaps": 2,
+                "cat_ents": 2,
+                "local_fidelity_loss": 0.34501652057304355,
+                "remote_fidelity_loss": 0.5999999999999999,
+                "local_fidelity_log_sum": -0.34533832687211785,
+                "remote_fidelity_log_sum": -0.6321630939469576,
+                "local_fidelity": 0.7079807840195167,
+                "remote_fidelity": 0.5314410000000002,
+                "local_gate_num": 390
+            },
+            "logical_phy_map": {
+                "11": [
+                    1,
+                    3
+                ],
+                "12": [
+                    1,
+                    2
+                ],
+                "13": [
+                    1,
+                    8
+                ],
+                "14": [
+                    1,
+                    5
+                ],
+                "15": [
+                    1,
+                    7
+                ],
+                "16": [
+                    1,
+                    0
+                ],
+                "17": [
+                    0,
+                    9
+                ],
+                "18": [
+                    0,
+                    4
+                ],
+                "19": [
+                    0,
+                    6
+                ],
+                "0": [
+                    0,
+                    5
+                ],
+                "1": [
+                    0,
+                    2
+                ],
+                "2": [
+                    0,
+                    8
+                ],
+                "3": [
+                    0,
+                    0
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    0,
+                    7
+                ],
+                "6": [
+                    0,
+                    3
+                ],
+                "7": [
+                    1,
+                    4
+                ],
+                "8": [
+                    1,
+                    1
+                ],
+                "9": [
+                    1,
+                    6
+                ],
+                "10": [
+                    1,
+                    9
+                ]
+            },
+            "extra_info": {
+                "autocomm_latency": 39.20000000000001,
+                "autocomm_assigned_block_count": 66,
+                "comm_only_costs": true
+            }
+        },
+        {
+            "layer_start": 47,
+            "layer_end": 51,
+            "partition": [
+                [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    19
+                ],
+                [
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18
+                ]
+            ],
+            "mapping_type": "teledata",
+            "costs": {
+                "total_fidelity_loss": 0.6798987097541018,
+                "epairs": 4,
+                "execution_time": 0.0,
+                "num_comms": 2,
+                "rgeo_mean_fid": 0.81,
+                "total_fidelity_log_sum": -0.7015979961851184,
+                "total_fidelity": 0.4957923960708516,
+                "remote_hops": 0,
+                "remote_swaps": 2,
+                "cat_ents": 0,
+                "local_fidelity_loss": 0.2798987097541019,
+                "remote_fidelity_loss": 0.3999999999999999,
+                "local_fidelity_log_sum": -0.2801559335538133,
+                "remote_fidelity_log_sum": -0.42144206263130507,
+                "local_fidelity": 0.7556658985990726,
+                "remote_fidelity": 0.6561000000000001,
+                "local_gate_num": 311
+            },
+            "logical_phy_map": {
+                "11": [
+                    1,
+                    3
+                ],
+                "12": [
+                    1,
+                    2
+                ],
+                "13": [
+                    1,
+                    8
+                ],
+                "14": [
+                    1,
+                    5
+                ],
+                "15": [
+                    1,
+                    7
+                ],
+                "16": [
+                    1,
+                    0
+                ],
+                "17": [
+                    1,
+                    4
+                ],
+                "18": [
+                    1,
+                    1
+                ],
+                "19": [
+                    0,
+                    6
+                ],
+                "0": [
+                    0,
+                    5
+                ],
+                "1": [
+                    0,
+                    2
+                ],
+                "2": [
+                    0,
+                    8
+                ],
+                "3": [
+                    0,
+                    0
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    0,
+                    7
+                ],
+                "6": [
+                    0,
+                    3
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    4
+                ],
+                "9": [
+                    1,
+                    6
+                ],
+                "10": [
+                    1,
+                    9
+                ]
+            },
+            "extra_info": null
+        },
+        {
+            "layer_start": 53,
+            "layer_end": 72,
+            "partition": [
+                [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    11
+                ],
+                [
+                    9,
+                    10,
+                    12,
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18,
+                    19
+                ]
+            ],
+            "mapping_type": "teledata",
+            "costs": {
+                "total_fidelity_loss": 0.4114977535738895,
+                "epairs": 2,
+                "execution_time": 0.0,
+                "num_comms": 1,
+                "rgeo_mean_fid": 0.81,
+                "total_fidelity_log_sum": -0.42241435006392025,
+                "total_fidelity": 0.6554623922346997,
+                "remote_hops": 0,
+                "remote_swaps": 1,
+                "cat_ents": 0,
+                "local_fidelity_loss": 0.21149775357388956,
+                "remote_fidelity_loss": 0.19999999999999996,
+                "local_fidelity_log_sum": -0.21169331874826774,
+                "remote_fidelity_log_sum": -0.21072103131565253,
+                "local_fidelity": 0.8092128299193824,
+                "remote_fidelity": 0.81,
+                "local_gate_num": 273
+            },
+            "logical_phy_map": {
+                "11": [
+                    0,
+                    6
+                ],
+                "12": [
+                    1,
+                    2
+                ],
+                "13": [
+                    1,
+                    8
+                ],
+                "14": [
+                    1,
+                    5
+                ],
+                "15": [
+                    1,
+                    7
+                ],
+                "16": [
+                    1,
+                    0
+                ],
+                "17": [
+                    1,
+                    4
+                ],
+                "18": [
+                    1,
+                    1
+                ],
+                "19": [
+                    1,
+                    3
+                ],
+                "0": [
+                    0,
+                    5
+                ],
+                "1": [
+                    0,
+                    2
+                ],
+                "2": [
+                    0,
+                    8
+                ],
+                "3": [
+                    0,
+                    0
+                ],
+                "4": [
+                    0,
+                    1
+                ],
+                "5": [
+                    0,
+                    7
+                ],
+                "6": [
+                    0,
+                    3
+                ],
+                "7": [
+                    0,
+                    9
+                ],
+                "8": [
+                    0,
+                    4
+                ],
+                "9": [
+                    1,
+                    6
+                ],
+                "10": [
+                    1,
+                    9
+                ]
+            },
+            "extra_info": null
+        }
+    ]
+}

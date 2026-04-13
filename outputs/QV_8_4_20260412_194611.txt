@@ -1,0 +1,112 @@
+[INFO] Reserved comm slots per QPU (network_config): 1
+[INFO] Core sampled QPU capacities: [2, 2, 2, 2]
+[INFO] Full QPU capacities (core + reserve): [3, 3, 3, 3]
+========== Network Info ==========
+Network with 4 backends (mesh_grid)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9118
+  Backend 1 <-> Backend 2: Fidelity = 0.9160
+  Backend 2 <-> Backend 3: Fidelity = 0.9112
+Hop weight: 0.4214420626313051
+Fidelity range: [0.9, 0.93]
+Backend sizes: [2, 2, 2, 2]
+Backend sizes (full): [3, 3, 3, 3]
+Backend Coupling Maps:
+  Backend 0 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1]]
+  Backend 1 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1]]
+  Backend 2 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1]]
+  Backend 3 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0], [1, 2], [2, 1]]
+[INFO] QV #Qubits: 8
+[INFO] QV #Depths: 83
+[INFO] QV #Gates: 430
+[INFO] QV #2Q Gates: 87
+[INFO] 4 QPUs: [2, 2, 2, 2]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: autocomm -> QAutoComm
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+[INFO] 成功注册编译器: navinew -> NAVINew
+Registered compiler IDs: ['staticoee', 'fgproee', 'wbcp', 'autocomm', 'navi', 'navihybrid']
+Compiler: [Static OEE]
+{'circuit_name': 'QV8'}
+{'circuit_name': 'QV8'}
+Compiling with [Static OEE]...
+✅ 成功保存 1 条映射记录到 JSON 文件：./outputs/QV8/QV8_net[2, 2, 2, 2]_Static OEE_20260412_194612.json
+ExecCosts(comms=93, cat_ents=0, epairs=93, rgeo_mean_fid=0.9129432808721264, fidelity=0.0002, loss=8.1333, rhops=93, rswaps=0, remote_fidelity_loss=8.09604795141799, remote_fidelity_log_sum=-8.470581752905995, remote_fidelity=0.00020954296566857191, local_fidelity_loss=0.03725686539547902, local_fidelity_log_sum=-0.037282202071265313, local_fidelity=0.963404222316644, time=0.24), local_gate_num=80
+Compiler: [FGP-rOEE]
+{'circuit_name': 'QV8'}
+{'circuit_name': 'QV8'}
+Compiling with [FGP-rOEE]...
+[INFO] num_depths: 83
+✅ 成功保存 83 条映射记录到 JSON 文件：./outputs/QV8/QV8_net[2, 2, 2, 2]_FGP-rOEE_20260412_194620.json
+ExecCosts(comms=40, cat_ents=0, epairs=80, rgeo_mean_fid=0.834029184292406, fidelity=0.0005, loss=7.1872, rhops=0, rswaps=40, remote_fidelity_loss=6.939621689459671, remote_fidelity_log_sum=-7.259475363170974, remote_fidelity=0.0007034770087567347, local_fidelity_loss=0.24759310026690864, local_fidelity_log_sum=-0.247770619114468, local_fidelity=0.7805389634639766, time=7.57), local_gate_num=430
+Compiler: [WBCP]
+{'circuit_name': 'QV8'}
+{'circuit_name': 'QV8'}
+Compiling with [WBCP]...
+Set parameter Username
+Set parameter LicenseID to value 2789005
+Academic license - for non-commercial use only - expires 2027-03-09
+Set parameter OutputFlag to value 1
+Set parameter TimeLimit to value 60
+Set parameter NonConvex to value 2
+Gurobi Optimizer version 13.0.1 build v13.0.1rc0 (linux64 - "Ubuntu 22.04.5 LTS")
+
+CPU model: Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 48 physical cores, 96 logical processors, using up to 32 threads
+
+Non-default parameters:
+TimeLimit  60
+NonConvex  2
+
+Optimize a model with 8 rows, 16 columns and 32 nonzeros (Min)
+Model fingerprint: 0x7c16a3d8
+Model has 0 linear objective coefficients
+Model has 12 quadratic objective terms
+Variable types: 0 continuous, 16 integer (16 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [0e+00, 0e+00]
+  QObjective range [1e+00, 6e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+
+Found heuristic solution: objective 3.0000000
+Presolve time: 0.00s
+Presolved: 20 rows, 28 columns, 68 nonzeros
+Variable types: 0 continuous, 28 integer (28 binary)
+
+Root relaxation: objective 0.000000e+00, 12 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    9    3.00000    0.00000   100%     -    0s
+H    0     0                       2.0000000    0.00000   100%     -    0s
+H    0     0                       0.5144347    0.00000   100%     -    0s
+H    0     0                       0.5137456    0.00000   100%     -    0s
+H    0     0                       0.5091993    0.00000   100%     -    0s
+
+Cutting planes:
+  Clique: 1
+  MIR: 1
+  Zero half: 3
+  RLT: 1
+
+Explored 1 nodes (12 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 32 (of 96 available processors)
+
+Solution count 5: 0.509199 0.513746 0.514435 ... 3
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 5.091992896670e-01, best bound 5.091992896670e-01, gap 0.0000%
+Physical mapping optimal solution found, objective = 0.5091992896669859
+✅ 成功保存 21 条映射记录到 JSON 文件：./outputs/QV8/QV8_net[2, 2, 2, 2]_WBCP_20260412_194621.json
+ExecCosts(comms=70, cat_ents=0, epairs=87, rgeo_mean_fid=0.8933808504616844, fidelity=0.0003, loss=7.7722, rhops=53, rswaps=17, remote_fidelity_loss=7.5443588042953795, remote_fidelity_log_sum=-7.891961332122513, remote_fidelity=0.0003737358355683135, local_fidelity_loss=0.22786215103417806, local_fidelity_log_sum=-0.22802169586772938, local_fidelity=0.7961069874161878, time=1.25), local_gate_num=418
+Compiler: [AutoComm]
+{'circuit_name': 'QV8'}
+{'circuit_name': 'QV8'}

@@ -6,7 +6,7 @@ from qiskit import QuantumCircuit
 from qiskit import transpile
 
 from ..utils import Network
-from ..compiler import MappingRecord, CompilerUtils, MappingRecord
+from ..compiler import MappingRecord, CompilerUtils, MappingRecord, MappingRecordList
 from ..baselines import OEE
 
 class TelegatePartitioner(ABC):
@@ -24,7 +24,7 @@ class TelegatePartitioner(ABC):
     def partition(self,
                   circuit: QuantumCircuit,
                   network: Network,
-                  config: Optional[dict[str, Any]]) -> MappingRecord:
+                  config: Optional[dict[str, Any]]) -> MappingRecord | MappingRecordList:
         """
         执行图划分
         :param circuit: 待划分的电路
@@ -63,7 +63,7 @@ class DirectTelegatePartitioner(TelegatePartitioner):
 
         # 计算telegate代价
         if enable_cat_telegate:
-            costs = CompilerUtils.evaluate_telegate_with_cat(
+            costs = CompilerUtils.evaluate_telegate_with_my_cat(
                 partition, circuit, network, cat_controls=cat_controls
             )
         else:
@@ -113,12 +113,13 @@ class OEEPartitioner(TelegatePartitioner):
             layer_start = layer_start,
             layer_end = layer_end,
             partition = partition,
-            mapping_type = "telegate"
+            mapping_type = "telegate",
+            extra_info = {"ops": circuit},
         )
 
         # 评估当前线路的telegate代价
         if enable_cat_telegate:
-            costs = CompilerUtils.evaluate_telegate_with_cat(
+            costs = CompilerUtils.evaluate_telegate_with_my_cat(
                 partition, circuit, network, cat_controls=cat_controls
             )
         else:
@@ -126,7 +127,7 @@ class OEEPartitioner(TelegatePartitioner):
 
         if debug_cat_telegate:
             plain_costs = CompilerUtils.evaluate_telegate(partition, circuit, network)
-            cat_costs = CompilerUtils.evaluate_telegate_with_cat(
+            cat_costs = CompilerUtils.evaluate_telegate_with_my_cat(
                 partition, circuit, network, cat_controls=cat_controls
             )
             print(
@@ -145,6 +146,56 @@ class OEEPartitioner(TelegatePartitioner):
 
         record.costs = costs
         return record
+
+
+class CatEntPartitioner(TelegatePartitioner):
+    """
+    返回一个用CatEnt方式切分的量子线路
+    """
+    @property
+    def name(self) -> str:
+        return "CatEntPartitioner"
+    
+    def partition(self, 
+                  circuit: QuantumCircuit, 
+                  network: Network,
+                  config: Optional[dict[str, Any]]) -> MappingRecordList:
+        cfg = config or {}
+        layer_start = cfg.get("layer_start", 0)
+        layer_end = cfg.get("layer_end", circuit.depth() - 1)
+        use_oee_init = bool(cfg.get("use_oee_init", True))
+
+        # 先准备初始划分；若未指定则按容量顺序分配。
+        base_partition = copy.deepcopy(cfg.get("partition", []))
+        if not base_partition:
+            base_partition = CompilerUtils.allocate_qubits(circuit.num_qubits, network)
+
+        if use_oee_init:
+            qig = CompilerUtils.build_qubit_interaction_graph(circuit)
+            oee_iteration = int(cfg.get("iteration", 50))
+            init_partition = OEE.partition(base_partition, qig, network, oee_iteration)
+        else:
+            init_partition = base_partition
+
+        # 在初始划分基础上调用QAutoComm，拿到cat-ent优化记录。
+        from ..baselines.autocomm import QAutoComm
+
+        autocomm_cfg = dict(cfg)
+        autocomm_cfg["partition"] = init_partition
+        autocomm_cfg["save_records"] = False
+        autocomm_cfg["comm_only_costs"] = True
+
+        cat_result = QAutoComm().compile(
+            circuit=circuit,
+            network=network,
+            config=autocomm_cfg,
+        )
+
+        for record in cat_result.records:
+            record.layer_start = layer_start
+            record.layer_end = layer_end
+
+        return cat_result
 
 
 class PytketDQCPartitioner(TelegatePartitioner):
@@ -194,7 +245,7 @@ class PytketDQCPartitioner(TelegatePartitioner):
             partition[target].append(i)
 
         # TODO: 计算cat-ent的telegate代价
-        costs, _ = CompilerUtils.evaluate_local_and_telegate(partition, circuit, network)
+        costs, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(partition, circuit, network)
         
         return MappingRecord(
             layer_start=layer_start,
@@ -210,6 +261,9 @@ class TelegatePartitionerFactory:
     _registry = {
         "direct": "DirectTelegatePartitioner",
         "oee": "OEEPartitioner",
+        "cat": "CatEntPartitioner",
+        "catent": "CatEntPartitioner",
+        "cat_ent": "CatEntPartitioner",
         "pytket_dqc": "PytketDQCPartitioner"
     }
 

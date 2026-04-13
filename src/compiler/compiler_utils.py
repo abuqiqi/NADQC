@@ -8,6 +8,7 @@ from collections import defaultdict
 from typing import Any, Optional
 import math
 import os
+import sys
 
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import Gate
@@ -139,7 +140,7 @@ class ExecCosts:
 class CommOp(Gate):
     """
     通信操作封装为Qiskit自定义Gate，便于直接插入QuantumCircuit。
-    gate_list中保存通信块的Qiskit门（每个门额外携带_autocomm_qids元数据）。
+    gate_list中保存通信块的Qiskit门（每个门额外携带_global_lqids元数据）。
     """
 
     def __init__(
@@ -257,23 +258,6 @@ class MappingRecordList:
         self.total_costs.update(**kwargs)
         return
 
-    # def add_cost(self, key: str, value: Any):
-    #     """添加项目到total_costs"""
-    #     self.total_costs[key] = value
-
-    # def add_cost_sum(self, key: str):
-    #     """添加求和项到total_costs"""
-    #     sum = 0
-    #     for record in self.records:
-    #         sum += record.costs[key]
-    #     self.total_costs[key] = sum
-
-    # def add_cost_mul(self, key: str):
-    #     mul = 1
-    #     for record in self.records:
-    #         mul *= record.costs[key]
-    #     self.total_costs[key] = mul
-
     def get_records_by_layer_range(self, layer_start: int, layer_end: int) -> list[MappingRecord]:
         """按层级范围查询记录（包含交集）"""
         return [
@@ -303,6 +287,7 @@ class MappingRecordList:
         }
         # data_dict = dataclasses.asdict(self)
         data_dict = self._convert_numpy_types(data_dict)
+        _, data_dict = self._prune_unserializable(data_dict)
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         # 按格式保存
         with open(filename, 'w', encoding='utf-8') as f:
@@ -337,8 +322,86 @@ class MappingRecordList:
         else:
             return obj
 
+    @staticmethod
+    def _prune_unserializable(obj: Any) -> tuple[bool, Any]:
+        """
+        递归过滤不可JSON序列化的字段。
+        返回 (是否保留, 过滤后的对象)。
+        """
+        if obj is None or isinstance(obj, (str, int, float, bool)):
+            return True, obj
+
+        if isinstance(obj, dict):
+            kept: dict[Any, Any] = {}
+            for k, v in obj.items():
+                ok, new_v = MappingRecordList._prune_unserializable(v)
+                if ok:
+                    kept[k] = new_v
+            return True, kept
+
+        if isinstance(obj, (list, tuple)):
+            kept_list: list[Any] = []
+            for item in obj:
+                ok, new_item = MappingRecordList._prune_unserializable(item)
+                if ok:
+                    kept_list.append(new_item)
+            return True, kept_list
+
+        try:
+            json.dumps(obj)
+            return True, obj
+        except TypeError:
+            return False, None
+
 
 class CompilerUtils:
+
+    @staticmethod
+    def _check_logical_map_partition_consistency(
+        partition: list[list[int]],
+        logical_phy_map: dict[int, tuple[int, int | None]],
+    ) -> tuple[bool, str]:
+        """
+        检查 logical_phy_map 与 partition 的一致性：
+        1) 每个 partition 中的逻辑比特必须出现在 logical_phy_map 中
+        2) 每个逻辑比特在 logical_phy_map 中的 qpu_id 必须等于其 partition 所在 qpu
+        3) 非 None 的物理槽位 (qpu_id, phy_id) 不能被多个逻辑比特复用
+        4) logical_phy_map 不应包含 partition 外的逻辑比特
+        """
+        expected_qpu: dict[int, int] = {} # 每个逻辑比特期望对应的qpu
+        for qpu_id, group in enumerate(partition):
+            for global_lqid in group:
+                expected_qpu[global_lqid] = qpu_id
+
+        # 1) + 2)
+        for global_lqid, qpu_id in expected_qpu.items():
+            if global_lqid not in logical_phy_map:
+                return False, f"缺少逻辑比特映射: lqid={global_lqid}, expected_qpu={qpu_id}"
+            mapped_qpu = logical_phy_map[global_lqid][0]
+            if mapped_qpu != qpu_id:
+                return False, (
+                    f"QPU归属不一致: lqid={global_lqid}, expected_qpu={qpu_id}, "
+                    f"mapped_qpu={mapped_qpu}"
+                )
+
+        # 4)
+        for mapped_lqid in logical_phy_map:
+            if mapped_lqid not in expected_qpu:
+                return False, f"发现 partition 外逻辑比特: lqid={mapped_lqid}"
+
+        # 3)
+        slot_owner: dict[tuple[int, int], int] = {}
+        for lqid, (qpu_id, phy_id) in logical_phy_map.items():
+            if phy_id is None:
+                continue
+            slot = (qpu_id, phy_id)
+            if slot in slot_owner and slot_owner[slot] != lqid:
+                return False, (
+                    f"物理槽位冲突: slot={slot}, owners=({slot_owner[slot]}, {lqid})"
+                )
+            slot_owner[slot] = lqid
+
+        return True, "ok"
     """
     编译工具类
     """
@@ -435,161 +498,6 @@ class CompilerUtils:
         return remote_hops
 
     @staticmethod
-    def evaluate_local_and_telegate(
-        arg: MappingRecord | list[list[int]],  # 兼容两种类型：record / partition
-        circuit: QuantumCircuit, 
-        network: Network,
-        logical_phy_map: dict[int, tuple[int, int | None]] = {},
-        optimization_level: int = 3,
-        enable_cat_telegate: bool = False,
-        cat_controls: Optional[list[int]] = None,
-    ) -> tuple[ExecCosts, dict[int, tuple[int, int | None]]]:
-        """
-        评估在给定划分和后端分配下执行线路的总体保真度
-        @param record: 包含划分和映射信息的记录
-        @param circuit: 量子线路
-        @param network: 网络信息
-        @param logical_phy_map: 记录每个量子比特在特定QPU上的物理比特编号
-        @param optimization_level: transpile优化级别，默认3
-        @return: 更新后的记录，包含评估的成本信息
-        """
-        # print("[DEBUG] evaluate_local_and_telegate")
-        partition = None
-        
-        if isinstance(arg, MappingRecord):
-            record = arg
-            partition = record.partition
-            logical_phy_map = record.logical_phy_map # 获取专属于当前record的logical_phy_map，不需要copy()
-        else:
-            # arg is a list of lists representing the partition
-            partition = arg
-            # 检查logical_phy_map不为空
-            if len(logical_phy_map) == 0:
-                raise ValueError("当输入为partition时，必须提供非空的logical_phy_map")
-
-        # --- 构建辅助字典 ---
-        # 快速查比特归属QPU，直接从唯一字典取
-        global_to_qpu: dict[int, int] = {q: logical_phy_map[q][0] for q in logical_phy_map}
-
-        # 检查global_to_qpu和当前的partition是否一致
-        global_to_local_lqid: dict[int, int] = {}
-        for qpu_id, group in enumerate(partition):
-            for local_lqid, global_lqid in enumerate(group):
-                global_to_local_lqid[global_lqid] = local_lqid
-                assert global_to_qpu[global_lqid] == qpu_id, f"全局逻辑比特 {global_lqid} 的QPU归属不一致，partition: {partition}, logical_phy_map: {logical_phy_map}"
-
-        # --- 建立每个分区对应的子线路 ---
-        subcircuits = [QuantumCircuit(len(group)) for group in partition]
-
-        # 初始化噪声
-        costs = ExecCosts()
-
-        # 遍历circuit上的每个操作，如果操作完全属于某个group，则添加到对应的subcircuit；
-        # 如果操作跨越多个group，则记录为telegate操作（支持可选CAT-aware计费）。
-        for instruction in circuit:
-            # 操作属于原始的全局量子比特编号，需要转换为子线路的局部编号
-            global_qids = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
-
-            # 检查操作涉及的量子比特属于哪个分区
-            involved_qpus = set(global_to_qpu[q] for q in global_qids)
-
-            # 本地操作，加入对应子线路（需要转换为局部编号）
-            if len(involved_qpus) == 1:
-                qpu_id = involved_qpus.pop()
-                mapped_qubits = [global_to_local_lqid[q] for q in global_qids]
-                subcircuits[qpu_id].append(instruction.operation, mapped_qubits)
-            # 操作跨越多个分区，为telegate操作
-            else:
-                if not enable_cat_telegate:
-                    for i in range(len(global_qids) - 1):
-                        q1, q2 = global_qids[i], global_qids[i + 1]
-                        p1, p2 = global_to_qpu[q1], global_to_qpu[q2]
-                        if p1 != p2:
-                            costs = CompilerUtils.update_remote_move_costs(
-                                costs, p1, p2, 1, network
-                            )
-
-        if enable_cat_telegate:
-            tg_costs = CompilerUtils.evaluate_telegate_with_cat(
-                partition,
-                circuit,
-                network,
-                cat_controls=cat_controls,
-            )
-            costs += tg_costs
-
-        # 遍历每个子线路
-        assert len(subcircuits) == len(network.backends)
-        for qpu_id in range(len(subcircuits)):
-            # 获取每个分区单独的保真度损失
-            subcircuit = subcircuits[qpu_id]
-            backend = network.backends[qpu_id]
-
-            if subcircuit.size() == 0:
-                continue
-
-            initial_layout = CompilerUtils.get_initial_layout(
-                subcircuit, partition[qpu_id], global_to_local_lqid, logical_phy_map
-            )
-
-            # print(f"[DEBUG] QPU[{qpu_id}] logical_phy_map: {logical_phy_map}, initial_layout: {initial_layout}")
-            # print("===== logical circuit =====")
-            # print(subcircuit)
-
-            # 这里不能自由地transpile子线路
-            # 要保证在不同子线路之间，量子比特在本地的位置是一致的，
-            # 否则需要引入额外的SWAP操作来调整量子比特位置，导致评估不准确
-            transpiled_circuit = transpile(
-                subcircuit,
-                coupling_map=backend.coupling_map,
-                basis_gates=backend.basis_gates,
-                initial_layout=initial_layout,
-                optimization_level=optimization_level
-            )
-
-            # print("===== transpiled circuit =====")
-            # print(transpiled_circuit)
-
-            # 更新logical_phy_map：记录每个全局逻辑比特在物理上的位置（QPU编号和物理比特编号）
-            logical_phy_map = CompilerUtils.get_logical_to_physical_map(
-                transpiled_circuit, partition[qpu_id], global_to_local_lqid, logical_phy_map
-            )
-
-            # print(f"[DEBUG] logical_phy_map: {logical_phy_map}\n")
-
-            # 统计每个量子门的保真度损失
-            for instruction in transpiled_circuit:
-                # 获取操作名字
-                gate_name = instruction.operation.name
-                qubits = [transpiled_circuit.qubits.index(qubit) for qubit in instruction.qubits]
-                assert qubits[0] is not None, f"Qubit index is None for instruction: {instruction}"
-                gate_key = f"{gate_name}{'_'.join(map(str, qubits))}"
-
-                # 获取操作保真度
-                gate_error = backend.gate_dict.get(gate_key, {}).get("gate_error_value", None)
-                if gate_error == 1:
-                    gate_error = 0.99 #
-                    print(f"[WARNING] {gate_key}: {gate_error}")
-                    # exit(1)
-                
-                if gate_error is None or (isinstance(gate_error, float) and math.isnan(gate_error)):
-                    gate_error = backend.gate_dict[gate_name]["gate_error_value"]
-
-                assert gate_error is not None, f"Gate error not found for gate_key: {gate_key} in backend.gate_dict"
-                # print(f"[DEBUG] {gate_key}{qubits}: {gate_error}")
-                costs.local_gate_num += 1
-                costs.local_fidelity_loss += gate_error
-                costs.local_fidelity *= (1 - gate_error)
-                costs.local_fidelity_log_sum += np.log(1 - gate_error)
-
-        if isinstance(arg, MappingRecord):
-            # 更新record的costs
-            arg.costs += costs
-            arg.logical_phy_map = logical_phy_map
-
-        return costs, logical_phy_map
-
-    @staticmethod
     def evaluate_local_and_telegate_with_cat(
         arg: MappingRecord | list[list[int]],
         circuit: QuantumCircuit,
@@ -611,42 +519,107 @@ class CompilerUtils:
         if len(logical_phy_map) == 0:
             logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
 
-        global_to_qpu: dict[int, int] = {q: logical_phy_map[q][0] for q in logical_phy_map}
-        
-        # 检查global_to_qpu和当前的partition是否一致
-        global_to_local_lqid: dict[int, int] = {}
-        for qpu_id, group in enumerate(partition):
-            for local_lqid, global_lqid in enumerate(group):
-                global_to_local_lqid[global_lqid] = local_lqid
-                assert global_to_qpu[global_lqid] == qpu_id, f"全局逻辑比特 {global_lqid} 的QPU归属不一致，partition: {partition}, logical_phy_map: {logical_phy_map}"
+        ok, reason = CompilerUtils._check_logical_map_partition_consistency(partition, logical_phy_map)
+        if not ok:
+            print(
+                f"[MAP_CHECK][evaluate_local_and_telegate_with_cat][pre] {reason}",
+                file=sys.stderr,
+            )
+            print(f"[MAP_CHECK][partition] {partition}", file=sys.stderr)
+            print(f"[MAP_CHECK][logical_phy_map] {logical_phy_map}", file=sys.stderr)
+            assert ok, reason
 
-        # --- 建立每个分区对应的子线路 ---
-        subcircuits = [QuantumCircuit(len(group)) for group in partition]
+        # 构建局部索引（local_lqid 直接使用槽位sid），并维护运行时位置。
+        global_to_local_lqid: dict[int, int] = {}
+        runtime_pos: dict[int, tuple[int, int]] = {}
+
+        # 子线路容量使用“当前分组大小 + comm_slot_reserve”，避免直接按后端总量建超大子线路。
+        reserve = int(getattr(network, "comm_slot_reserve", 1) or 1)
+        backend_caps_full = network.get_backend_qubit_counts(include_comm_slot=True)
+        capacity_by_qpu: list[int] = [] # |partition[j]| + reserve
+        comm_slot_start: dict[int, int] = {}
+        for qpu_id, group in enumerate(partition):
+            # 记录每个QPU的容量（含通信槽位）
+            target_cap = len(group) + reserve
+            full_cap = backend_caps_full[qpu_id]
+            assert target_cap <= full_cap, f"QPU {qpu_id} 的目标容量 {target_cap} 超过了后端容量 {full_cap}"
+            capacity_by_qpu.append(target_cap)
+            comm_slot_start[qpu_id] = len(group)
+
+        # slot_owner[qpu_id][local_lqid] = 当前占用该槽位的global_lqid，None表示空闲。
+        slot_owner: list[list[Optional[int]]] = [
+            [None for _ in range(capacity_by_qpu[qpu_id])] for qpu_id in range(len(partition))
+        ]
+
+        # 先为每个逻辑比特分配“计算槽”（通信槽预留给CommOp临时使用）。
+        for qpu_id, group in enumerate(partition):
+            for sid, global_lqid in enumerate(group):
+                slot_owner[qpu_id][sid] = global_lqid
+                global_to_local_lqid[global_lqid] = sid
+                runtime_pos[global_lqid] = (qpu_id, sid)
+
+        # --- 建立每个QPU对应的子线路（按容量建模，支持通信缓冲槽位）---
+        subcircuits = [QuantumCircuit(capacity_by_qpu[qpu_id]) for qpu_id in range(len(partition))]
 
         # 初始化噪声
         costs = ExecCosts()
 
-        def _apply_comm_gate_errors(dst_qpu: int, gate_list: list[Gate]) -> None:
-            """
-            对通信块里的门采用门类型级估算：
-            不再绑定具体物理位，直接按目标QPU上的门类型误差累计。
-            """
-            nonlocal costs
-            backend = network.backends[dst_qpu]
-            for gate_op in gate_list:
-                costs = CompilerUtils.update_local_gate_costs_by_name(
-                    costs,
-                    backend,
-                    gate_op.name,
-                    1,
+        def _find_free_slot(qpu_id: int, owner: Optional[int] = None) -> int:
+            for sid in range(comm_slot_start[qpu_id], capacity_by_qpu[qpu_id]):
+                if slot_owner[qpu_id][sid] is None:
+                    slot_owner[qpu_id][sid] = owner
+                    return sid
+            raise RuntimeError(
+                "[CAPACITY] 目标QPU无可用通信槽位。"
+                f" qpu={qpu_id}, comm_range=[{comm_slot_start[qpu_id]}, {capacity_by_qpu[qpu_id]}), "
+                f"slot_owner={slot_owner[qpu_id]}"
+            )
+
+        def _release_slot(qpu_id: int, sid: int, expected_owner: Optional[int] = None) -> None:
+            if not (comm_slot_start[qpu_id] <= sid < capacity_by_qpu[qpu_id]):
+                raise RuntimeError(
+                    f"[COMM_SLOT] 尝试释放非通信槽。qpu={qpu_id}, sid={sid}, "
+                    f"comm_start={comm_slot_start[qpu_id]}"
                 )
+            if expected_owner is not None and slot_owner[qpu_id][sid] != expected_owner:
+                raise RuntimeError(
+                    f"[COMM_SLOT] 通信槽占用者不匹配。qpu={qpu_id}, sid={sid}, "
+                    f"expected={expected_owner}, actual={slot_owner[qpu_id][sid]}"
+                )
+            slot_owner[qpu_id][sid] = None
+
+        def _build_tmp_local_map_for_comm(source_qubit: int, source_temp_slot: int) -> dict[int, int]:
+            tmp_map = dict(global_to_local_lqid)
+            tmp_map[source_qubit] = source_temp_slot
+            return tmp_map
+
+        def _append_comm_gate_block(
+            dst_qpu: int,
+            gate_list: list[Gate],
+            tmp_global_to_local_lqid: dict[int, int],
+        ) -> None:
+            """
+            将通信块里的门绑定到目标QPU的具体槽位，并并入目标子线路。
+            """
+            if len(gate_list) == 0:
+                return
+
+            for gate_op in gate_list:
+                global_lqids = getattr(gate_op, "_global_lqids", None)
+                if global_lqids is None:
+                    raise RuntimeError(
+                        f"[COMM_FLOW] gate_list门缺少 _global_lqids/_autocomm_qids 元数据: gate={gate_op}"
+                    )
+
+                mapped_qubits: list[int] = [tmp_global_to_local_lqid[q] for q in global_lqids]
+                subcircuits[dst_qpu].append(gate_op, mapped_qubits)
 
         for instruction in circuit:
             op = instruction.operation
             global_qids = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
 
-            # print(f"\n\n[DEBUG] Processing instruction: {instruction}")
-            # print(f"[DEBUG] qids: {global_qids}")
+            print(f"\n\n[DEBUG] Processing instruction: {instruction}")
+            print(f"[DEBUG] qids: {global_qids}")
 
             if isinstance(op, CommOp):
                 if op.comm_type == "cat":
@@ -654,40 +627,70 @@ class CompilerUtils:
                         costs, op.src_qpu, op.dst_qpu, 1, network
                     )
                     costs.cat_ents += 1
-                    _apply_comm_gate_errors(op.dst_qpu, op.gate_list)
+                    dst_slot = _find_free_slot(op.dst_qpu, owner=op.source_qubit)
+                    try:
+                        tmp_map = _build_tmp_local_map_for_comm(op.source_qubit, dst_slot)
+                        _append_comm_gate_block(op.dst_qpu, op.gate_list, tmp_map)
+                    finally:
+                        _release_slot(op.dst_qpu, dst_slot, expected_owner=op.source_qubit)
+
                 elif op.comm_type == "rtp":
                     costs = CompilerUtils.update_remote_move_costs(
                         costs, op.src_qpu, op.dst_qpu, 2, network
                     )
-                    _apply_comm_gate_errors(op.dst_qpu, op.gate_list)
+                    dst_slot = _find_free_slot(op.dst_qpu, owner=op.source_qubit)
+                    try:
+                        tmp_map = _build_tmp_local_map_for_comm(op.source_qubit, dst_slot)
+                        _append_comm_gate_block(op.dst_qpu, op.gate_list, tmp_map)
+                    finally:
+                        _release_slot(op.dst_qpu, dst_slot, expected_owner=op.source_qubit)
+
                 elif op.comm_type == "tp":
                     costs = CompilerUtils.update_remote_move_costs(
                         costs, op.src_qpu, op.dst_qpu, 1, network
                     )
-                    logical_phy_map[op.source_qubit] = (op.dst_qpu, None)
-                    global_to_qpu[op.source_qubit] = op.dst_qpu
-                    _apply_comm_gate_errors(op.dst_qpu, op.gate_list)
+                    dst_slot = _find_free_slot(op.dst_qpu, owner=op.source_qubit)
+                    try:
+                        tmp_map = _build_tmp_local_map_for_comm(op.source_qubit, dst_slot)
+                        _append_comm_gate_block(op.dst_qpu, op.gate_list, tmp_map)
+                    finally:
+                        # 当前策略：临时通信语义，tp按片段内临时迁移处理，通信结束后释放通信槽。
+                        # 因为迁移过去一定是放到comm_slot，所以应该不影响本地量子门操作的建立。
+                        _release_slot(op.dst_qpu, dst_slot, expected_owner=op.source_qubit)
+                        # TODO: （更严谨）持久迁移语义：
+                        # TP 后更新 runtime_pos 到 dst，并让态继续驻留；
+                        # 要么占着 comm_slot，要么立刻转存到 dst 的计算槽后再释放 comm_slot。
+                        # 这个更贴近“真实 TP”。
 
             else:
                 # print(f"[DEBUG] Processing normal gate: {op}")
                 
                 # 检查操作涉及的量子比特属于哪个分区
-                involved_qpus = set(global_to_qpu[q] for q in global_qids)
+                involved_qpus = set(runtime_pos[q][0] for q in global_qids)
 
                 # 本地操作，加入对应子线路（需要转换为局部编号）
                 if len(involved_qpus) == 1:
                     qpu_id = involved_qpus.pop()
-                    mapped_qubits = [global_to_local_lqid[q] for q in global_qids]
+                    mapped_qubits = [runtime_pos[q][1] for q in global_qids]
                     subcircuits[qpu_id].append(instruction.operation, mapped_qubits)
                 # 操作跨越多个分区，为telegate操作
                 else:
                     for i in range(len(global_qids) - 1):
                         q1, q2 = global_qids[i], global_qids[i + 1]
-                        p1, p2 = global_to_qpu[q1], global_to_qpu[q2]
+                        p1, p2 = runtime_pos[q1][0], runtime_pos[q2][0]
                         if p1 != p2:
                             costs = CompilerUtils.update_remote_move_costs(
                                 costs, p1, p2, 1, network
                             )
+
+        # 检查所有通信槽是否都已释放。
+        for qpu_id in range(len(partition)):
+            for sid in range(comm_slot_start[qpu_id], capacity_by_qpu[qpu_id]):
+                if slot_owner[qpu_id][sid] is not None:
+                    raise RuntimeError(
+                        f"[COMM_SLOT] 片段结束后发现未释放通信槽: qpu={qpu_id}, sid={sid}, "
+                        f"owner={slot_owner[qpu_id][sid]}"
+                    )
 
         # 统一对子线路做transpile并统计本地门误差
         for qpu_id in range(len(subcircuits)):
@@ -698,7 +701,10 @@ class CompilerUtils:
                 continue
 
             initial_layout = CompilerUtils.get_initial_layout(
-                subcircuit, partition[qpu_id], global_to_local_lqid, logical_phy_map
+                subcircuit,
+                partition[qpu_id],
+                global_to_local_lqid,
+                logical_phy_map,
             )
 
             transpiled_circuit = transpile(
@@ -741,20 +747,13 @@ class CompilerUtils:
         return costs, logical_phy_map
 
     @staticmethod
-    def evaluate_telegate(
+    def evaluate_telegate_with_cat(
         arg: MappingRecord | list[list[int]],  # 兼容两种类型：record / partition
         circuit: QuantumCircuit, 
         network: Network
     ) -> ExecCosts:
-        """
-        评估在给定划分和后端分配下执行线路的总体保真度
-        @param record: 包含划分和映射信息的记录
-        @param circuit: 量子线路
-        @param network: 网络信息
-        @return: 更新后的记录，包含评估的成本信息
-        """
         partition = None
-
+        
         if isinstance(arg, MappingRecord):
             record = arg
             partition = record.partition
@@ -771,171 +770,44 @@ class CompilerUtils:
         # 初始化噪声
         costs = ExecCosts()
 
-        # 遍历circuit上的每个操作，如果操作完全属于某个group，则添加到对应的subcircuit；如果操作跨越多个group，则记录为telegate操作
+        # 遍历circuit上的每个操作，如果操作完全属于某个group，则添加到对应的subcircuit；
+        # 如果操作跨越多个group，则记录为telegate操作（支持可选CAT-aware计费）。
         for instruction in circuit:
-            qubits = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
+            # 获取量子操作
+            op = instruction.operation
+            # 操作属于原始的全局量子比特编号，需要转换为子线路的局部编号
+            global_qids = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
 
-            # 检查操作涉及的量子比特属于哪个分区
-            involved_partitions = set()
-            for qubit in qubits:
-                involved_partitions.add(qubit_to_partition[qubit])
+            if isinstance(op, CommOp):
+                if op.comm_type == "cat":
+                    costs = CompilerUtils.update_remote_move_costs(
+                        costs, op.src_qpu, op.dst_qpu, 1, network
+                    )
+                    costs.cat_ents += 1
+                elif op.comm_type == "rtp":
+                    costs = CompilerUtils.update_remote_move_costs(
+                        costs, op.src_qpu, op.dst_qpu, 2, network
+                    )
+                elif op.comm_type == "tp":
+                    costs = CompilerUtils.update_remote_move_costs(
+                        costs, op.src_qpu, op.dst_qpu, 1, network
+                    )
 
-            if len(involved_partitions) > 1: # 操作跨越多个分区，为telegate操作
-                # 对qubits里的每一对相邻qubits，算作一组remote_hop
-                # 直接统计跨分区的telegate保真度损失
-                for i in range(len(qubits) - 1):
-                    q1, q2 = qubits[i], qubits[i + 1]
-                    p1, p2 = qubit_to_partition[q1], qubit_to_partition[q2]
-                    if p1 != p2:
-                        costs = CompilerUtils.update_remote_move_costs(
-                            costs, p1, p2, 1, network
-                        )
-                        # costs.remote_hops += network.Hops[p1][p2]
-                        # costs.epairs += network.Hops[p1][p2]
-                        # costs.remote_fidelity_loss += network.move_fidelity_loss[p1][p2]
-                        # costs.remote_fidelity *= network.move_fidelity[p1][p2]
-                        # costs.remote_fidelity_log_sum += np.log(network.move_fidelity[p1][p2])
-                        # print(f"[DEBUG] evaluate_local_and_telegate remote: {costs}")
+            else:
+                # 检查操作涉及的量子比特属于哪个分区
+                involved_qpus = set(qubit_to_partition[q] for q in global_qids)
+                # 操作跨越多个分区，为telegate操作
+                if len(involved_qpus) > 1:
+                    for i in range(len(global_qids) - 1):
+                        q1, q2 = global_qids[i], global_qids[i + 1]
+                        p1, p2 = qubit_to_partition[q1], qubit_to_partition[q2]
+                        if p1 != p2:
+                            costs = CompilerUtils.update_remote_move_costs(
+                                costs, p1, p2, 1, network
+                            )
 
         if isinstance(arg, MappingRecord):
             # 更新record的costs
-            arg.costs += costs
-
-        return costs
-
-    @staticmethod
-    def evaluate_telegate_with_cat(
-        arg: MappingRecord | list[list[int]],
-        circuit: QuantumCircuit,
-        network: Network,
-        cat_controls: Optional[list[int]] = None,
-        cat_gate_set: Optional[set[str]] = None,
-    ) -> ExecCosts:
-        """
-        CAT-aware telegate估算：
-        - 普通跨分区2Q门按一次remote move计费
-        - 若同一控制位在同一远端QPU上命中多个不同目标位，可视为一次CAT setup复用，
-          将该组通信权重由n折算为2（setup+teardown近似）
-        """
-        partition = None
-        if isinstance(arg, MappingRecord):
-            record = arg
-            partition = record.partition
-        else:
-            partition = arg
-
-        if cat_controls is None:
-            cat_controls = CompilerUtils._extract_cat_controls_for_circuit(circuit, support=cat_gate_set)
-        cat_control_set = set(cat_controls)
-        support = cat_gate_set if cat_gate_set is not None else {"cx", "cz", "rzz"}
-        symmetric_support = {"cz", "rzz"}
-
-        qubit_to_partition: dict[int, int] = {}
-        for idx, group in enumerate(partition):
-            for qubit in group:
-                qubit_to_partition[qubit] = idx
-
-        costs = ExecCosts()
-        active_groups: dict[tuple[int, int, int], dict[str, Any]] = {}
-
-        def _apply_group(ctrl: int, src_p: int, dst_p: int, info: dict[str, Any]) -> None:
-            cnt = int(info["count"])
-            n_targets = len(info["targets"])
-            is_cat_group = n_targets >= 2 and cnt >= 2
-            # CAT组按一次远程telegate通信计费；对应门在目标QPU本地执行并单独计入本地损失。
-            effective_weight = 1 if is_cat_group else cnt
-            nonlocal costs
-            costs = CompilerUtils.update_remote_move_costs(
-                costs, src_p, dst_p, effective_weight, network
-            )
-            if is_cat_group:
-                # 单独统计CAT ent复用事件；每个有效CAT组记1。
-                costs.cat_ents += 1
-                backend = network.backends[dst_p]
-                for gate_name, gate_cnt in info["gate_counts"].items():
-                    costs = CompilerUtils.update_local_gate_costs_by_name(
-                        costs,
-                        backend,
-                        gate_name,
-                        int(gate_cnt),
-                    )
-
-        def _flush_control(ctrl: int) -> None:
-            keys = [k for k in active_groups.keys() if k[0] == ctrl]
-            for key in keys:
-                info = active_groups.pop(key)
-                _apply_group(key[0], key[1], key[2], info)
-
-        for instruction in circuit:
-            qubits = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
-            if not qubits:
-                continue
-            gate_name = instruction.operation.name
-
-            touched_controls = [c for c in cat_control_set if c in qubits]
-
-            is_cat_candidate = False
-            selected_anchor: Optional[int] = None
-            if len(qubits) == 2:
-                q1, q2 = qubits
-                p1 = qubit_to_partition[q1]
-                p2 = qubit_to_partition[q2]
-
-                if gate_name in support and p1 != p2:
-                    anchor_candidates: list[int] = []
-                    if gate_name in symmetric_support:
-                        if q1 in cat_control_set:
-                            anchor_candidates.append(q1)
-                        if q2 in cat_control_set:
-                            anchor_candidates.append(q2)
-                    else:
-                        if q1 in cat_control_set:
-                            anchor_candidates.append(q1)
-
-                    if anchor_candidates:
-                        # 对称门只选择一个锚点，避免同一门被双计数。
-                        selected_anchor = None
-                        for cand in anchor_candidates:
-                            other = q2 if cand == q1 else q1
-                            src_p = qubit_to_partition[cand]
-                            dst_p = qubit_to_partition[other]
-                            if (cand, src_p, dst_p) in active_groups:
-                                selected_anchor = cand
-                                break
-                        if selected_anchor is None:
-                            selected_anchor = anchor_candidates[0]
-
-                if selected_anchor is not None:
-                    is_cat_candidate = True
-                    other = q2 if selected_anchor == q1 else q1
-                    src_p = qubit_to_partition[selected_anchor]
-                    dst_p = qubit_to_partition[other]
-                    key = (selected_anchor, src_p, dst_p)
-                    if key not in active_groups:
-                        active_groups[key] = {"count": 0, "targets": set(), "gate_counts": defaultdict(int)}
-                    active_groups[key]["count"] += 1
-                    active_groups[key]["targets"].add(other)
-                    active_groups[key]["gate_counts"][gate_name] += 1
-                elif p1 != p2:
-                    costs = CompilerUtils.update_remote_move_costs(costs, p1, p2, 1, network)
-            else:
-                # 多比特门保守处理：相邻比特跨分区逐对计费
-                for i in range(len(qubits) - 1):
-                    q1, q2 = qubits[i], qubits[i + 1]
-                    p1 = qubit_to_partition[q1]
-                    p2 = qubit_to_partition[q2]
-                    if p1 != p2:
-                        costs = CompilerUtils.update_remote_move_costs(costs, p1, p2, 1, network)
-
-            for ctrl in touched_controls:
-                # 仅当当前门被选为该ctrl的CAT锚点时，才延续其片段。
-                if not (is_cat_candidate and selected_anchor == ctrl):
-                    _flush_control(ctrl)
-
-        for ctrl in list(cat_control_set):
-            _flush_control(ctrl)
-
-        if isinstance(arg, MappingRecord):
             arg.costs += costs
 
         return costs
@@ -1024,6 +896,14 @@ class CompilerUtils:
             curr_partition = curr_record.partition
             # 初始化logical_phy_map
             logical_phy_map = curr_record.logical_phy_map
+
+            # 进入teledata前，logical_phy_map理论上应与上一片段分区一致
+            ok, reason = CompilerUtils._check_logical_map_partition_consistency(prev_partition, logical_phy_map)
+            if not ok:
+                print(f"[MAP_CHECK][evaluate_teledata][pre-prev] {reason}", file=sys.stderr)
+                print(f"[MAP_CHECK][prev_partition] {prev_partition}", file=sys.stderr)
+                print(f"[MAP_CHECK][logical_phy_map] {logical_phy_map}", file=sys.stderr)
+                assert ok, reason
 
         # 场景2：输入是 list[list[int]]
         elif isinstance(arg1, list) and isinstance(arg2, list):
@@ -1178,6 +1058,15 @@ class CompilerUtils:
             )
 
         if isinstance(arg2, MappingRecord):
+            # teledata结束后，logical_phy_map应与当前分区一致
+            ok, reason = CompilerUtils._check_logical_map_partition_consistency(curr_partition, logical_phy_map)
+            if not ok:
+                print(f"[MAP_CHECK][evaluate_teledata][post-curr] {reason}", file=sys.stderr)
+                print(f"[MAP_CHECK][prev_partition] {prev_partition}", file=sys.stderr)
+                print(f"[MAP_CHECK][curr_partition] {curr_partition}", file=sys.stderr)
+                print(f"[MAP_CHECK][logical_phy_map] {logical_phy_map}", file=sys.stderr)
+                assert ok, reason
+
             # 更新costs
             arg2.costs += costs
             arg2.logical_phy_map = logical_phy_map
@@ -1201,31 +1090,6 @@ class CompilerUtils:
         return costs
 
     @staticmethod
-    def update_local_gate_costs_by_name(costs: ExecCosts, backend: Any, gate_name: str, weight: int):
-        """
-        按门类型（不区分具体物理位）累计本地门误差。
-        用于CAT将跨分区门转成本地门时的保真度统计。
-        """
-        if weight <= 0:
-            return costs
-
-        gname = gate_name.lower()
-        gate_entry = backend.gate_dict.get(gname, {})
-        gate_error = gate_entry.get("gate_error_value", None)
-
-        if gate_error is None or (isinstance(gate_error, float) and math.isnan(gate_error)):
-            raise ValueError(f"Gate error for '{gate_name}' is not available.")
-
-        gate_error = float(gate_error)
-        gate_error = min(max(gate_error, 0.0), 0.99)
-
-        costs.local_gate_num += weight
-        costs.local_fidelity_loss += gate_error * weight
-        costs.local_fidelity *= (1 - gate_error) ** weight
-        costs.local_fidelity_log_sum += np.log(1 - gate_error) * weight
-        return costs
-
-    @staticmethod
     def update_remote_swap_costs(costs: ExecCosts, src: int, dst: int, weight: int, network: Network):
         if src == dst:
             return costs
@@ -1241,6 +1105,31 @@ class CompilerUtils:
 
         return costs
 
+    # @staticmethod
+    # def update_local_gate_costs_by_name(costs: ExecCosts, backend: Any, gate_name: str, weight: int):
+    #     """
+    #     按门类型（不区分具体物理位）累计本地门误差。
+    #     用于CAT将跨分区门转成本地门时的保真度统计。
+    #     """
+    #     if weight <= 0:
+    #         return costs
+
+    #     gname = gate_name.lower()
+    #     gate_entry = backend.gate_dict.get(gname, {})
+    #     gate_error = gate_entry.get("gate_error_value", None)
+
+    #     if gate_error is None or (isinstance(gate_error, float) and math.isnan(gate_error)):
+    #         raise ValueError(f"Gate error for '{gate_name}' is not available.")
+
+    #     gate_error = float(gate_error)
+    #     gate_error = min(max(gate_error, 0.0), 0.99)
+
+    #     costs.local_gate_num += weight
+    #     costs.local_fidelity_loss += gate_error * weight
+    #     costs.local_fidelity *= (1 - gate_error) ** weight
+    #     costs.local_fidelity_log_sum += np.log(1 - gate_error) * weight
+    #     return costs
+
 
     # 
     # 维护逻辑量子比特->QPU物理量子比特的稳定映射关系
@@ -1248,6 +1137,7 @@ class CompilerUtils:
     @staticmethod
     def init_logical_phy_map(partition: list[list[int]]) -> dict[int, tuple[int, int | None]]:
         """从初始分区初始化唯一字典，第一次transpile前用"""
+        # TODO: 是否要对comm_slot也预留logical_phy_map
         logical_phy_map = {}
         for qpu_id, qubits in enumerate(partition):
             for qubit in qubits:
@@ -1266,10 +1156,10 @@ class CompilerUtils:
         """
         从transpiled电路中提取稳定的逻辑→物理比特映射
         """
-        # 初始化：假设所有本地比特暂时映射到 None
-        # 这里的 key 是“子电路本地逻辑比特索引” (0, 1, 2...)
-        # 示例: {0: None, 1: None} (因为 partition 里只有 2 个逻辑比特)
-        local_lqid_to_pqid = {i: None for i in range(len(partition_qubits))}
+        # 初始化：按当前partition实际使用的本地索引建表。
+        # 注意：启用通信预留槽位后，本地索引可能是稀疏的（如 0,2,5）。
+        local_slots = sorted({global_to_local_lqid[q] for q in partition_qubits})
+        local_lqid_to_pqid = {slot: None for slot in local_slots}
 
         if hasattr(transpiled_circuit, "layout") and transpiled_circuit.layout is not None:
             layout = transpiled_circuit.layout.initial_layout
@@ -1313,7 +1203,7 @@ class CompilerUtils:
                     # 这里的 logic_idx (例如 0 或 1) 正好对应子电路里的“本地索引”
                     # 因为我们的子电路原来就是 2 个比特，名字叫 'q'
                     
-                    # 安全检查：确保这个索引在我们预期的范围内
+                    # 安全检查：确保这个索引在我们预期的索引集合内
                     if logic_idx in local_lqid_to_pqid:
                         local_lqid_to_pqid[logic_idx] = phy_qid
                 #         print(f"  [OK] Mapped Local Logic {logic_idx} -> Physical {phy_qid}")
@@ -1329,7 +1219,11 @@ class CompilerUtils:
             # 获取每个global逻辑比特对应的子线路本地逻辑比特索引
             local_idx = global_to_local_lqid[global_q]
             # 更新logical_phy_map，把物理比特索引填上
-            logical_phy_map[global_q] = (logical_phy_map[global_q][0], local_lqid_to_pqid[local_idx])
+            phy_idx = local_lqid_to_pqid.get(local_idx)
+            if phy_idx is None and 0 <= local_idx < transpiled_circuit.num_qubits:
+                # 回退：如果layout未给出该位，保守使用本地索引自身。
+                phy_idx = local_idx
+            logical_phy_map[global_q] = (logical_phy_map[global_q][0], phy_idx)
 
         return logical_phy_map
 
@@ -1338,30 +1232,75 @@ class CompilerUtils:
         circuit: QuantumCircuit,
         partition_qubits: list[int],
         global_to_local_lqid: dict[int, int],
-        logical_phy_map: dict[int, tuple[int, int | None]]
+        logical_phy_map: dict[int, tuple[int, int | None]],
     ) -> dict:
         """
-        构建QuantumCircuit Qubit Register到物理比特的初始布局
+        构建QuantumCircuit Qubit Register到物理比特的初始布局。
+        规则：
+        1) 对应global_lqid已知preferred物理位的local_lqid，固定到该物理位；
+        2) 其余local_lqid按顺序分配剩余物理位。
         """
-        initial_layout = {}
-        unassigned_global_qs = []
-        unused_phy_ids = set(range(circuit.num_qubits))
+        initial_layout: dict[Any, int] = {}
 
+        anchored_local_to_phy: dict[int, int] = {}
+        preferred_phys = {
+            phy
+            for q in partition_qubits
+            for phy in [logical_phy_map[q][1]]
+            if phy is not None and phy >= 0
+        }
+        max_phy = max(preferred_phys) if len(preferred_phys) > 0 else -1
+        pool_upper = max(circuit.num_qubits - 1, max_phy)
+        unused_phy_ids: set[int] = set(range(pool_upper + 1))
+
+        # 先固定有preferred物理位的local_lqid。
         for q in partition_qubits:
-            if logical_phy_map[q][1] is not None:
-                local_lqid = global_to_local_lqid[q]
-                initial_layout[circuit.qubits[local_lqid]] = logical_phy_map[q][1]
-                unused_phy_ids.discard(logical_phy_map[q][1]) # type: ignore # 这个物理位已经被占用了
-            else:
-                unassigned_global_qs.append(q)
+            local_lqid = global_to_local_lqid[q]
+            if not (0 <= local_lqid < circuit.num_qubits):
+                raise RuntimeError(
+                    f"[LAYOUT] local_lqid越界: local_lqid={local_lqid}, circuit_qubits={circuit.num_qubits}, q={q}"
+                )
 
-        # 如果initial_layout全空或全满，那么返回initial_layout
-        if len(initial_layout) == 0 or len(initial_layout) == len(partition_qubits):
-            return initial_layout
+            preferred_phy = logical_phy_map[q][1]
+            if preferred_phy is None:
+                continue
+            if preferred_phy < 0:
+                raise RuntimeError(f"[LAYOUT] 非法preferred_phy: q={q}, phy={preferred_phy}")
 
-        # 将可用物理比特分配给未分配的逻辑比特，更新initial_layout
-        for global_q, phy_id in zip(unassigned_global_qs, unused_phy_ids):
-            local_lqid = global_to_local_lqid[global_q]
+            if local_lqid in anchored_local_to_phy and anchored_local_to_phy[local_lqid] != preferred_phy:
+                raise RuntimeError(
+                    f"[LAYOUT] 同一local_lqid出现冲突锚点: local_lqid={local_lqid}, "
+                    f"phy1={anchored_local_to_phy[local_lqid]}, phy2={preferred_phy}"
+                )
+
+            anchored_local_to_phy[local_lqid] = preferred_phy
+
+        used_anchored_phys: dict[int, int] = {}
+        for local_lqid in sorted(anchored_local_to_phy.keys()):
+            phy_id = anchored_local_to_phy[local_lqid]
+            if phy_id in used_anchored_phys and used_anchored_phys[phy_id] != local_lqid:
+                raise RuntimeError(
+                    f"[LAYOUT] 锚点物理位冲突: phy={phy_id}, "
+                    f"locals=({used_anchored_phys[phy_id]}, {local_lqid})"
+                )
+
             initial_layout[circuit.qubits[local_lqid]] = phy_id
-    
+            used_anchored_phys[phy_id] = local_lqid
+            unused_phy_ids.discard(phy_id)
+
+        # 其余local_lqid按顺序分配剩余物理位。
+        for local_lqid in range(circuit.num_qubits):
+            qobj = circuit.qubits[local_lqid]
+            if qobj in initial_layout:
+                continue
+
+            if len(unused_phy_ids) == 0:
+                raise RuntimeError(
+                    f"[LAYOUT] 无可用物理位给未分配local_lqid={local_lqid}"
+                )
+
+            phy_id = min(unused_phy_ids)
+            initial_layout[qobj] = phy_id
+            unused_phy_ids.discard(phy_id)
+
         return initial_layout

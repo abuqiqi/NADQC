@@ -9,22 +9,27 @@ from src.compiler import Compiler, CompilerFactory
 
 def main(args):
     global_config = get_config(args.global_config_path)
-
-    backend_list = []
-    for i in range(args.core_count):
-        # 将字符串列表转换为datetime对象列表
-        backend_config = {
-            'backend_name': f'{args.backend_name[i]}_sampled_{args.core_capacity[i]}q',
-            'date': datetime.datetime.strptime(args.date[i], "%Y-%m-%d")
-        }
-        backend = Backend(global_config, backend_config)
-        backend_list.append(backend)
-
     network_config = {
         **global_config.get('network_config', {}),
         'type': args.network,
         'fidelity_range': [0.95, 0.98]
     }
+    comm_slot_reserve = int(network_config.get('comm_slot_reserve', global_config.get('comm_slot_reserve', 0)) or 0)
+
+    backend_list = []
+    for i in range(args.core_count):
+        sampled_capacity = args.core_capacity[i] + comm_slot_reserve
+        # 将字符串列表转换为datetime对象列表
+        backend_config = {
+            'backend_name': f'{args.backend_name[i]}_sampled_{sampled_capacity}q',
+            'date': datetime.datetime.strptime(args.date[i], "%Y-%m-%d")
+        }
+        backend = Backend(global_config, backend_config)
+        backend_list.append(backend)
+
+    print(f"[INFO] Reserved comm slots per QPU (network_config): {comm_slot_reserve}")
+    print(f"[INFO] Core sampled QPU capacities: {args.core_capacity}")
+    print(f"[INFO] Full QPU capacities (core + reserve): {[c + comm_slot_reserve for c in args.core_capacity]}")
 
     network = Network(network_config, backend_list)
     network.print_info()

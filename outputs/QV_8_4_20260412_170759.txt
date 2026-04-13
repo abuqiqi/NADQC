@@ -1,0 +1,37 @@
+[INFO] Reserved comm slots per QPU (network_config): 1
+[INFO] Core sampled QPU capacities: [2, 2, 2, 2]
+[INFO] Full QPU capacities (core + reserve): [3, 3, 3, 3]
+========== Network Info ==========
+Network with 4 backends (mesh_grid)
+Network Coupling (edges with fidelities):
+  Backend 0 <-> Backend 1: Fidelity = 0.9169
+  Backend 1 <-> Backend 2: Fidelity = 0.9161
+  Backend 2 <-> Backend 3: Fidelity = 0.9180
+Hop weight: 0.4214420626313051
+Fidelity range: [0.9, 0.93]
+Backend sizes: [2, 2, 2, 2]
+Backend sizes (full): [3, 3, 3, 3]
+Backend Coupling Maps:
+  Backend 0 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0]]
+  Backend 1 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0]]
+  Backend 2 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0]]
+  Backend 3 (ibm_marrakesh): Coupling Map = [[0, 1], [1, 0]]
+[INFO] QV #Qubits: 8
+[INFO] QV #Depths: 83
+[INFO] QV #Gates: 430
+[INFO] QV #2Q Gates: 87
+[INFO] 4 QPUs: [2, 2, 2, 2]
+
+
+[INFO] 成功注册编译器: fgproee -> FGPrOEE
+[INFO] 成功注册编译器: autocomm -> QAutoComm
+[INFO] 成功注册编译器: staticoee -> StaticOEE
+[INFO] 成功注册编译器: wbcp -> WBCP
+[INFO] 成功注册编译器: navi -> NAVI
+[INFO] 成功注册编译器: navihybrid -> NAVIHybrid
+[INFO] 成功注册编译器: navinew -> NAVINew
+Registered compiler IDs: ['staticoee', 'fgproee', 'wbcp', 'autocomm', 'navi', 'navihybrid']
+Compiler: [Static OEE]
+{'circuit_name': 'QV8'}
+{'circuit_name': 'QV8'}
+Compiling with [Static OEE]...

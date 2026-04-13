@@ -170,7 +170,8 @@ class NAVI(Compiler):
             mapping_record_list,
             ctx.circuit,
             ctx.circuit_layers, 
-            ctx.network
+            ctx.network,
+            config=ctx.config,
         )
         # final_result = mapping_record_list # 先不进行telegate优化，直接映射看看效果
 
@@ -281,7 +282,8 @@ class NAVI(Compiler):
             ctx.hybrid_records, 
             ctx.circuit,
             ctx.circuit_layers, 
-            ctx.network
+            ctx.network,
+            config=ctx.config,
         )
 
         ctx.final_records.summarize_total_costs()
@@ -684,6 +686,7 @@ class NAVI(Compiler):
         
         # 2. 调用telegate_partitioner进行划分
         assert ctx.telegate_partitioner is not None
+        # TODO: 返回值类型改成MappingRecordList了
         telegate_record = ctx.telegate_partitioner.partition(
             circuit = sub_qc,
             network = ctx.network,

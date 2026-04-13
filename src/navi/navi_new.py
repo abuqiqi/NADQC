@@ -65,7 +65,6 @@ class NAVINew(Compiler):
         partitioner = PartitionerFactory.create_partitioner(partitioner_type, network, max_options=max_option)
         mapper_type = config.get("mapper", "boundeddp_neighbor")
         mapper = MapperFactory.create_mapper(mapper_type)
-        setattr(mapper, "config", config)
         
         # 2. 构建编译上下文
         ctx = CompilationContext(
@@ -105,6 +104,7 @@ class NAVINew(Compiler):
             ctx.circuit,
             ctx.circuit_layers,
             ctx.network,
+            config=ctx.config,
         )
 
         exec_time = time.time() - start_time
@@ -493,7 +493,7 @@ class NAVINew(Compiler):
             qubit_to_part = self._build_qubit_to_partition_map(state.partition)
             best_delta: Optional[int] = None
             candidate_moves: list[tuple[int, int]] = []  # (qubit, target_part)
-            backend_caps = ctx.network.backend_sizes
+            backend_caps = ctx.network.get_backend_qubit_counts(include_comm_slot=True)
 
             for q in range(ctx.circuit.num_qubits):
                 src_part = qubit_to_part.get(q)
@@ -568,7 +568,7 @@ class NAVINew(Compiler):
         从增量状态汇总TG代价（骨架）。
         """
         # 1) 基于增量状态直接汇总telegate/CAT代价；
-        # 2) 可选对拍：与evaluate_telegate_with_cat比较；
+        # 2) 可选对拍：与evaluate_telegate_with_my_cat比较；
         # 3) 结果走缓存复用。
         if not state.partition:
             return ExecCosts()
@@ -590,7 +590,7 @@ class NAVINew(Compiler):
             if bool(ctx.config.get("debug_tg_incremental_check", False)):
                 ori_left, ori_right = self._get_original_layer_idx(ctx, (i, j))
                 subcircuit = self._build_subcircuit_from_original_layers(ctx, ori_left, ori_right)
-                ref = CompilerUtils.evaluate_telegate_with_cat(state.partition, subcircuit, ctx.network)
+                ref = CompilerUtils.evaluate_telegate_with_my_cat(state.partition, subcircuit, ctx.network)
                 if ref.epairs != costs.epairs:
                     print(
                         f"[WARNING] tg_incremental_check mismatch at [{i},{j}]: inc_epairs={costs.epairs}, ref_epairs={ref.epairs}",
@@ -600,7 +600,7 @@ class NAVINew(Compiler):
             # 默认使用精确评估，优先保证决策质量和可比性。
             ori_left, ori_right = self._get_original_layer_idx(ctx, (i, j))
             subcircuit = self._build_subcircuit_from_original_layers(ctx, ori_left, ori_right)
-            costs = CompilerUtils.evaluate_telegate_with_cat(state.partition, subcircuit, ctx.network)
+            costs = CompilerUtils.evaluate_telegate_with_my_cat(state.partition, subcircuit, ctx.network)
 
         cache[key] = copy.deepcopy(costs)
         return costs
@@ -662,7 +662,7 @@ class NAVINew(Compiler):
         - 覆盖全部逻辑比特且不重复。
         """
         k = network.num_backends
-        caps = list(network.backend_sizes)
+        caps = list(network.get_backend_qubit_counts(include_comm_slot=True))
 
         # 收集唯一量子比特（保持出现顺序）
         ordered: list[int] = []

@@ -108,7 +108,7 @@ class FGPrOEE(Compiler):
 
 
             # 获取子线路
-            sub_qc = self._extract_subcircuit(circuit.num_qubits, circuit_layers, lev)
+            sub_qc = self._extract_subcircuit(circuit, circuit_layers, lev)
 
             if lev == 0:
                 logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
@@ -136,7 +136,7 @@ class FGPrOEE(Compiler):
                     network
                 )
 
-            _ = CompilerUtils.evaluate_local_and_telegate(
+            _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
                 record, sub_qc, network
             )
 
@@ -326,10 +326,12 @@ class FGPrOEE(Compiler):
 
         return lookahead_graph, time_slice_graph
 
-    def _extract_subcircuit(self, num_qubits: int, circuit_layers: list, level: int) -> QuantumCircuit:
-        sub_qc = QuantumCircuit(num_qubits)
+    def _extract_subcircuit(self, circuit: QuantumCircuit, circuit_layers: list, level: int) -> QuantumCircuit:
+        sub_qc = QuantumCircuit(circuit.num_qubits)
         for node in circuit_layers[level]["graph"].op_nodes():
-            sub_qc.append(node.op, qargs=node.qargs, cargs=node.cargs)
+            q_indices = [circuit.qubits.index(qubit) for qubit in node.qargs]
+            c_indices = [circuit.clbits.index(clbit) for clbit in node.cargs]
+            sub_qc.append(node.op, qargs=q_indices, cargs=c_indices)
         return sub_qc
 
     # def _calculate_d(self, graph: nx.Graph, node: int, target_subset: list[int], current_subset: list[int]) -> float:

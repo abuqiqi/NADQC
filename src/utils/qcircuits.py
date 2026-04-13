@@ -329,17 +329,17 @@ def QAOA(num_qubits):
     # Cost Hamiltonian
     for j in range(num_qubits):
         for i in range(j+1, num_qubits):
-            # qc.cx(j, i)
-            # qc.rz(random.uniform(0, 2 * pi), i)
-            # qc.cx(j, i)
-            qc.rzz(random.uniform(0, 2 * pi), j, i)
+            qc.cx(j, i)
+            qc.rz(random.uniform(0, 2 * pi), i)
+            qc.cx(j, i)
+            # qc.rzz(random.uniform(0, 2 * pi), j, i)
 
     # Mixer Hamiltonian
-    for i in range(num_qubits):
-        qc.rx(random.uniform(0, 2 * pi), i)
-    # qc.h(range(num_qubits))
-    # qc.rz(random.uniform(0, 2 * pi), range(num_qubits))
-    # qc.h(range(num_qubits))
+    # for i in range(num_qubits):
+    #     qc.rx(random.uniform(0, 2 * pi), i)
+    qc.h(range(num_qubits))
+    qc.rz(random.uniform(0, 2 * pi), range(num_qubits))
+    qc.h(range(num_qubits))
     return qc
 
 def Toffoli(num_qubits):

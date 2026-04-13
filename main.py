@@ -9,12 +9,18 @@ from src.compiler import Compiler, CompilerFactory
 
 def main(args):
     global_config = get_config(args.global_config_path)
+    network_config = {
+        **global_config.get('network_config', {}),
+        'type': args.network,
+    }
+    comm_slot_reserve = int(network_config.get('comm_slot_reserve', global_config.get('comm_slot_reserve', 0)) or 0)
 
     backend_list = []
     for i in range(args.core_count):
+        sampled_capacity = args.core_capacity[i] + comm_slot_reserve
         # 将字符串列表转换为datetime对象列表
         backend_config = {
-            'backend_name': f'{args.backend_name[i]}_sampled_{args.core_capacity[i]}q',
+            'backend_name': f'{args.backend_name[i]}_sampled_{sampled_capacity}q',
             'date': datetime.datetime.strptime(args.date[i], "%Y-%m-%d")
         }
         backend = Backend(global_config, backend_config)
@@ -25,11 +31,11 @@ def main(args):
     if args.core_count == 2:
         fidelity_range = [0.90, 0.90]
 
-    network_config = {
-        **global_config.get('network_config', {}),
-        'type': args.network,
-        'fidelity_range': fidelity_range
-    }
+    network_config['fidelity_range'] = fidelity_range
+
+    print(f"[INFO] Reserved comm slots per QPU (network_config): {comm_slot_reserve}")
+    print(f"[INFO] Core sampled QPU capacities: {args.core_capacity}")
+    print(f"[INFO] Full QPU capacities (core + reserve): {[c + comm_slot_reserve for c in args.core_capacity]}")
 
     network = Network(network_config, backend_list)
     network.print_info()
@@ -57,7 +63,7 @@ def main(args):
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     # compiler_ids = ["fgproee"] # , "staticoee", "wbcp", "navi"
     # compiler_ids = ["wbcp"]
-    compiler_ids = ["autocomm"] # "staticoee", "fgproee", "wbcp", "navi", , "navihybrid", "navinew"
+    compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi", "navihybrid"] # "wbcp", , "navinew"
     # compiler_ids = ["navihybrid"]
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
@@ -89,7 +95,7 @@ if __name__ == "__main__":
     # 获取全局配置
     args = get_args()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = "0" # f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
+    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
     original_stdout = sys.stdout
     with open(f'outputs/{filename}.txt', 'w', buffering=1) as f:
         sys.stdout = f

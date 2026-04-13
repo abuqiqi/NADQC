@@ -39,15 +39,22 @@ class QAutoComm(Compiler):
         network: Network,
         config: Optional[dict[str, Any]] = None,
     ) -> MappingRecordList:
-        print(f"Compiling with [{self.name}]...")
+        # print(f"Compiling with [{self.name}]...")
         cfg = config or {}
         circuit_name = cfg.get("circuit_name", "circ")
+
+        # print(f"[DEBUG] [AutoComm] circuit:\n{circuit}")
 
         start_time = time.time()
 
         gate_list = self._to_autocomm_gate_list(circuit)
-        qubit_node_mapping = self._generate_qubit_node_mapping(circuit.num_qubits, network.backend_sizes)
-        partition = self._partition_from_mapping(circuit.num_qubits, qubit_node_mapping, network.num_backends)
+        init_partition = cfg.get("partition", None)
+        if init_partition:
+            partition = [list(part) for part in init_partition]
+            qubit_node_mapping = self._mapping_from_partition(circuit.num_qubits, partition)
+        else:
+            qubit_node_mapping = self._generate_qubit_node_mapping(circuit.num_qubits, network.backend_sizes)
+            partition = self._partition_from_mapping(circuit.num_qubits, qubit_node_mapping, network.num_backends)
         logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
         
         num_q = len(qubit_node_mapping)
@@ -55,17 +62,24 @@ class QAutoComm(Compiler):
         aggregate_iter_cnt = max(1, num_q // max(1, qb_per_node))
         schedule_iter_cnt = max(1, num_q // max(1, qb_per_node))
 
-        result = autocomm_full(
+        # print(f"[DEBUG] gate_list:\n")
+        # for e in gate_list:
+        #     print(e)
+        # print(f"[DEBUG] qubit_node_mapping: {qubit_node_mapping}")
+        # print(f"[DEBUG] aggregate_iter_cnt: {aggregate_iter_cnt}")
+        # print(f"[DEBUG] schedule_iter_cnt: {schedule_iter_cnt}")
+
+        mapping_record_list = autocomm_full(
             gate_list,
             qubit_node_mapping,
             aggregate_iter_cnt=aggregate_iter_cnt,
             schedule_iter_cnt=schedule_iter_cnt,
             return_ops=True,
         )
-        if len(result) == 5:
-            epr_cnt, all_latency, assigned_gate_blocks, comm_costs, op_list = result
+        if len(mapping_record_list) == 5:
+            epr_cnt, all_latency, assigned_gate_blocks, comm_costs, op_list = mapping_record_list
         else:
-            epr_cnt, all_latency, assigned_gate_blocks, comm_costs = result
+            epr_cnt, all_latency, assigned_gate_blocks, comm_costs = mapping_record_list
             op_list = QuantumCircuit(circuit.num_qubits)
 
         # print(f"Transpiled circuit:\n")
@@ -79,37 +93,48 @@ class QAutoComm(Compiler):
             layer_start=0,
             layer_end=max(0, circuit.depth() - 1),
             partition=partition,
-            mapping_type="autocomm",
+            mapping_type="cat",
             logical_phy_map=logical_phy_map,
-            extra_info={
-                "ops": op_list
-            }
+            extra_info={"ops": op_list}
         )
 
-        costs, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
-            record,
-            op_list,
-            network,
-        )
+        # print(f"[DEBUG] [AutoComm] op_list:\n{record.extra_info['ops']}")
+
+        comm_only_costs = bool(cfg.get("comm_only_costs", False))
+        if comm_only_costs:
+            costs = CompilerUtils.evaluate_telegate_with_cat(
+                record,
+                op_list,
+                network,
+            )
+        else:
+            costs, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                record,
+                op_list,
+                network,
+            )
 
         # AutoComm latency is a scheduler makespan proxy; keep total execution wall time in execution_time,
         # and expose scheduler latency in extra_info for analysis.
-        record.costs = costs
-        record.extra_info = {
+        extra_info = dict(record.extra_info or {})
+        extra_info.update({
             "autocomm_latency": float(all_latency),
-            "autocomm_assigned_block_count": len(assigned_gate_blocks)
-        }
+            "autocomm_assigned_block_count": len(assigned_gate_blocks),
+            "comm_only_costs": comm_only_costs,
+        })
+        record.extra_info = extra_info
 
-        result = MappingRecordList()
-        result.add_record(record)
-        result.summarize_total_costs()
+        mapping_record_list = MappingRecordList()
+        mapping_record_list.add_record(record)
+        mapping_record_list.summarize_total_costs()
 
         exec_time = time.time() - start_time
-        result.update_total_costs(execution_time=exec_time)
+        mapping_record_list.update_total_costs(execution_time=exec_time)
 
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        result.save_records(f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
-        return result
+        if bool(cfg.get("save_records", True)):
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            mapping_record_list.save_records(f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
+        return mapping_record_list
 
     def _to_autocomm_gate_list(self, circuit: QuantumCircuit) -> list[list[Any]]:
         gate_list: list[list[Any]] = []
@@ -173,6 +198,19 @@ class QAutoComm(Compiler):
         for q in range(num_qubits):
             partition[qubit_node_mapping[q]].append(q)
         return partition
+
+    def _mapping_from_partition(self, num_qubits: int, partition: list[list[int]]) -> list[int]:
+        qubit_node_mapping = [-1 for _ in range(num_qubits)]
+        for node_idx, part in enumerate(partition):
+            for q in part:
+                if q < 0 or q >= num_qubits:
+                    raise ValueError(f"Invalid qubit index in partition: {q}")
+                if qubit_node_mapping[q] != -1:
+                    raise ValueError(f"Qubit {q} appears in multiple partition blocks")
+                qubit_node_mapping[q] = node_idx
+        if any(node == -1 for node in qubit_node_mapping):
+            raise ValueError("Partition does not cover all circuit qubits")
+        return qubit_node_mapping
 
     # def _count_local_gate_like_ops(self, gate_list: list[list[Any]], qubit_node_mapping: list[int]) -> int:
     #     local_cnt = 0

@@ -1,0 +1,91 @@
+{
+    "total_costs": {
+        "total_fidelity_loss": 0.6390730665062847,
+        "epairs": 6,
+        "execution_time": 0.06721019744873047,
+        "num_comms": 6,
+        "rgeo_mean_fid": 0.9,
+        "total_fidelity_log_sum": -0.6712615316621968,
+        "total_fidelity": 0.5110634482250893,
+        "remote_hops": 6,
+        "remote_swaps": 0,
+        "cat_ents": 0,
+        "local_fidelity_loss": 0.03907306650628488,
+        "remote_fidelity_loss": 0.5999999999999999,
+        "local_fidelity_log_sum": -0.039098437715239166,
+        "remote_fidelity_log_sum": -0.6321630939469577,
+        "local_fidelity": 0.9616560412634501,
+        "remote_fidelity": 0.5314410000000002,
+        "local_gate_num": 57
+    },
+    "num_records": 1,
+    "records": [
+        {
+            "layer_start": 0,
+            "layer_end": 12,
+            "partition": [
+                [
+                    0,
+                    1,
+                    2
+                ],
+                [
+                    3,
+                    4,
+                    5
+                ]
+            ],
+            "mapping_type": "cat",
+            "costs": {
+                "total_fidelity_loss": 0.6390730665062847,
+                "epairs": 6,
+                "execution_time": 0.0,
+                "num_comms": 6,
+                "rgeo_mean_fid": 0.9,
+                "total_fidelity_log_sum": -0.6712615316621968,
+                "total_fidelity": 0.5110634482250893,
+                "remote_hops": 6,
+                "remote_swaps": 0,
+                "cat_ents": 0,
+                "local_fidelity_loss": 0.03907306650628488,
+                "remote_fidelity_loss": 0.5999999999999999,
+                "local_fidelity_log_sum": -0.039098437715239166,
+                "remote_fidelity_log_sum": -0.6321630939469577,
+                "local_fidelity": 0.9616560412634501,
+                "remote_fidelity": 0.5314410000000002,
+                "local_gate_num": 57
+            },
+            "logical_phy_map": {
+                "0": [
+                    0,
+                    0
+                ],
+                "1": [
+                    0,
+                    1
+                ],
+                "2": [
+                    0,
+                    2
+                ],
+                "3": [
+                    1,
+                    1
+                ],
+                "4": [
+                    1,
+                    0
+                ],
+                "5": [
+                    1,
+                    2
+                ]
+            },
+            "extra_info": {
+                "autocomm_latency": 113.69999999999999,
+                "autocomm_assigned_block_count": 31,
+                "comm_only_costs": false
+            }
+        }
+    ]
+}

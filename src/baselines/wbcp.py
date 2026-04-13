@@ -91,7 +91,7 @@ class WBCP(Compiler):
             mapping_type = "telegate",
             logical_phy_map = logical_phy_map
         )
-        _ = CompilerUtils.evaluate_local_and_telegate(record, sub_qc, network)
+        _ = CompilerUtils.evaluate_local_and_telegate_with_cat(record, sub_qc, network)
         mapping_record_list.add_record(record)
 
         # 处理后续的子线路
@@ -135,7 +135,7 @@ class WBCP(Compiler):
             # 先评估teledata并更新logical_phy_map
             _ = CompilerUtils.evaluate_teledata(previous_record, current_record, network)
             # 再评估local和telegate
-            _ = CompilerUtils.evaluate_local_and_telegate(current_record, sub_qc, network)
+            _ = CompilerUtils.evaluate_local_and_telegate_with_cat(current_record, sub_qc, network)
 
             # 检查沿用上一个partition是否更好
             # 如果沿用上一个partition，只有remote telegate开销，没有teledata开销
@@ -153,7 +153,7 @@ class WBCP(Compiler):
                     logical_phy_map = previous_record.logical_phy_map # 沿用上一个record的logical_phy_map作为初始状态
                 )
                 # 完整评估划分，只有local and telegate开销
-                _ = CompilerUtils.evaluate_local_and_telegate(record, sub_qc, network)
+                _ = CompilerUtils.evaluate_local_and_telegate_with_cat(record, sub_qc, network)
                 mapping_record_list.add_record(record)
             else:
                 mapping_record_list.add_record(current_record)

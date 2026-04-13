@@ -1,0 +1,91 @@
+{
+    "total_costs": {
+        "total_fidelity_loss": 0.6394926195414476,
+        "epairs": 6,
+        "execution_time": 0.058269500732421875,
+        "num_comms": 6,
+        "rgeo_mean_fid": 0.9,
+        "total_fidelity_log_sum": -0.6716812772721178,
+        "total_fidelity": 0.5108489766012161,
+        "remote_hops": 6,
+        "remote_swaps": 0,
+        "cat_ents": 0,
+        "local_fidelity_loss": 0.0394926195414478,
+        "remote_fidelity_loss": 0.5999999999999999,
+        "local_fidelity_log_sum": -0.03951818332516012,
+        "remote_fidelity_log_sum": -0.6321630939469577,
+        "local_fidelity": 0.9612524750653711,
+        "remote_fidelity": 0.5314410000000002,
+        "local_gate_num": 57
+    },
+    "num_records": 1,
+    "records": [
+        {
+            "layer_start": 0,
+            "layer_end": 12,
+            "partition": [
+                [
+                    0,
+                    1,
+                    2
+                ],
+                [
+                    3,
+                    4,
+                    5
+                ]
+            ],
+            "mapping_type": "cat",
+            "costs": {
+                "total_fidelity_loss": 0.6394926195414476,
+                "epairs": 6,
+                "execution_time": 0.0,
+                "num_comms": 6,
+                "rgeo_mean_fid": 0.9,
+                "total_fidelity_log_sum": -0.6716812772721178,
+                "total_fidelity": 0.5108489766012161,
+                "remote_hops": 6,
+                "remote_swaps": 0,
+                "cat_ents": 0,
+                "local_fidelity_loss": 0.0394926195414478,
+                "remote_fidelity_loss": 0.5999999999999999,
+                "local_fidelity_log_sum": -0.03951818332516012,
+                "remote_fidelity_log_sum": -0.6321630939469577,
+                "local_fidelity": 0.9612524750653711,
+                "remote_fidelity": 0.5314410000000002,
+                "local_gate_num": 57
+            },
+            "logical_phy_map": {
+                "0": [
+                    0,
+                    2
+                ],
+                "1": [
+                    0,
+                    1
+                ],
+                "2": [
+                    0,
+                    0
+                ],
+                "3": [
+                    1,
+                    0
+                ],
+                "4": [
+                    1,
+                    1
+                ],
+                "5": [
+                    1,
+                    2
+                ]
+            },
+            "extra_info": {
+                "autocomm_latency": 113.69999999999999,
+                "autocomm_assigned_block_count": 31,
+                "comm_only_costs": false
+            }
+        }
+    ]
+}

@@ -30,7 +30,7 @@ def _autocomm_gate_to_qiskit_gate(gate_record):
     }
     gate_name = qiskit_name_map.get(gtype, gtype.lower())
     qgate = Gate(name=gate_name, num_qubits=len(qids), params=params)
-    setattr(qgate, "_autocomm_qids", qids)
+    setattr(qgate, "_global_lqids", qids)
     return qgate, qids
 
 

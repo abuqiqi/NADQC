@@ -1,0 +1,195 @@
+{
+    "total_costs": {
+        "total_fidelity_loss": 0.4137549335213949,
+        "epairs": 4,
+        "execution_time": 0.153761625289917,
+        "num_comms": 4,
+        "rgeo_mean_fid": 0.9,
+        "total_fidelity_log_sum": -0.4352064991619913,
+        "total_fidelity": 0.6471310212660456,
+        "remote_hops": 4,
+        "remote_swaps": 0,
+        "cat_ents": 4,
+        "local_fidelity_loss": 0.01375493352139498,
+        "remote_fidelity_loss": 0.3999999999999999,
+        "local_fidelity_log_sum": -0.013764436530686167,
+        "remote_fidelity_log_sum": -0.4214420626313051,
+        "local_fidelity": 0.9863298601829682,
+        "remote_fidelity": 0.6561000000000001,
+        "local_gate_num": 22
+    },
+    "num_records": 3,
+    "records": [
+        {
+            "layer_start": 0,
+            "layer_end": 4,
+            "partition": [
+                [
+                    0,
+                    1
+                ],
+                [
+                    2,
+                    3
+                ]
+            ],
+            "mapping_type": "cat",
+            "costs": {
+                "total_fidelity_loss": 0.1051966772240777,
+                "epairs": 1,
+                "execution_time": 0.0,
+                "num_comms": 1,
+                "rgeo_mean_fid": 0.9,
+                "total_fidelity_log_sum": -0.11056053027504505,
+                "total_fidelity": 0.8953321338489244,
+                "remote_hops": 1,
+                "remote_swaps": 0,
+                "cat_ents": 1,
+                "local_fidelity_loss": 0.005196677224077726,
+                "remote_fidelity_loss": 0.09999999999999998,
+                "local_fidelity_log_sum": -0.00520001461721876,
+                "remote_fidelity_log_sum": -0.10536051565782628,
+                "local_fidelity": 0.9948134820543604,
+                "remote_fidelity": 0.9,
+                "local_gate_num": 14
+            },
+            "logical_phy_map": {
+                "0": [
+                    0,
+                    0
+                ],
+                "1": [
+                    0,
+                    1
+                ],
+                "2": [
+                    1,
+                    0
+                ],
+                "3": [
+                    1,
+                    1
+                ]
+            },
+            "extra_info": {
+                "autocomm_latency": 27.5,
+                "autocomm_assigned_block_count": 14,
+                "comm_only_costs": true
+            }
+        },
+        {
+            "layer_start": 5,
+            "layer_end": 5,
+            "partition": [
+                [
+                    0,
+                    1
+                ],
+                [
+                    2,
+                    3
+                ]
+            ],
+            "mapping_type": "cat",
+            "costs": {
+                "total_fidelity_loss": 0.20336157907323948,
+                "epairs": 2,
+                "execution_time": 0.0,
+                "num_comms": 2,
+                "rgeo_mean_fid": 0.9,
+                "total_fidelity_log_sum": -0.2140854386119012,
+                "total_fidelity": 0.8072794092439838,
+                "remote_hops": 2,
+                "remote_swaps": 0,
+                "cat_ents": 2,
+                "local_fidelity_loss": 0.003361579073239528,
+                "remote_fidelity_loss": 0.19999999999999996,
+                "local_fidelity_log_sum": -0.0033644072962486474,
+                "remote_fidelity_log_sum": -0.21072103131565256,
+                "local_fidelity": 0.9966412459802269,
+                "remote_fidelity": 0.81,
+                "local_gate_num": 2
+            },
+            "logical_phy_map": {
+                "0": [
+                    0,
+                    0
+                ],
+                "1": [
+                    0,
+                    1
+                ],
+                "2": [
+                    1,
+                    0
+                ],
+                "3": [
+                    1,
+                    1
+                ]
+            },
+            "extra_info": {
+                "autocomm_latency": 27.5,
+                "autocomm_assigned_block_count": 2,
+                "comm_only_costs": true
+            }
+        },
+        {
+            "layer_start": 6,
+            "layer_end": 8,
+            "partition": [
+                [
+                    0,
+                    1
+                ],
+                [
+                    2,
+                    3
+                ]
+            ],
+            "mapping_type": "cat",
+            "costs": {
+                "total_fidelity_loss": 0.1051966772240777,
+                "epairs": 1,
+                "execution_time": 0.0,
+                "num_comms": 1,
+                "rgeo_mean_fid": 0.9,
+                "total_fidelity_log_sum": -0.11056053027504505,
+                "total_fidelity": 0.8953321338489244,
+                "remote_hops": 1,
+                "remote_swaps": 0,
+                "cat_ents": 1,
+                "local_fidelity_loss": 0.005196677224077726,
+                "remote_fidelity_loss": 0.09999999999999998,
+                "local_fidelity_log_sum": -0.00520001461721876,
+                "remote_fidelity_log_sum": -0.10536051565782628,
+                "local_fidelity": 0.9948134820543604,
+                "remote_fidelity": 0.9,
+                "local_gate_num": 6
+            },
+            "logical_phy_map": {
+                "0": [
+                    0,
+                    0
+                ],
+                "1": [
+                    0,
+                    1
+                ],
+                "2": [
+                    1,
+                    0
+                ],
+                "3": [
+                    1,
+                    1
+                ]
+            },
+            "extra_info": {
+                "autocomm_latency": 27.6,
+                "autocomm_assigned_block_count": 6,
+                "comm_only_costs": true
+            }
+        }
+    ]
+}

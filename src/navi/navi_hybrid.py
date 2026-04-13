@@ -7,15 +7,15 @@ import numpy as np
 import networkx as nx
 import datetime
 
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, transpile
 from qiskit.converters import circuit_to_dag
 
 from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
 from .partitioner import Partitioner, PartitionerFactory
-from .partition_assigner import PartitionAssigner, PartitionAssignerFactory
-from .telegate_partitioner import TelegatePartitioner, TelegatePartitionerFactory
-from .mapper import Mapper, MapperFactory
+from .partition_assigner import PartitionAssignerFactory
+from .telegate_partitioner import TelegatePartitionerFactory
+from .mapper import MapperFactory
 from .navi_compiler import CompilationContext
 
 class NAVIHybrid(Compiler):
@@ -47,7 +47,6 @@ class NAVIHybrid(Compiler):
 
         # 1. 解析配置
         circuit_name = config.get("circuit_name", "circ")
-        min_depth_cfg = config.get("min_depth", None)
         
         # 2. 初始化组件
         partitioner_type = config.get("partitioner", "recursive_dp")
@@ -58,14 +57,12 @@ class NAVIHybrid(Compiler):
         partition_assigner_type = config.get("partition_assigner", "global_max_match")
         partition_assigner = PartitionAssignerFactory.create_assigner(partition_assigner_type)
 
-        telegate_partitioner_type = config.get("telegate_partitioner", "oee")
+        telegate_partitioner_type = config.get("telegate_partitioner", "cat")
         telegate_partitioner = TelegatePartitionerFactory.create_telegate_partitioner(telegate_partitioner_type)
 
         # mapper_type = config.get("mapper", "dp")
         mapper_type = config.get("mapper", "boundeddp_neighbor")
         mapper = MapperFactory.create_mapper(mapper_type)
-        # 让mapper可读取编译配置（如mapping_budget等mapper专用参数）
-        setattr(mapper, "config", config)
 
         # 3. 初始化上下文 (Context)
         ctx = CompilationContext(
@@ -85,43 +82,26 @@ class NAVIHybrid(Compiler):
         
         # Step 1: 移除单量子比特门并计算量子门密度
         self._step_remove_single_qubit_gates(ctx)
-        
-        # # Step 2: 设置最小深度
-        # ctx.min_depth = self._step_set_min_depth(ctx, min_depth_cfg)
-        # print(f"[DEBUG] min_depth: {ctx.min_depth}", file=sys.stderr)
 
-        # Step 3: 构建分区表 (P Table)
+        # Step 2: 构建分区表 (P Table)
         ctx.P_table = self._step_build_partition_table(ctx)
 
-        # Step 4: 构建切片表 (S, T) 并获取子线路范围
+        # Step 3: 构建切片表 (S, T) 并获取子线路范围
         ctx.subc_ranges = self._step_build_slicing_table(ctx)
 
-        # Step 5: 生成分区候选
+        # Step 4: 生成分区候选
         ctx.partition_candidates = [ctx.P_table[i][j] for (i, j) in ctx.subc_ranges]
         
-        # Step 6: 分配分区计划
+        # Step 5: 分配分区计划
         assert ctx.partition_assigner is not None
         assign_time = time.time()
         assign_result = ctx.partition_assigner.assign(ctx.partition_candidates)
         ctx.partition_plan = assign_result["partition_plan"]
         assign_elapsed = time.time() - assign_time
-        print(
-            f"[partition assignment] Time: {assign_elapsed:.6f}s ({assign_elapsed * 1000:.3f}ms), "
-            f"candidates={len(ctx.partition_candidates)}"
-        )
-        print(
-            f"[partition assignment] Time: {assign_elapsed:.6f}s ({assign_elapsed * 1000:.3f}ms), "
-            f"candidates={len(ctx.partition_candidates)}",
-            file=sys.stderr,
-        )
+        print(f"[partition assignment] Time: {assign_elapsed}s, candidates={len(ctx.partition_candidates)}")
+        print(f"[partition assignment] Time: {assign_elapsed}s, candidates={len(ctx.partition_candidates)}", file=sys.stderr)
 
-        # # Step 7: 构建初始 Mapping Record (Teledata-only)
-        # mapping_record_list = self._step_construct_teledata_only_records(ctx)
-
-        # # Step 8: 分组浅层子线路并尝试 Gate Teleportation 优化
-        # grouped_records = self._step_group_and_optimize(ctx, mapping_record_list)
-
-        # Step 7-8: 直接构建telegate和teledata混合的记录列表，供后续mapper使用
+        # Step 6: 直接构建telegate和teledata混合的记录列表，供后续mapper使用
         hybrid_strategy = config.get("hybrid_strategy", "beam")
         if hybrid_strategy == "greedy":
             ctx.hybrid_records = self._step_construct_hybrid_records_greedy(ctx)
@@ -161,33 +141,45 @@ class NAVIHybrid(Compiler):
                 file=sys.stderr,
             )
 
-        # ctx.hybrid_records = self._step_construct_hybrid_records_greedy_stack(ctx)
-        # ctx.hybrid_records = self._step_construct_hybrid_records_sliding_window(ctx)
-
         # 诊断：mapper 前混合候选的 CAT 使用情况
         ctx.hybrid_records.summarize_total_costs()
         pre_mapper_costs = ctx.hybrid_records.total_costs
-        pre_mapper_telegate = sum(1 for rec in ctx.hybrid_records.records if rec.mapping_type == "telegate")
+        pre_mapper_path_epairs = pre_mapper_costs.epairs
+        if len(ctx.hybrid_records.records) > 1:
+            pre_mapper_path_epairs = 0.0
+            for idx, rec in enumerate(ctx.hybrid_records.records):
+                pre_mapper_path_epairs += rec.costs.epairs
+                if idx > 0:
+                    td_costs, _ = CompilerUtils.evaluate_teledata(
+                        ctx.hybrid_records.records[idx - 1].partition,
+                        rec.partition,
+                        ctx.network,
+                    )
+                    pre_mapper_path_epairs += td_costs.epairs
+        pre_mapper_telegate = sum(1 for rec in ctx.hybrid_records.records if rec.mapping_type in {"telegate", "cat"})
         pre_mapper_cat_records = sum(1 for rec in ctx.hybrid_records.records if rec.costs.cat_ents > 0)
         print(
             f"[cat_debug][hybrid_pre_mapper] records={len(ctx.hybrid_records.records)}, "
             f"telegate_records={pre_mapper_telegate}, cat_records={pre_mapper_cat_records}, "
-            f"cat_ents={pre_mapper_costs.cat_ents}, epairs={pre_mapper_costs.epairs}"
+            f"cat_ents={pre_mapper_costs.cat_ents}, epairs={pre_mapper_costs.epairs}, "
+            f"path_epairs_with_teledata={pre_mapper_path_epairs}"
         )
         print(
             f"[cat_debug][hybrid_pre_mapper] records={len(ctx.hybrid_records.records)}, "
             f"telegate_records={pre_mapper_telegate}, cat_records={pre_mapper_cat_records}, "
-            f"cat_ents={pre_mapper_costs.cat_ents}, epairs={pre_mapper_costs.epairs}",
+            f"cat_ents={pre_mapper_costs.cat_ents}, epairs={pre_mapper_costs.epairs}, "
+            f"path_epairs_with_teledata={pre_mapper_path_epairs}",
             file=sys.stderr,
         )
 
-        # Step 9: 最终映射 (考虑噪声)
+        # Step 7: 最终映射 (考虑噪声)
         assert ctx.mapper is not None
         final_result = ctx.mapper.map(
             ctx.hybrid_records, 
             ctx.circuit,
             ctx.circuit_layers, 
-            ctx.network
+            ctx.network,
+            config=ctx.config,
         )
 
         end_time = time.time()
@@ -196,7 +188,7 @@ class NAVIHybrid(Compiler):
 
         final_result.summarize_total_costs()
         post_mapper_costs = final_result.total_costs
-        post_mapper_telegate = sum(1 for rec in final_result.records if rec.mapping_type == "telegate")
+        post_mapper_telegate = sum(1 for rec in final_result.records if rec.mapping_type in {"telegate", "cat"})
         post_mapper_cat_records = sum(1 for rec in final_result.records if rec.costs.cat_ents > 0)
         print(
             f"[cat_debug][hybrid_post_mapper] records={len(final_result.records)}, "
@@ -297,8 +289,6 @@ class NAVIHybrid(Compiler):
                 circuit_layers.append(all_gates)
         
         assert 0 in map_to_circuit_layer, "[ERROR] map_to_circuit_layer must contain the first layer mapping."
-        # map_to_circuit_layer[0] = 0
-        # map_to_circuit_layer[len(multiq_layers) - 1] = len(circuit_layers) - 1
 
         # 计算密度
         depth = ctx.circuit.depth()
@@ -313,8 +303,6 @@ class NAVIHybrid(Compiler):
 
         end_time = time.time()
         print(f"[INFO] remove_single_qubit_gates: {end_time - start_time} seconds", file=sys.stderr)
-        # print(f"[INFO] gate_density: {ctx.gate_density}")
-        # print(f"[INFO] twoq_gate_density: {ctx.twoq_gate_density}")
         return
 
     def _reorder_cat_candidate_gates(self, circuit: QuantumCircuit) -> tuple[QuantumCircuit, dict[str, int]]:
@@ -464,57 +452,57 @@ class NAVIHybrid(Compiler):
         print(f"[build_partition_table] Time: {time.time() - start_time} seconds", file=sys.stderr)
         return P
 
-    def _build_telegate_hints_for_empty_partitions(self, ctx: CompilationContext, P: list[list[list[Any]]]) -> None:
-        """
-        针对无0-cut partition的区间，基于OEE进行telegate预评估并记录hint。
-        hint将用于hybrid beam打分先验，提升CAT候选被保留概率。
-        """
-        if not bool(ctx.config.get("enable_ptable_telegate_hint", True)):
-            ctx.ptable_telegate_hints = {}
-            return
+    # def _build_telegate_hints_for_empty_partitions(self, ctx: CompilationContext, P: list[list[list[Any]]]) -> None:
+    #     """
+    #     针对无0-cut partition的区间，基于OEE进行telegate预评估并记录hint。
+    #     hint将用于hybrid beam打分先验，提升CAT候选被保留概率。
+    #     """
+    #     if not bool(ctx.config.get("enable_ptable_telegate_hint", True)):
+    #         ctx.ptable_telegate_hints = {}
+    #         return
 
-        num_depths = len(P)
-        max_span = int(ctx.config.get("ptable_telegate_hint_max_span", max(1, num_depths)))
-        max_span = max(1, max_span)
-        debug_hint = bool(ctx.config.get("debug_ptable_telegate_hint", True))
+    #     num_depths = len(P)
+    #     max_span = int(ctx.config.get("ptable_telegate_hint_max_span", max(1, num_depths)))
+    #     max_span = max(1, max_span)
+    #     debug_hint = bool(ctx.config.get("debug_ptable_telegate_hint", True))
 
-        hints: dict[tuple[int, int], dict[str, float]] = {}
-        total_empty = 0
-        eval_count = 0
-        cat_positive = 0
+    #     hints: dict[tuple[int, int], dict[str, float]] = {}
+    #     total_empty = 0
+    #     eval_count = 0
+    #     cat_positive = 0
 
-        for i in range(num_depths):
-            for j in range(i, num_depths):
-                if len(P[i][j]) > 0:
-                    continue
-                total_empty += 1
-                if j - i + 1 > max_span:
-                    continue
+    #     for i in range(num_depths):
+    #         for j in range(i, num_depths):
+    #             if len(P[i][j]) > 0:
+    #                 continue
+    #             total_empty += 1
+    #             if j - i + 1 > max_span:
+    #                 continue
 
-                ori_left, ori_right = self.get_original_layer_idx(ctx, (i, j))
-                telegate_result = self._try_generate_telegate(ctx, ori_left, ori_right, None)
-                tg_costs = telegate_result.total_costs
-                hints[(ori_left, ori_right)] = {
-                    "epairs": float(tg_costs.epairs),
-                    "cat_ents": float(tg_costs.cat_ents),
-                    "span": float(j - i + 1),
-                }
-                eval_count += 1
-                if tg_costs.cat_ents > 0:
-                    cat_positive += 1
+    #             ori_left, ori_right = self.get_original_layer_idx(ctx, (i, j))
+    #             telegate_result = self._try_generate_telegate(ctx, ori_left, ori_right, None)
+    #             tg_costs = telegate_result.total_costs
+    #             hints[(ori_left, ori_right)] = {
+    #                 "epairs": float(tg_costs.epairs),
+    #                 "cat_ents": float(tg_costs.cat_ents),
+    #                 "span": float(j - i + 1),
+    #             }
+    #             eval_count += 1
+    #             if tg_costs.cat_ents > 0:
+    #                 cat_positive += 1
 
-        ctx.ptable_telegate_hints = hints
+    #     ctx.ptable_telegate_hints = hints
 
-        if debug_hint:
-            print(
-                f"[cat_debug][ptable_hint] empty_ranges={total_empty}, evaluated={eval_count}, "
-                f"cat_positive={cat_positive}, hint_max_span={max_span}"
-            )
-            print(
-                f"[cat_debug][ptable_hint] empty_ranges={total_empty}, evaluated={eval_count}, "
-                f"cat_positive={cat_positive}, hint_max_span={max_span}",
-                file=sys.stderr,
-            )
+    #     if debug_hint:
+    #         print(
+    #             f"[cat_debug][ptable_hint] empty_ranges={total_empty}, evaluated={eval_count}, "
+    #             f"cat_positive={cat_positive}, hint_max_span={max_span}"
+    #         )
+    #         print(
+    #             f"[cat_debug][ptable_hint] empty_ranges={total_empty}, evaluated={eval_count}, "
+    #             f"cat_positive={cat_positive}, hint_max_span={max_span}",
+    #             file=sys.stderr,
+    #         )
 
     def _step_build_slicing_table(self, ctx: CompilationContext) -> list[Any]:
         """
@@ -629,9 +617,7 @@ class NAVIHybrid(Compiler):
                 # # --- 选项 1：由小区间最优解组合而来（试三个关键点）---
                 # # 定义要试的切分点：左、中、右
                 # candidate_ks = [i, (i + j) // 2, j - 1]
-                # # 去重（当区间长度很小时，这三个点可能重复）
-                # candidate_ks = list(set(candidate_ks))
-                # # 排序（可选，为了调试方便）
+                # candidate_ks = list(set(candidate_ks)) # 去重（当区间长度很小时，这三个点可能重复）
                 # candidate_ks.sort()
                 # for k in candidate_ks:
 
@@ -827,7 +813,7 @@ class NAVIHybrid(Compiler):
         K = len(blocks)
 
         beam_width = int(ctx.config.get("hybrid_beam_width", 3))
-        max_merge_span = int(ctx.config.get("hybrid_max_merge_span", 21))
+        max_merge_span = int(ctx.config.get("hybrid_max_merge_span", 12))
         # 仅当候选显著超出 beam_width 时才做前向剪枝，减少重复排序开销。
         prune_trigger_ratio = int(ctx.config.get("hybrid_prune_trigger_ratio", 5))
         beam_width = max(1, beam_width)
@@ -888,6 +874,7 @@ class NAVIHybrid(Compiler):
             return pruned[:beam_width]
 
         for pos in range(K):
+            # print(f"================= {pos} / {K} ==================")
             pos_start_time = time.time()
             # 消费前剪枝：保证本层展开输入受控。
             if pos in states and len(states[pos]) > beam_width:
@@ -898,6 +885,11 @@ class NAVIHybrid(Compiler):
 
             for base_epairs, base_cat_ents, base_hint_hits, base_records in current_states:
                 prev_partition = base_records[-1].partition if base_records else None
+
+                # if prev_partition:
+                    # prev_layer_start = base_records[-1].layer_start
+                    # prev_layer_end   = base_records[-1].layer_end
+                    # print(f"\n\n[DEBUG] prev_partition for layer {prev_layer_start}-{prev_layer_end}\n{prev_partition}")
 
                 # 选项 A：当前原子块保持 teledata
                 td_record = copy.deepcopy(original_records[pos])
@@ -916,7 +908,10 @@ class NAVIHybrid(Compiler):
                 upper_end = min(K - 1, pos + max_merge_span - 1)
 
                 for end in range(pos, upper_end + 1):
+                    # TODO: 根据线路增长的epairs信息，决定是否需要进一步延长telegate测试
                     end_layer = original_records[end].layer_end
+                    # print(f"[DEBUG] ===== {start_layer} - {end_layer} =====")
+
                     telegate_result = self._try_generate_telegate(
                         ctx, start_layer, end_layer, prev_partition
                     )
@@ -928,6 +923,9 @@ class NAVIHybrid(Compiler):
                             prev_partition, tg_record.partition, ctx.network
                         )
                         transition_cost = tg_link_costs.epairs
+                    
+                    # print(f"[DEBUG] Telegate partition for layer {start_layer}-{end_layer}\n{tg_record.partition}")
+                    # print(f"[DEBUG] Transition cost: {transition_cost}\n")
 
                     seg_cat_ents = int(telegate_result.total_costs.cat_ents)
                     merged_epairs = base_epairs + transition_cost + telegate_result.total_costs.epairs
@@ -1040,73 +1038,6 @@ class NAVIHybrid(Compiler):
         self._get_sliced_subc_recursive(S, i, S[i][j], result_list)
         self._get_sliced_subc_recursive(S, S[i][j] + 1, j, result_list)
 
-    def _try_replace_with_telegate(self, 
-                           ctx: CompilationContext, 
-                           mapping_record_list: MappingRecordList, 
-                           grouped_records: MappingRecordList,
-                           left_subc_idx, right_subc_idx, left, right):
-        """
-        Logic to try replacing a range with gate teleportation.
-        """
-        # 1. 获取原始子电路范围
-        ori_left, ori_right = self.get_original_layer_idx(ctx, (left, right))
-        sub_qc = self._get_ori_subc(ctx, ori_left, ori_right)
-
-        # 获取上一个partition的partition方案，作为telegate partition的初始方案
-        prev_partition = []
-        if left_subc_idx != -1:
-            prev_partition = mapping_record_list.records[left_subc_idx].partition
-        
-        # 2. 调用telegate_partitioner进行划分
-        assert ctx.telegate_partitioner is not None
-        telegate_record = ctx.telegate_partitioner.partition(
-            circuit = sub_qc,
-            network = ctx.network,
-            config = {
-                "layer_start": ori_left,
-                "layer_end": ori_right,
-                "partition": prev_partition
-            }
-        )
-
-        new_epairs = telegate_record.costs.epairs
-
-        # 获取右子线路的record
-        right_record = None
-        if right_subc_idx < len(mapping_record_list.records):
-            # 拷贝一份right_record，可能会直接加入grouped_records
-            right_record = copy.deepcopy(mapping_record_list.records[right_subc_idx])
-            costs, _ = CompilerUtils.evaluate_teledata(telegate_record, right_record, ctx.network)
-            new_epairs += costs.epairs
-
-        # Calculate old costs
-        end_idx = right_subc_idx if right_subc_idx < len(ctx.swap_prefix_sums) else len(ctx.swap_prefix_sums) - 1
-        # old_costs = ctx.swap_prefix_sums[end_idx]
-        old_epairs = ctx.epair_prefix_sums[end_idx]
-        if left_subc_idx >= 0:
-            # old_costs -= ctx.swap_prefix_sums[left_subc_idx]
-            old_epairs -= ctx.epair_prefix_sums[left_subc_idx]
-
-        if new_epairs < old_epairs:
-            grouped_records.add_record(telegate_record) # 层号已更新
-
-            # 更新下一个子线路的record
-            if right_record:
-                mapping_record_list.records[right_subc_idx] = right_record
-
-            return True
-
-        # If not replacing, we still need to add the intermediate records to grouped_records later
-        for idx in range(left_subc_idx + 1, right_subc_idx):
-            # 更新层号
-            record = mapping_record_list.records[idx]
-            # record.layer_start = ctx.map_to_circuit_layer[record.layer_start]
-            # record.layer_end = ctx.map_to_circuit_layer[record.layer_end]
-            record.layer_start, record.layer_end = self.get_original_layer_idx(
-                ctx, (record.layer_start, record.layer_end))
-            grouped_records.add_record(record)
-        return False
-
     def _get_ori_subc(self, ctx: CompilationContext, ori_left: int, ori_right: int) -> QuantumCircuit:
         """
         获取原线路中[ori_left, ori_right]的子线路
@@ -1133,6 +1064,8 @@ class NAVIHybrid(Compiler):
                 new_cargs = [c_map[c] for c in old_cargs] if old_cargs else []
                 
                 subcircuit.append(node.op, new_qargs, new_cargs)
+
+        subcircuit = transpile(subcircuit, optimization_level=0)
 
         return subcircuit
 
@@ -1197,6 +1130,9 @@ class NAVIHybrid(Compiler):
         sub_qc = self._get_ori_subc(ctx, ori_left, ori_right)
         cat_controls = self._extract_cat_controls(sub_qc)
 
+        # print(f"\n\n[DEBUG] try_generate_telegate\n")
+        # print(sub_qc)
+
         # 2. 调用 partitioner
         assert ctx.telegate_partitioner is not None
         telegate_record = ctx.telegate_partitioner.partition(
@@ -1206,20 +1142,23 @@ class NAVIHybrid(Compiler):
                 "layer_start": ori_left,
                 "layer_end": ori_right,
                 "partition": prev_partition,
-                "add_teledata_costs": False,
-                "enable_cat_telegate": bool(ctx.config.get("enable_cat_telegate", True)),
-                "cat_controls": cat_controls,
-                "debug_cat_telegate": bool(ctx.config.get("debug_cat_telegate", False)),
+                "use_oee_init": bool(ctx.config.get("use_oee_init", True)),
+                "iteration": int(ctx.config.get("iteration", 50)),
             }
         )
 
-        if telegate_record.extra_info is None:
-            telegate_record.extra_info = {}
-        telegate_record.extra_info["cat_controls"] = list(cat_controls)
-        
-        record_list = MappingRecordList()
-        record_list.add_record(telegate_record)
-        record_list.summarize_total_costs()
+        if isinstance(telegate_record, MappingRecordList):
+            record_list = telegate_record
+            # 输出调试信息
+            # print(f"[DEBUG] op_list:\n{record_list.records[0].extra_info['ops']}\nepairs: {record_list.records[0].costs.epairs}")
+        else:
+            if telegate_record.extra_info is None:
+                telegate_record.extra_info = {}
+            telegate_record.extra_info["cat_controls"] = list(cat_controls)
+            
+            record_list = MappingRecordList()
+            record_list.add_record(telegate_record)
+            record_list.summarize_total_costs()
 
         if use_cache:
             # strict模式只写strict key；range模式只写range key；fallback模式双写提高复用。

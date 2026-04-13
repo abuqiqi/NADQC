@@ -18,7 +18,11 @@ class Network:
         # 计算量子比特交换的保真度和损失
         self.swap_fidelity, self.swap_fidelity_loss = self._compute_swap_fidelity()
         self.backends = backend_list
-        self.backend_sizes = [backend.num_qubits for backend in self.backends]
+        self.comm_slot_reserve = int(network_config.get('comm_slot_reserve', 0) or 0)
+        # 后端实际容量（用于transpile/通信临时槽）
+        self.backend_sizes_full = [backend.num_qubits for backend in self.backends]
+        # 核心计算容量（用于partition阶段），由 full - reserve 得到
+        self.backend_sizes = [max(0, size - self.comm_slot_reserve) for size in self.backend_sizes_full]
         self.basis_gates, self.two_qubit_gates = self._get_basis_gates(backend_list)
         return
 
@@ -274,10 +278,16 @@ class Network:
             return []  # 明确返回空列表表示不可达
         return path.copy()  # 返回副本防止外部修改
 
-    def get_backend_qubit_counts(self) -> list[int]:
-        """获取每个后端的qubit容量，从大到小排序"""
-        # return sorted([backend.num_qubits for backend in self.backends], reverse=True)
+    def get_backend_qubit_counts(self, include_comm_slot: bool = False) -> list[int]:
+        """获取每个后端的qubit容量。"""
+        # 默认返回基础容量（用于partition阶段）；include_comm_slot=True返回完整容量。
+        if include_comm_slot:
+            return self.backend_sizes_full
         return self.backend_sizes
+
+    def get_backend_qubit_counts_full(self) -> list[int]:
+        """获取考虑通信预留槽位后的完整后端容量。"""
+        return self.backend_sizes_full
 
     def draw_network_graph(self, filename="network_graph", seed=42, highlight_path=None):
         """
@@ -358,6 +368,7 @@ class Network:
         print(f"Hop weight: {self.hop_weight}")
         print(f"Fidelity range: {self.fidelity_range}")
         print(f"Backend sizes: {self.backend_sizes}")
+        print(f"Backend sizes (full): {self.backend_sizes_full}")
         # 输出每个backend的coupling map
         print("Backend Coupling Maps:")
         for i, backend in enumerate(self.backends):

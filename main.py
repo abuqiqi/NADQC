@@ -8,6 +8,7 @@ from src.utils import get_args, get_config, select_circuit, write_compiler_resul
 from src.compiler import Compiler, CompilerFactory
 
 def main(args):
+
     global_config = get_config(args.global_config_path)
     network_config = {
         **global_config.get('network_config', {}),
@@ -63,8 +64,8 @@ def main(args):
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     # compiler_ids = ["fgproee"] # , "staticoee", "wbcp", "navi"
     # compiler_ids = ["wbcp"]
-    compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi", "navihybrid"] # "wbcp", , "navinew"
-    # compiler_ids = ["navihybrid"]
+    # compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi", "navihybrid"] # , "navinew"
+    compiler_ids = ["autocomm", "navihybrid"] # "navi", 
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
     for compiler_id in compiler_ids:
@@ -95,7 +96,7 @@ if __name__ == "__main__":
     # 获取全局配置
     args = get_args()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
+    filename = "0" # f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
     original_stdout = sys.stdout
     with open(f'outputs/{filename}.txt', 'w', buffering=1) as f:
         sys.stdout = f

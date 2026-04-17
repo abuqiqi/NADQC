@@ -8,7 +8,6 @@ import networkx as nx
 
 from qiskit import QuantumCircuit
 from qiskit.converters import circuit_to_dag
-from qiskit.circuit import Gate  # 自定义门必须继承的基类
 
 from ..compiler import Compiler, CompilerUtils, ExecCosts, MappingRecord, MappingRecordList
 from ..utils import Network
@@ -568,7 +567,7 @@ class NAVINew(Compiler):
         从增量状态汇总TG代价（骨架）。
         """
         # 1) 基于增量状态直接汇总telegate/CAT代价；
-        # 2) 可选对拍：与evaluate_telegate_with_my_cat比较；
+        # 2) 可选对拍：与evaluate_telegate_with_cat比较；
         # 3) 结果走缓存复用。
         if not state.partition:
             return ExecCosts()
@@ -590,7 +589,7 @@ class NAVINew(Compiler):
             if bool(ctx.config.get("debug_tg_incremental_check", False)):
                 ori_left, ori_right = self._get_original_layer_idx(ctx, (i, j))
                 subcircuit = self._build_subcircuit_from_original_layers(ctx, ori_left, ori_right)
-                ref = CompilerUtils.evaluate_telegate_with_my_cat(state.partition, subcircuit, ctx.network)
+                ref = CompilerUtils.evaluate_telegate_with_cat(state.partition, subcircuit, ctx.network)
                 if ref.epairs != costs.epairs:
                     print(
                         f"[WARNING] tg_incremental_check mismatch at [{i},{j}]: inc_epairs={costs.epairs}, ref_epairs={ref.epairs}",
@@ -600,7 +599,7 @@ class NAVINew(Compiler):
             # 默认使用精确评估，优先保证决策质量和可比性。
             ori_left, ori_right = self._get_original_layer_idx(ctx, (i, j))
             subcircuit = self._build_subcircuit_from_original_layers(ctx, ori_left, ori_right)
-            costs = CompilerUtils.evaluate_telegate_with_my_cat(state.partition, subcircuit, ctx.network)
+            costs = CompilerUtils.evaluate_telegate_with_cat(state.partition, subcircuit, ctx.network)
 
         cache[key] = copy.deepcopy(costs)
         return costs

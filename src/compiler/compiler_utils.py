@@ -402,6 +402,52 @@ class CompilerUtils:
             slot_owner[slot] = lqid
 
         return True, "ok"
+
+    @staticmethod
+    def _resolve_comm_qpu_endpoints_from_logical_map(
+        logical_phy_map: dict[int, tuple[int, int | None]],
+        op: CommOp,
+    ) -> tuple[int, int]:
+        """
+        基于 logical_phy_map 和 CommOp 的逻辑比特信息解析通信端点。
+        优先使用逻辑比特当前位置（物理QPU索引），解析失败时回退到 CommOp 自带 src/dst。
+        """
+        def _lookup_qpu(lqid: int) -> Optional[int]:
+            if lqid in logical_phy_map:
+                return logical_phy_map[lqid][0]
+            key_str = str(lqid)
+            if key_str in logical_phy_map:
+                return logical_phy_map[key_str][0]
+            return None
+
+        src_qpu = _lookup_qpu(op.source_qubit)
+        if src_qpu is None:
+            src_qpu = op.src_qpu
+
+        dst_qpu = None
+        dst_candidates: set[int] = set()
+        for lqid in op.involved_qubits:
+            if lqid == op.source_qubit:
+                continue
+            cand = _lookup_qpu(lqid)
+            if cand is None:
+                continue
+            dst_candidates.add(cand)
+
+        if len(dst_candidates) > 1:
+            raise RuntimeError(
+                "[COMM_ENDPOINT] Inconsistent destination QPUs for non-source qubits: "
+                f"source_qubit={op.source_qubit}, involved={op.involved_qubits}, "
+                f"src_qpu={src_qpu}, dst_candidates={sorted(dst_candidates)}"
+            )
+
+        if len(dst_candidates) == 1:
+            dst_qpu = next(iter(dst_candidates))
+
+        if dst_qpu is None:
+            dst_qpu = op.dst_qpu
+
+        return src_qpu, dst_qpu
     """
     编译工具类
     """
@@ -503,14 +549,17 @@ class CompilerUtils:
         circuit: QuantumCircuit,
         network: Network,
         logical_phy_map: dict[int, tuple[int, int | None]] = {},
-        optimization_level: int = 3
+        optimization_level: int = 0,
+        strict_flush_on_remote: bool = True,
     ) -> tuple[ExecCosts, dict[int, tuple[int, int | None]]]:
         """
         按CommOp + 门序列统一评估通信与本地门成本
         """
         partition = None
+        record: Optional[MappingRecord] = None
 
         if isinstance(arg, MappingRecord):
+            record = arg
             partition = arg.partition
             logical_phy_map = arg.logical_phy_map
         else:
@@ -614,53 +663,121 @@ class CompilerUtils:
                 mapped_qubits: list[int] = [tmp_global_to_local_lqid[q] for q in global_lqids]
                 subcircuits[dst_qpu].append(gate_op, mapped_qubits)
 
+        def _flush_local_subcircuits() -> None:
+            """
+            将当前缓存的本地子线路统一结算到local fidelity，并更新logical_phy_map。
+            strict_flush_on_remote=True时由远程事件触发分段结算，避免跨远程边界的过度合并。
+            """
+            nonlocal logical_phy_map, subcircuits, costs
+
+            for qpu_id in range(len(subcircuits)):
+                subcircuit = subcircuits[qpu_id]
+                backend = network.backends[qpu_id]
+
+                if subcircuit.size() == 0:
+                    continue
+
+                initial_layout = CompilerUtils.get_initial_layout(
+                    subcircuit,
+                    partition[qpu_id],
+                    global_to_local_lqid,
+                    logical_phy_map,
+                )
+
+                transpiled_circuit = transpile(
+                    subcircuit,
+                    coupling_map=backend.coupling_map,
+                    basis_gates=backend.basis_gates,
+                    initial_layout=initial_layout,
+                    optimization_level=optimization_level,
+                    seed_transpiler=42,
+                )
+
+                logical_phy_map = CompilerUtils.get_logical_to_physical_map(
+                    transpiled_circuit, partition[qpu_id], global_to_local_lqid, logical_phy_map
+                )
+
+                for instruction in transpiled_circuit:
+                    gate_name = instruction.operation.name
+                    qubits = [transpiled_circuit.qubits.index(qubit) for qubit in instruction.qubits]
+                    assert qubits[0] is not None, f"Qubit index is None for instruction: {instruction}"
+                    gate_key = f"{gate_name}{'_'.join(map(str, qubits))}"
+
+                    gate_error = backend.gate_dict.get(gate_key, {}).get("gate_error_value", None)
+                    if gate_error == 1:
+                        gate_error = 0.99
+                        print(f"[WARNING] {gate_key}: {gate_error}")
+
+                    if gate_error is None or (isinstance(gate_error, float) and math.isnan(gate_error)):
+                        gate_error = backend.gate_dict[gate_name]["gate_error_value"]
+
+                    assert gate_error is not None, f"Gate error not found for gate_key: {gate_key} in backend.gate_dict"
+                    costs.local_gate_num += 1
+                    costs.local_fidelity_loss += gate_error
+                    costs.local_fidelity *= (1 - gate_error)
+                    costs.local_fidelity_log_sum += np.log(1 - gate_error)
+
+                # 清空该QPU缓冲，下一段继续累计。
+                subcircuits[qpu_id] = QuantumCircuit(capacity_by_qpu[qpu_id])
+
         for instruction in circuit:
             op = instruction.operation
             global_qids = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
 
-            print(f"\n\n[DEBUG] Processing instruction: {instruction}")
-            print(f"[DEBUG] qids: {global_qids}")
+            # print(f"\n\n[DEBUG] Processing instruction: {instruction}")
+            # print(f"[DEBUG] qids: {global_qids}")
 
             if isinstance(op, CommOp):
+                src_qpu, dst_qpu = CompilerUtils._resolve_comm_qpu_endpoints_from_logical_map(
+                    logical_phy_map=logical_phy_map,
+                    op=op,
+                )
+
+                if strict_flush_on_remote:
+                    _flush_local_subcircuits()
+
                 if op.comm_type == "cat":
                     costs = CompilerUtils.update_remote_move_costs(
-                        costs, op.src_qpu, op.dst_qpu, 1, network
+                        costs, src_qpu, dst_qpu, 1, network
                     )
                     costs.cat_ents += 1
-                    dst_slot = _find_free_slot(op.dst_qpu, owner=op.source_qubit)
+                    dst_slot = _find_free_slot(dst_qpu, owner=op.source_qubit)
                     try:
                         tmp_map = _build_tmp_local_map_for_comm(op.source_qubit, dst_slot)
-                        _append_comm_gate_block(op.dst_qpu, op.gate_list, tmp_map)
+                        _append_comm_gate_block(dst_qpu, op.gate_list, tmp_map)
                     finally:
-                        _release_slot(op.dst_qpu, dst_slot, expected_owner=op.source_qubit)
+                        _release_slot(dst_qpu, dst_slot, expected_owner=op.source_qubit)
 
                 elif op.comm_type == "rtp":
                     costs = CompilerUtils.update_remote_move_costs(
-                        costs, op.src_qpu, op.dst_qpu, 2, network
+                        costs, src_qpu, dst_qpu, 2, network
                     )
-                    dst_slot = _find_free_slot(op.dst_qpu, owner=op.source_qubit)
+                    dst_slot = _find_free_slot(dst_qpu, owner=op.source_qubit)
                     try:
                         tmp_map = _build_tmp_local_map_for_comm(op.source_qubit, dst_slot)
-                        _append_comm_gate_block(op.dst_qpu, op.gate_list, tmp_map)
+                        _append_comm_gate_block(dst_qpu, op.gate_list, tmp_map)
                     finally:
-                        _release_slot(op.dst_qpu, dst_slot, expected_owner=op.source_qubit)
+                        _release_slot(dst_qpu, dst_slot, expected_owner=op.source_qubit)
 
                 elif op.comm_type == "tp":
                     costs = CompilerUtils.update_remote_move_costs(
-                        costs, op.src_qpu, op.dst_qpu, 1, network
+                        costs, src_qpu, dst_qpu, 1, network
                     )
-                    dst_slot = _find_free_slot(op.dst_qpu, owner=op.source_qubit)
+                    dst_slot = _find_free_slot(dst_qpu, owner=op.source_qubit)
                     try:
                         tmp_map = _build_tmp_local_map_for_comm(op.source_qubit, dst_slot)
-                        _append_comm_gate_block(op.dst_qpu, op.gate_list, tmp_map)
+                        _append_comm_gate_block(dst_qpu, op.gate_list, tmp_map)
                     finally:
                         # 当前策略：临时通信语义，tp按片段内临时迁移处理，通信结束后释放通信槽。
                         # 因为迁移过去一定是放到comm_slot，所以应该不影响本地量子门操作的建立。
-                        _release_slot(op.dst_qpu, dst_slot, expected_owner=op.source_qubit)
+                        _release_slot(dst_qpu, dst_slot, expected_owner=op.source_qubit)
                         # TODO: （更严谨）持久迁移语义：
                         # TP 后更新 runtime_pos 到 dst，并让态继续驻留；
                         # 要么占着 comm_slot，要么立刻转存到 dst 的计算槽后再释放 comm_slot。
                         # 这个更贴近“真实 TP”。
+
+                if strict_flush_on_remote:
+                    _flush_local_subcircuits()
 
             else:
                 # print(f"[DEBUG] Processing normal gate: {op}")
@@ -675,6 +792,9 @@ class CompilerUtils:
                     subcircuits[qpu_id].append(instruction.operation, mapped_qubits)
                 # 操作跨越多个分区，为telegate操作
                 else:
+                    if strict_flush_on_remote:
+                        _flush_local_subcircuits()
+
                     for i in range(len(global_qids) - 1):
                         q1, q2 = global_qids[i], global_qids[i + 1]
                         p1, p2 = runtime_pos[q1][0], runtime_pos[q2][0]
@@ -682,6 +802,9 @@ class CompilerUtils:
                             costs = CompilerUtils.update_remote_move_costs(
                                 costs, p1, p2, 1, network
                             )
+
+                    if strict_flush_on_remote:
+                        _flush_local_subcircuits()
 
         # 检查所有通信槽是否都已释放。
         for qpu_id in range(len(partition)):
@@ -692,52 +815,8 @@ class CompilerUtils:
                         f"owner={slot_owner[qpu_id][sid]}"
                     )
 
-        # 统一对子线路做transpile并统计本地门误差
-        for qpu_id in range(len(subcircuits)):
-            subcircuit = subcircuits[qpu_id]
-            backend = network.backends[qpu_id]
-
-            if subcircuit.size() == 0:
-                continue
-
-            initial_layout = CompilerUtils.get_initial_layout(
-                subcircuit,
-                partition[qpu_id],
-                global_to_local_lqid,
-                logical_phy_map,
-            )
-
-            transpiled_circuit = transpile(
-                subcircuit,
-                coupling_map=backend.coupling_map,
-                basis_gates=backend.basis_gates,
-                initial_layout=initial_layout,
-                optimization_level=optimization_level,
-            )
-
-            logical_phy_map = CompilerUtils.get_logical_to_physical_map(
-                transpiled_circuit, partition[qpu_id], global_to_local_lqid, logical_phy_map
-            )
-
-            for instruction in transpiled_circuit:
-                gate_name = instruction.operation.name
-                qubits = [transpiled_circuit.qubits.index(qubit) for qubit in instruction.qubits]
-                assert qubits[0] is not None, f"Qubit index is None for instruction: {instruction}"
-                gate_key = f"{gate_name}{'_'.join(map(str, qubits))}"
-
-                gate_error = backend.gate_dict.get(gate_key, {}).get("gate_error_value", None)
-                if gate_error == 1:
-                    gate_error = 0.99
-                    print(f"[WARNING] {gate_key}: {gate_error}")
-
-                if gate_error is None or (isinstance(gate_error, float) and math.isnan(gate_error)):
-                    gate_error = backend.gate_dict[gate_name]["gate_error_value"]
-
-                assert gate_error is not None, f"Gate error not found for gate_key: {gate_key} in backend.gate_dict"
-                costs.local_gate_num += 1
-                costs.local_fidelity_loss += gate_error
-                costs.local_fidelity *= (1 - gate_error)
-                costs.local_fidelity_log_sum += np.log(1 - gate_error)
+        # 片段结束后结算剩余本地门。
+        _flush_local_subcircuits()
 
         if isinstance(arg, MappingRecord):
             arg.costs += costs
@@ -753,13 +832,19 @@ class CompilerUtils:
         network: Network
     ) -> ExecCosts:
         partition = None
+        record: Optional[MappingRecord] = None
         
         if isinstance(arg, MappingRecord):
             record = arg
             partition = record.partition
+            logical_phy_map = copy.deepcopy(record.logical_phy_map)
         else:
             # arg is a list of lists representing the partition
             partition = arg
+            logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
+
+        if len(logical_phy_map) == 0:
+            logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
 
         # 建立一个反向索引，用于快速查询每个量子比特属于哪个分区
         qubit_to_partition = {}
@@ -779,18 +864,23 @@ class CompilerUtils:
             global_qids = [circuit.qubits.index(qubit) for qubit in instruction.qubits]
 
             if isinstance(op, CommOp):
+                src_qpu, dst_qpu = CompilerUtils._resolve_comm_qpu_endpoints_from_logical_map(
+                    logical_phy_map=logical_phy_map,
+                    op=op,
+                )
+
                 if op.comm_type == "cat":
                     costs = CompilerUtils.update_remote_move_costs(
-                        costs, op.src_qpu, op.dst_qpu, 1, network
+                        costs, src_qpu, dst_qpu, 1, network
                     )
                     costs.cat_ents += 1
                 elif op.comm_type == "rtp":
                     costs = CompilerUtils.update_remote_move_costs(
-                        costs, op.src_qpu, op.dst_qpu, 2, network
+                        costs, src_qpu, dst_qpu, 2, network
                     )
                 elif op.comm_type == "tp":
                     costs = CompilerUtils.update_remote_move_costs(
-                        costs, op.src_qpu, op.dst_qpu, 1, network
+                        costs, src_qpu, dst_qpu, 1, network
                     )
 
             else:
@@ -1162,7 +1252,12 @@ class CompilerUtils:
         local_lqid_to_pqid = {slot: None for slot in local_slots}
 
         if hasattr(transpiled_circuit, "layout") and transpiled_circuit.layout is not None:
-            layout = transpiled_circuit.layout.initial_layout
+            layout = transpiled_circuit.layout.final_layout
+            # print(f"\n[DEBUG] layout: {layout}\n", file=sys.stderr)
+            if layout is None:
+                layout = transpiled_circuit.layout.initial_layout
+            if layout is None:
+                raise RuntimeError("[ERROR] Layout is None")
             # [示例] layout: Layout({ 物理: 逻辑
             # 0: Qubit(QuantumRegister(2, 'q'), 0),
             # 1: Qubit(QuantumRegister(2, 'q'), 1),
@@ -1214,6 +1309,7 @@ class CompilerUtils:
         else: # Layout为None，返回1:1平凡映射
             num_qubits = transpiled_circuit.num_qubits
             local_lqid_to_pqid = {i: i for i in range(num_qubits)}
+            raise ValueError("Layout is None")
 
         for global_q in partition_qubits:
             # 获取每个global逻辑比特对应的子线路本地逻辑比特索引

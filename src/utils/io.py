@@ -1,22 +1,22 @@
 import argparse
-from typing import List
 import pandas as pd
 from typing import Any
 import numpy as np
 import os
 import json
 from pathlib import Path
+import sys
 
 _cached_config = None
 
-def parse_int_list(input_str: str) -> List[int]:
+def parse_int_list(input_str: str) -> list[int]:
     """Convert a comma-separated string to a list of integers (e.g., '4,6,8' -> [4,6,8])"""
     try:
         return [int(item.strip()) for item in input_str.split(",")]
     except ValueError:
         raise argparse.ArgumentTypeError(f"Invalid integer list format: '{input_str}'. Please use comma-separated integers, e.g., '4,6,8'")
 
-def parse_str_list(input_str: str) -> List[str]:
+def parse_str_list(input_str: str) -> list[str]:
     """Convert a comma-separated string to a list of strings (e.g., 'cu1,u3' -> ['cu1', 'u3'])"""
     return [item.strip() for item in input_str.split(",")]
 
@@ -90,7 +90,6 @@ def get_args():
     # print(f"[INFO] Basis gate set: {args.gate_set}")
     return args
 
-
 def get_config(config_filename: str = "config.json"):
     """
     从项目根目录加载 JSON 配置文件。
@@ -127,6 +126,9 @@ def get_config(config_filename: str = "config.json"):
 
     return _cached_config.copy()
 
+def log(message: str):
+    print(f"{message}")
+    print(f"{message}", file=sys.stderr)
 
 def write_compiler_results_to_csv(
     task_info: dict[str, Any],

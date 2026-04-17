@@ -9,7 +9,7 @@ import os
 from .backend import Backend
 
 class Network:
-    def __init__(self, network_config: dict, backend_list: list[Backend]):
+    def __init__(self, network_config: dict, backend_list: list[Backend], build_all_to_all_copy: bool = True):
         self.num_backends = len(backend_list)
         self.network_coupling = self._build_network_coupling(network_config)
         self.network_graph = self._build_weighted_network_graph(self.network_coupling)
@@ -24,7 +24,22 @@ class Network:
         # 核心计算容量（用于partition阶段），由 full - reserve 得到
         self.backend_sizes = [max(0, size - self.comm_slot_reserve) for size in self.backend_sizes_full]
         self.basis_gates, self.two_qubit_gates = self._get_basis_gates(backend_list)
+
+        # 预构建all-to-all副本（重算move/swap等所有依赖连通性的矩阵）。
+        self.all_to_all_copy = None
+        if build_all_to_all_copy:
+            self.all_to_all_copy = self._build_all_to_all_copy(network_config)
         return
+
+    def _build_all_to_all_copy(self, network_config: dict) -> "Network":
+        """
+        基于network_config构建一个all-to-all副本：
+        - 直接将网络类型切换为all_to_all；
+        - 由副本自行重算move/swap矩阵，确保与连通性变化一致。
+        """
+        all_to_all_config = dict(network_config)
+        all_to_all_config["type"] = "all_to_all"
+        return Network(all_to_all_config, self.backends, build_all_to_all_copy=False)
 
     @property
     def name(self):

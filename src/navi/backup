@@ -1,0 +1,247 @@
+
+    def _step_construct_hybrid_records(self, ctx: CompilationContext) -> MappingRecordList:
+        """
+        直接获取telegate和teledata混合的记录列表，供后续mapper使用
+        更新：ctx.hybrid_records
+        """
+        start_time = time.time()
+
+        # 根据S-table，对于每一个分割点，尝试用telegate替换，并评估成本，如果更优则替换
+        # 1. 获取原子块列表
+        # blocks 是一个列表，每个元素是 (start_layer, end_layer)，对应 multiq_layer 的索引
+        blocks = ctx.subc_ranges
+        K = len(blocks) # K 是原子块的数量
+
+        print(f"[construct_hybrid_records] Number of atomic blocks: {K}")
+        print(f"[construct_hybrid_records] Number of atomic blocks: {K}", file=sys.stderr)
+
+        if K == 0:
+            return MappingRecordList()
+
+        # 2. 预计算：为了方便，我们先把所有原子块的初始 Record 生成好
+        # original_block_records[k] 对应 blocks[k] 的纯 teledata 记录
+        original_block_records: list[MappingRecord] = []
+        for idx, (s, e) in enumerate(blocks):
+            # left = ctx.map_to_circuit_layer[s]
+            # right = ctx.map_to_circuit_layer[e]
+            left, right = self.get_original_layer_idx(ctx, (s, e))
+            # logical_phy_map = CompilerUtils.init_logical_phy_map(ctx.partition_plan[idx])
+            record = MappingRecord(
+                layer_start=left,
+                layer_end=right,
+                partition=ctx.partition_plan[idx],
+                mapping_type="teledata" # ,
+                # logical_phy_map=logical_phy_map
+                # costs还没计算
+            )
+            original_block_records.append(record)
+
+        # 3. 初始化 DP 表
+        # dp[i][j] 表示合并处理 blocks[i...j] (闭区间) 的最优方案
+        dp = [[MappingRecordList() for _ in range(K)] for _ in range(K)]
+
+        # 4. 基准情况：长度为 1 (不合并，保持原样)
+        for i in range(K):
+            # 单个teledata-only块内部没有通信成本，也没有前序连接成本，基准成本设为 0
+            dp[i][i].add_record(copy.deepcopy(original_block_records[i]))
+
+        # 5. 自底向上填充 DP 表：长度从 2 到 K
+        for length in range(2, K + 1):
+            length_start_time = time.time()
+
+            for i in range(K - length + 1):
+                j = i + length - 1
+                
+                best_epairs = float('inf')
+                best_record_list = None
+
+                # --- 选项 1：切分 (Split) ---
+                # 遍历所有可能的切分点 k，将 [i..j] 分为 [i..k] 和 [k+1..j]
+                # 注意：因为我们的最小单位是块，所以切分只能发生在块与块之间
+                # 只切分中间
+                for k in range(i, j):
+                # # --- 选项 1：由小区间最优解组合而来（试三个关键点）---
+                # # 定义要试的切分点：左、中、右
+                # candidate_ks = [i, (i + j) // 2, j - 1]
+                # candidate_ks = list(set(candidate_ks)) # 去重（当区间长度很小时，这三个点可能重复）
+                # candidate_ks.sort()
+                # for k in candidate_ks:
+
+                    left_entry = dp[i][k]
+                    right_entry = dp[k+1][j]
+                    
+                    # 合并记录列表
+                    combined_records = MappingRecordList()
+                    combined_records.records = copy.deepcopy(left_entry.records) + \
+                                               copy.deepcopy(right_entry.records)
+                    
+                    # 计算成本：左边成本 + 右边成本 + 拼接处的通信成本
+                    # 拼接处通信成本 = 左边最后一个 Record 与右边第一个 Record 之间的 Teledata 成本
+                    # 找到左右两边的连接处
+                    left_last_idx = len(left_entry.records) - 1
+                    prev_rec = combined_records.records[left_last_idx]
+                    curr_rec = combined_records.records[left_last_idx + 1]
+                    
+                    # 计算这两个特定 Record 之间的切换成本
+                    costs = CompilerUtils.evaluate_teledata(prev_rec, curr_rec, ctx.network)
+                    # 更新combined_records的total_costs
+                    combined_records.summarize_total_costs()
+
+                    if combined_records.total_costs.epairs < best_epairs:
+                        best_epairs = combined_records.total_costs.epairs
+                        best_record_list = combined_records
+
+                if length < max(int(0.3 * K), 20):
+                    # --- 选项 2：整体替换 (Merge & Telegate) ---
+                    # 尝试把 blocks[i] 到 blocks[j] 这一整段，全部用 telegate 来做
+                    # 1. 确定物理层范围
+                    global_start_layer = original_block_records[i].layer_start
+                    global_end_layer = original_block_records[j].layer_end
+
+                    # 2. 尝试生成 telegate
+                    # initial_partition设成block[i-1]的partition（如果i>0），让telegate_partitioner有个初始方案可以基于它进行优化
+                    prev_partition = None
+                    if i > 0:
+                        prev_partition = original_block_records[i-1].partition
+
+                    telegate_result = self._try_generate_telegate(
+                        ctx, global_start_layer, global_end_layer, prev_partition
+                    )
+
+                    # 比较
+                    if telegate_result.total_costs.epairs < best_epairs:
+                        best_epairs = telegate_result.total_costs.epairs
+                        best_record_list = telegate_result
+
+                assert best_record_list is not None, f"[ERROR] best_record_list should not be None for blocks[{i}..{j}]"
+                dp[i][j] = best_record_list
+
+            print(f"[INFO] length: {length} / {K} Time: {time.time() - length_start_time}")
+
+        # 6. 最终结果        
+        ctx.telegate_optimized = True
+
+        end_time = time.time()
+        print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds")
+        print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds", file=sys.stderr)
+
+        return dp[0][K-1]
+
+    def _step_construct_hybrid_records_greedy(self, ctx: CompilationContext) -> MappingRecordList:
+        """
+        贪心构建混合记录：从左到右扫描，每次尽可能将连续的原子块合并为一个 telegate，
+        仅当合并会恶化成本时才切分。telegate 划分调用次数为 O(K)。
+        """
+        start_time = time.time()
+        blocks = ctx.subc_ranges
+        K = len(blocks)
+        print(f"[construct_hybrid_records] Number of atomic blocks: {K}")
+        print(f"[construct_hybrid_records] Number of atomic blocks: {K}", file=sys.stderr)
+
+        if K == 0:
+            return MappingRecordList()
+
+        # 预生成纯 teledata 记录（不含成本，仅保留分区信息）
+        original_records: list[MappingRecord] = []
+        for idx, (s, e) in enumerate(blocks):
+            left, right = self.get_original_layer_idx(ctx, (s, e))
+            record = MappingRecord(
+                layer_start=left,
+                layer_end=right,
+                partition=ctx.partition_plan[idx],
+                mapping_type="teledata"
+            )
+            original_records.append(record)
+
+        result = MappingRecordList()
+        i = 0
+        while i < K:
+            length_start_time = time.time()
+
+            start = i
+            # 获取前一个记录的 partition，用于 telegate 初始划分
+            prev_partition = result.records[-1].partition if result.records else None
+
+            # 1. 生成仅包含 start 块的 telegate 候选
+            s_layer = original_records[start].layer_start
+            e_layer = original_records[start].layer_end
+            current_telegate = self._try_generate_telegate(ctx, s_layer, e_layer, prev_partition)
+            current_end = start
+
+            # 2. 尝试向右扩展，每次扩展一步
+            next_idx = current_end + 1
+            while next_idx < K:
+
+                print(f"[DEBUG] next_idx: {next_idx}")
+
+                # 生成覆盖 [start, next_idx] 的新 telegate
+                new_e_layer = original_records[next_idx].layer_end
+                new_telegate = self._try_generate_telegate(
+                    ctx, s_layer, new_e_layer, current_telegate.records[-1].partition
+                )
+
+                print(f"[DEBUG] new_telegate: epairs [{new_telegate.total_costs.epairs}]")
+
+                # ###########################################################
+                # 方案一：保持当前段为 telegate，下一个块单独作为 teledata
+                # ###########################################################
+                # 计算分开方案的成本：当前 telegate 内部成本 + 与下一个 teledata 块的连接成本
+                teledata_costs, _ = CompilerUtils.evaluate_teledata(
+                    current_telegate.records[-1].partition, original_records[next_idx].partition, ctx.network)
+                split_cost = current_telegate.total_costs.epairs + teledata_costs.epairs
+
+                # ###########################################################
+                # 方案二：全部使用telegate
+                # ###########################################################
+                merge_cost = new_telegate.total_costs.epairs
+
+                print(f"[DEBUG] split cost: {split_cost} = {current_telegate.total_costs.epairs} + {teledata_costs.epairs}, merge cost: {merge_cost}")
+
+                if merge_cost < split_cost:
+                    # 合并更优，继续扩展
+                    current_telegate = new_telegate
+                    current_end = next_idx
+                    next_idx += 1
+                else:
+                    # 合并变差，停止扩展
+                    break
+
+            # 3. 决定最终 [start, current_end] 段使用 telegate 还是纯 teledata
+            # 计算纯 teledata 方案的总成本（包含与左侧的连接）
+            teledata_only_epairs = 0
+            if result.records:
+                teledata_costs, _ = CompilerUtils.evaluate_teledata(
+                    result.records[-1].partition, original_records[start].partition, ctx.network)
+                teledata_only_epairs += teledata_costs.epairs
+                print(f"[DEBUG] teledata_only_epairs: {teledata_only_epairs}")
+            for idx in range(start, current_end):
+                teledata_costs, _ = CompilerUtils.evaluate_teledata(
+                    original_records[idx].partition, original_records[idx+1].partition, ctx.network)
+                teledata_only_epairs += teledata_costs.epairs
+                print(f"[DEBUG] teledata_only_epairs: {teledata_only_epairs}")
+            print(f"[DEBUG] teledata_only_epairs: {teledata_only_epairs}")
+
+            # 计算 telegate 方案的总成本（包含与左侧的连接）
+            telegate_epairs = 0
+            if result.records:
+                teledata_costs, _ = CompilerUtils.evaluate_teledata(
+                    result.records[-1].partition, current_telegate.records[0].partition, ctx.network)
+                telegate_epairs += teledata_costs.epairs
+
+            if telegate_epairs + current_telegate.total_costs.epairs < teledata_only_epairs:
+                result.add_record(current_telegate.records[0])
+            else:
+                for idx in range(start, current_end + 1):
+                    result.add_record(original_records[idx])
+
+            print(f"[INFO] i: {i} Time: {time.time() - length_start_time}")
+
+            # 移动到下一段
+            i = current_end + 1
+
+        ctx.telegate_optimized = True
+
+        end_time = time.time()
+        print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds")
+        print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds", file=sys.stderr)
+        return result

@@ -10,8 +10,8 @@ import datetime
 from qiskit import QuantumCircuit, transpile
 from qiskit.converters import circuit_to_dag
 
-from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
-from ..utils import Network
+from ..compiler import Compiler, CompilerUtils, ExecCosts, MappingRecord, MappingRecordList
+from ..utils import Network, log
 from .partitioner import Partitioner, PartitionerFactory
 from .partition_assigner import PartitionAssignerFactory
 from .telegate_partitioner import TelegatePartitionerFactory
@@ -47,6 +47,7 @@ class NAVIHybrid(Compiler):
 
         # 1. 解析配置
         circuit_name = config.get("circuit_name", "circ")
+        use_noise_aware_hybrid_records = bool(config.get("use_noise_aware_hybrid_records", False))
         
         # 2. 初始化组件
         partitioner_type = config.get("partitioner", "recursive_dp")
@@ -57,11 +58,17 @@ class NAVIHybrid(Compiler):
         partition_assigner_type = config.get("partition_assigner", "global_max_match")
         partition_assigner = PartitionAssignerFactory.create_assigner(partition_assigner_type)
 
-        telegate_partitioner_type = config.get("telegate_partitioner", "cat")
+        telegate_partitioner_type = config.get("telegate_partitioner", "cat") # "oee", "cat"
         telegate_partitioner = TelegatePartitionerFactory.create_telegate_partitioner(telegate_partitioner_type)
 
-        # mapper_type = config.get("mapper", "dp")
-        mapper_type = config.get("mapper", "boundeddp_neighbor")
+        # hybrid records模式与mapper绑定：
+        # - noise-aware records: direct mapper
+        # - beam records(all-to-all cost model): boundeddp_neighbor mapper
+        # mapper_type = "direct" if use_noise_aware_hybrid_records else "direct" # "boundeddp_neighbor"
+        # mapper = MapperFactory.create_mapper(mapper_type)
+        # hybrid records模式默认使用single_record_debug，
+        # 也支持通过config["mapper"]覆盖。
+        mapper_type = config.get("mapper", "single_record_debug")
         mapper = MapperFactory.create_mapper(mapper_type)
 
         # 3. 初始化上下文 (Context)
@@ -101,14 +108,29 @@ class NAVIHybrid(Compiler):
         print(f"[partition assignment] Time: {assign_elapsed}s, candidates={len(ctx.partition_candidates)}")
         print(f"[partition assignment] Time: {assign_elapsed}s, candidates={len(ctx.partition_candidates)}", file=sys.stderr)
 
-        # Step 6: 直接构建telegate和teledata混合的记录列表，供后续mapper使用
-        hybrid_strategy = config.get("hybrid_strategy", "beam")
-        if hybrid_strategy == "greedy":
-            ctx.hybrid_records = self._step_construct_hybrid_records_greedy(ctx)
-        elif hybrid_strategy == "beam":
-            ctx.hybrid_records = self._step_construct_hybrid_records_beam(ctx)
+        # Step 6.1: 先构建teledata-only记录，供后续与hybrid records比较
+        teledata_only_records = self._step_construct_teledata_only_records(ctx)
+        teledata_eval_epairs = float(teledata_only_records.total_costs.epairs)
+
+        # Step 6.2: 构建telegate和teledata混合记录（可选噪声感知映射协同版）
+        if use_noise_aware_hybrid_records:
+            ctx.hybrid_records = self._step_construct_noise_aware_hybrid_records(ctx)
         else:
-            ctx.hybrid_records = self._step_construct_hybrid_records(ctx)
+            ctx.hybrid_records = self._step_construct_hybrid_records_beam(ctx)
+        hybrid_eval_epairs = ctx.hybrid_records.total_costs.epairs
+
+        # TODO: Step 6.3: 构建telegate-only记录
+
+        # Step 6.3: 在all-to-all口径下比较epairs，选择更优者进入mapper
+        chosen_records_tag = "hybrid"
+        if teledata_eval_epairs < hybrid_eval_epairs:
+            ctx.hybrid_records = teledata_only_records
+            chosen_records_tag = "teledata_only"
+
+        log(
+            f"[records_compare][all_to_all] hybrid_epairs={hybrid_eval_epairs}, "
+            f"teledata_only_epairs={teledata_eval_epairs}, chosen={chosen_records_tag}"
+        )
 
         total_cache_hits = ctx.telegate_cache_hits + ctx.telegate_cache_relaxed_hits
         total_telegate_calls = total_cache_hits + ctx.telegate_cache_misses
@@ -118,88 +140,97 @@ class NAVIHybrid(Compiler):
             range_unique = len(ctx.telegate_range_seen_keys)
             strict_repeat = max(0, ctx.telegate_total_calls - strict_unique)
             range_repeat = max(0, ctx.telegate_total_calls - range_unique)
-            print(
+            log(
                 f"[telegate_cache] strict_hits={ctx.telegate_cache_hits}, relaxed_hits={ctx.telegate_cache_relaxed_hits}, "
                 f"misses={ctx.telegate_cache_misses}, "
-                f"hit_rate={hit_rate:.2%}"
-            )
-            print(
-                f"[telegate_cache] strict_hits={ctx.telegate_cache_hits}, relaxed_hits={ctx.telegate_cache_relaxed_hits}, "
-                f"misses={ctx.telegate_cache_misses}, "
-                f"hit_rate={hit_rate:.2%}",
-                file=sys.stderr,
-            )
-            print(
+                f"hit_rate={hit_rate:.2%}\n"
                 f"[telegate_keys] calls={ctx.telegate_total_calls}, "
                 f"strict_unique={strict_unique}, strict_repeat={strict_repeat}, "
                 f"range_unique={range_unique}, range_repeat={range_repeat}"
             )
-            print(
-                f"[telegate_keys] calls={ctx.telegate_total_calls}, "
-                f"strict_unique={strict_unique}, strict_repeat={strict_repeat}, "
-                f"range_unique={range_unique}, range_repeat={range_repeat}",
-                file=sys.stderr,
-            )
-
-        # 诊断：mapper 前混合候选的 CAT 使用情况
-        ctx.hybrid_records.summarize_total_costs()
-        pre_mapper_costs = ctx.hybrid_records.total_costs
-        pre_mapper_path_epairs = pre_mapper_costs.epairs
-        if len(ctx.hybrid_records.records) > 1:
-            pre_mapper_path_epairs = 0.0
-            for idx, rec in enumerate(ctx.hybrid_records.records):
-                pre_mapper_path_epairs += rec.costs.epairs
-                if idx > 0:
-                    td_costs, _ = CompilerUtils.evaluate_teledata(
-                        ctx.hybrid_records.records[idx - 1].partition,
-                        rec.partition,
-                        ctx.network,
-                    )
-                    pre_mapper_path_epairs += td_costs.epairs
-        pre_mapper_telegate = sum(1 for rec in ctx.hybrid_records.records if rec.mapping_type in {"telegate", "cat"})
-        pre_mapper_cat_records = sum(1 for rec in ctx.hybrid_records.records if rec.costs.cat_ents > 0)
-        print(
-            f"[cat_debug][hybrid_pre_mapper] records={len(ctx.hybrid_records.records)}, "
-            f"telegate_records={pre_mapper_telegate}, cat_records={pre_mapper_cat_records}, "
-            f"cat_ents={pre_mapper_costs.cat_ents}, epairs={pre_mapper_costs.epairs}, "
-            f"path_epairs_with_teledata={pre_mapper_path_epairs}"
-        )
-        print(
-            f"[cat_debug][hybrid_pre_mapper] records={len(ctx.hybrid_records.records)}, "
-            f"telegate_records={pre_mapper_telegate}, cat_records={pre_mapper_cat_records}, "
-            f"cat_ents={pre_mapper_costs.cat_ents}, epairs={pre_mapper_costs.epairs}, "
-            f"path_epairs_with_teledata={pre_mapper_path_epairs}",
-            file=sys.stderr,
-        )
 
         # Step 7: 最终映射 (考虑噪声)
         assert ctx.mapper is not None
-        final_result = ctx.mapper.map(
-            ctx.hybrid_records, 
-            ctx.circuit,
-            ctx.circuit_layers, 
-            ctx.network,
-            config=ctx.config,
-        )
+
+        # 单record场景下，同时输出贪心与全排列两种mapper的结果，便于直接比较。
+        compare_single_record_mappers = bool(config.get("compare_single_record_mappers", True))
+        if compare_single_record_mappers and len(ctx.hybrid_records.records) == 1:
+            compare_mapper_ids = ["single_record_greedy", "single_record_refined", "single_record_debug"]
+            compare_results: dict[str, MappingRecordList] = {}
+
+            for mid in compare_mapper_ids:
+                mapper_i = MapperFactory.create_mapper(mid)
+                mapped_i = mapper_i.map(
+                    copy.deepcopy(ctx.hybrid_records),
+                    ctx.circuit,
+                    ctx.circuit_layers,
+                    ctx.network,
+                    config=ctx.config,
+                )
+                mapped_i.summarize_total_costs()
+                compare_results[mid] = mapped_i
+
+                c = mapped_i.total_costs
+                log(
+                    f"[mapper_compare] mapper={mid}, "
+                    f"epairs={c.epairs}, total_fidelity_loss={c.total_fidelity_loss}, "
+                    f"num_comms={c.num_comms}, cat_ents={c.cat_ents}"
+                )
+
+            preferred_mapper = str(config.get("mapper", "single_record_refined")).lower()
+            if preferred_mapper in compare_results:
+                final_result = compare_results[preferred_mapper]
+            else:
+                best_mid = min(
+                    compare_results,
+                    key=lambda mid: (
+                        compare_results[mid].total_costs.total_fidelity_loss,
+                        compare_results[mid].total_costs.epairs,
+                    ),
+                )
+                final_result = compare_results[best_mid]
+                log(f"[mapper_compare] preferred mapper '{preferred_mapper}' not in compare set, fallback to best='{best_mid}'")
+
+            c = final_result.total_costs
+            log(
+                f"[mapper_compare] selected_result mapper={preferred_mapper}, "
+                f"epairs={c.epairs}, total_fidelity_loss={c.total_fidelity_loss}"
+            )
+        else:
+            final_result = ctx.mapper.map(
+                ctx.hybrid_records,
+                ctx.circuit,
+                ctx.circuit_layers,
+                ctx.network,
+                config=ctx.config,
+            )
 
         end_time = time.time()
         exec_time = end_time - start_time
-        print(f"[INFO] NAVI Hybrid execution time: {exec_time} sec", file=sys.stderr)
+        log(f"[INFO] NAVI Hybrid execution time: {exec_time} sec")
+
+        get_ori_subc_calls = int(getattr(ctx, "get_ori_subc_calls", 0))
+        get_ori_subc_total_time = float(getattr(ctx, "get_ori_subc_total_time", 0.0))
+        get_ori_subc_avg_time = (
+            get_ori_subc_total_time / get_ori_subc_calls if get_ori_subc_calls > 0 else 0.0
+        )
+        get_ori_subc_ratio = (
+            get_ori_subc_total_time / exec_time if exec_time > 0 else 0.0
+        )
+        log(
+            f"[perf][_get_ori_subc] calls={get_ori_subc_calls}, "
+            f"total={get_ori_subc_total_time:.6f}s, avg={get_ori_subc_avg_time:.6f}s, "
+            f"ratio={get_ori_subc_ratio:.2%}"
+        )
 
         final_result.summarize_total_costs()
         post_mapper_costs = final_result.total_costs
         post_mapper_telegate = sum(1 for rec in final_result.records if rec.mapping_type in {"telegate", "cat"})
         post_mapper_cat_records = sum(1 for rec in final_result.records if rec.costs.cat_ents > 0)
-        print(
+        log(
             f"[cat_debug][hybrid_post_mapper] records={len(final_result.records)}, "
             f"telegate_records={post_mapper_telegate}, cat_records={post_mapper_cat_records}, "
             f"cat_ents={post_mapper_costs.cat_ents}, epairs={post_mapper_costs.epairs}"
-        )
-        print(
-            f"[cat_debug][hybrid_post_mapper] records={len(final_result.records)}, "
-            f"telegate_records={post_mapper_telegate}, cat_records={post_mapper_cat_records}, "
-            f"cat_ents={post_mapper_costs.cat_ents}, epairs={post_mapper_costs.epairs}",
-            file=sys.stderr,
         )
         final_result.update_total_costs(execution_time = exec_time)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -211,6 +242,66 @@ class NAVIHybrid(Compiler):
     # 步骤实现 (Step Implementations)
     # =========================================================================
 
+    def _get_all_to_all_eval_network(self, ctx: CompilationContext) -> Network:
+        """
+        获取预构建的all-to-all评估网络副本。
+        """
+        prebuilt = getattr(ctx.network, "all_to_all_copy", None)
+        if prebuilt is not None:
+            return prebuilt
+
+        raise RuntimeError("[ERROR] ctx.network.all_to_all_copy is missing.")
+
+    def _sample_budgeted_indices(self, start_idx: int, end_idx: int, budget: int) -> list[int]:
+        """
+        在[start_idx, end_idx]范围内按预算采样索引，保证包含头尾。
+        """
+        if end_idx < start_idx:
+            return []
+
+        budget = max(1, int(budget))
+        span_len = end_idx - start_idx + 1
+        if span_len <= budget:
+            return list(range(start_idx, end_idx + 1))
+
+        picked: set[int] = {start_idx, end_idx}
+        if budget > 2:
+            inner = budget - 2
+            for t in range(1, inner + 1):
+                idx = start_idx + (t * (span_len - 1)) // (inner + 1)
+                picked.add(idx)
+
+        return sorted(picked)
+
+    def _step_construct_teledata_only_records(self, ctx: CompilationContext) -> MappingRecordList:
+        """
+        基于partition_plan构建teledata-only记录，并将all-to-all口径epairs写入record.costs。
+        """
+        mapping_record_list = MappingRecordList()
+        eval_network = ctx.network # self._get_all_to_all_eval_network(ctx)
+        prev_partition: Optional[list[list[int]]] = None
+
+        for idx, (s, e) in enumerate(ctx.subc_ranges):
+            left, right = self.get_original_layer_idx(ctx, (s, e))
+            record = MappingRecord(
+                layer_start=left,
+                layer_end=right,
+                partition=ctx.partition_plan[idx],
+                mapping_type="teledata",
+            )
+
+            if prev_partition is not None:
+                td_costs, _ = CompilerUtils.evaluate_teledata(prev_partition, record.partition, eval_network)
+                record.costs = copy.deepcopy(td_costs)
+            else:
+                record.costs = ExecCosts()
+            prev_partition = record.partition
+
+            mapping_record_list.add_record(record)
+
+        mapping_record_list.summarize_total_costs()
+        return mapping_record_list
+
     def _step_remove_single_qubit_gates(self, ctx: CompilationContext):
         """
         Remove single qubit gates and calculate densities.
@@ -218,18 +309,13 @@ class NAVIHybrid(Compiler):
         """
         start_time = time.time()
 
-        if bool(ctx.config.get("enable_cat_gate_reorder", True)):
+        if bool(ctx.config.get("enable_cat_gate_reorder", False)):
             reordered_circuit, reorder_stats = self._reorder_cat_candidate_gates(ctx.circuit)
             ctx.circuit = reordered_circuit
             if bool(ctx.config.get("debug_cat_gate_reorder", True)):
-                print(
+                log(
                     f"[cat_debug][gate_reorder] runs={reorder_stats['runs']}, "
                     f"gates={reorder_stats['gates']}, moved={reorder_stats['moved']}"
-                )
-                print(
-                    f"[cat_debug][gate_reorder] runs={reorder_stats['runs']}, "
-                    f"gates={reorder_stats['gates']}, moved={reorder_stats['moved']}",
-                    file=sys.stderr,
                 )
 
         ctx.dag = circuit_to_dag(ctx.circuit)
@@ -237,8 +323,6 @@ class NAVIHybrid(Compiler):
         circuit_layers = [] # 每一层存放的是原始量子线路上所有量子门，如果双量子比特门被拆分了，它也要被拆分
         multiq_layers = []
         map_to_circuit_layer = {}
-        # map_to_multiq_layer = {}
-        # pos_count, cu1_count, gate_count = 0, 0, 0
         pos_count, twoq_count, gate_count = 0, 0, 0
 
         n_backends = ctx.network.num_backends
@@ -302,7 +386,7 @@ class NAVIHybrid(Compiler):
         ctx.map_to_circuit_layer = map_to_circuit_layer
 
         end_time = time.time()
-        print(f"[INFO] remove_single_qubit_gates: {end_time - start_time} seconds", file=sys.stderr)
+        log(f"[INFO] remove_single_qubit_gates: {end_time - start_time} seconds")
         return
 
     def _reorder_cat_candidate_gates(self, circuit: QuantumCircuit) -> tuple[QuantumCircuit, dict[str, int]]:
@@ -442,14 +526,13 @@ class NAVIHybrid(Compiler):
                             if i + 1 <= j:
                                 P[i+1][j] = P[i][j]
 
-        print(f"[build_partition_table] Partition calculation times: {cnt}.")
+        log(f"[build_partition_table] Partition calculation times: {cnt}.")
 
         # [disabled] 在P-table阶段预评估telegate hint。
         # 相关逻辑按需求临时停用，仅保留代码以便后续恢复。
         # self._build_telegate_hints_for_empty_partitions(ctx, P)
 
-        print(f"[build_partition_table] Time: {time.time() - start_time} seconds")
-        print(f"[build_partition_table] Time: {time.time() - start_time} seconds", file=sys.stderr)
+        log(f"[build_partition_table] Time: {time.time() - start_time} seconds")
         return P
 
     # def _build_telegate_hints_for_empty_partitions(self, ctx: CompilationContext, P: list[list[list[Any]]]) -> None:
@@ -553,253 +636,6 @@ class NAVIHybrid(Compiler):
         print(f"[build_slicing_table] Time: {time.time() - start_time} seconds", file=sys.stderr)
         return subc_ranges
 
-    def _step_construct_hybrid_records(self, ctx: CompilationContext) -> MappingRecordList:
-        """
-        直接获取telegate和teledata混合的记录列表，供后续mapper使用
-        更新：ctx.hybrid_records
-        """
-        start_time = time.time()
-
-        # 根据S-table，对于每一个分割点，尝试用telegate替换，并评估成本，如果更优则替换
-        # 1. 获取原子块列表
-        # blocks 是一个列表，每个元素是 (start_layer, end_layer)，对应 multiq_layer 的索引
-        blocks = ctx.subc_ranges
-        K = len(blocks) # K 是原子块的数量
-
-        print(f"[construct_hybrid_records] Number of atomic blocks: {K}")
-        print(f"[construct_hybrid_records] Number of atomic blocks: {K}", file=sys.stderr)
-
-        if K == 0:
-            return MappingRecordList()
-
-        # 2. 预计算：为了方便，我们先把所有原子块的初始 Record 生成好
-        # original_block_records[k] 对应 blocks[k] 的纯 teledata 记录
-        original_block_records: list[MappingRecord] = []
-        for idx, (s, e) in enumerate(blocks):
-            # left = ctx.map_to_circuit_layer[s]
-            # right = ctx.map_to_circuit_layer[e]
-            left, right = self.get_original_layer_idx(ctx, (s, e))
-            # logical_phy_map = CompilerUtils.init_logical_phy_map(ctx.partition_plan[idx])
-            record = MappingRecord(
-                layer_start=left,
-                layer_end=right,
-                partition=ctx.partition_plan[idx],
-                mapping_type="teledata" # ,
-                # logical_phy_map=logical_phy_map
-                # costs还没计算
-            )
-            original_block_records.append(record)
-
-        # 3. 初始化 DP 表
-        # dp[i][j] 表示合并处理 blocks[i...j] (闭区间) 的最优方案
-        dp = [[MappingRecordList() for _ in range(K)] for _ in range(K)]
-
-        # 4. 基准情况：长度为 1 (不合并，保持原样)
-        for i in range(K):
-            # 单个teledata-only块内部没有通信成本，也没有前序连接成本，基准成本设为 0
-            dp[i][i].add_record(copy.deepcopy(original_block_records[i]))
-
-        # 5. 自底向上填充 DP 表：长度从 2 到 K
-        for length in range(2, K + 1):
-            length_start_time = time.time()
-
-            for i in range(K - length + 1):
-                j = i + length - 1
-                
-                best_epairs = float('inf')
-                best_record_list = None
-
-                # --- 选项 1：切分 (Split) ---
-                # 遍历所有可能的切分点 k，将 [i..j] 分为 [i..k] 和 [k+1..j]
-                # 注意：因为我们的最小单位是块，所以切分只能发生在块与块之间
-                # 只切分中间
-                for k in range(i, j):
-                # # --- 选项 1：由小区间最优解组合而来（试三个关键点）---
-                # # 定义要试的切分点：左、中、右
-                # candidate_ks = [i, (i + j) // 2, j - 1]
-                # candidate_ks = list(set(candidate_ks)) # 去重（当区间长度很小时，这三个点可能重复）
-                # candidate_ks.sort()
-                # for k in candidate_ks:
-
-                    left_entry = dp[i][k]
-                    right_entry = dp[k+1][j]
-                    
-                    # 合并记录列表
-                    combined_records = MappingRecordList()
-                    combined_records.records = copy.deepcopy(left_entry.records) + \
-                                               copy.deepcopy(right_entry.records)
-                    
-                    # 计算成本：左边成本 + 右边成本 + 拼接处的通信成本
-                    # 拼接处通信成本 = 左边最后一个 Record 与右边第一个 Record 之间的 Teledata 成本
-                    # 找到左右两边的连接处
-                    left_last_idx = len(left_entry.records) - 1
-                    prev_rec = combined_records.records[left_last_idx]
-                    curr_rec = combined_records.records[left_last_idx + 1]
-                    
-                    # 计算这两个特定 Record 之间的切换成本
-                    costs = CompilerUtils.evaluate_teledata(prev_rec, curr_rec, ctx.network)
-                    # 更新combined_records的total_costs
-                    combined_records.summarize_total_costs()
-
-                    if combined_records.total_costs.epairs < best_epairs:
-                        best_epairs = combined_records.total_costs.epairs
-                        best_record_list = combined_records
-
-                if length < max(int(0.3 * K), 20):
-                    # --- 选项 2：整体替换 (Merge & Telegate) ---
-                    # 尝试把 blocks[i] 到 blocks[j] 这一整段，全部用 telegate 来做
-                    # 1. 确定物理层范围
-                    global_start_layer = original_block_records[i].layer_start
-                    global_end_layer = original_block_records[j].layer_end
-
-                    # 2. 尝试生成 telegate
-                    # initial_partition设成block[i-1]的partition（如果i>0），让telegate_partitioner有个初始方案可以基于它进行优化
-                    prev_partition = None
-                    if i > 0:
-                        prev_partition = original_block_records[i-1].partition
-
-                    telegate_result = self._try_generate_telegate(
-                        ctx, global_start_layer, global_end_layer, prev_partition
-                    )
-
-                    # 比较
-                    if telegate_result.total_costs.epairs < best_epairs:
-                        best_epairs = telegate_result.total_costs.epairs
-                        best_record_list = telegate_result
-
-                assert best_record_list is not None, f"[ERROR] best_record_list should not be None for blocks[{i}..{j}]"
-                dp[i][j] = best_record_list
-
-            print(f"[INFO] length: {length} / {K} Time: {time.time() - length_start_time}")
-
-        # 6. 最终结果        
-        ctx.telegate_optimized = True
-
-        end_time = time.time()
-        print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds")
-        print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds", file=sys.stderr)
-
-        return dp[0][K-1]
-
-    def _step_construct_hybrid_records_greedy(self, ctx: CompilationContext) -> MappingRecordList:
-        """
-        贪心构建混合记录：从左到右扫描，每次尽可能将连续的原子块合并为一个 telegate，
-        仅当合并会恶化成本时才切分。telegate 划分调用次数为 O(K)。
-        """
-        start_time = time.time()
-        blocks = ctx.subc_ranges
-        K = len(blocks)
-        print(f"[construct_hybrid_records] Number of atomic blocks: {K}")
-        print(f"[construct_hybrid_records] Number of atomic blocks: {K}", file=sys.stderr)
-
-        if K == 0:
-            return MappingRecordList()
-
-        # 预生成纯 teledata 记录（不含成本，仅保留分区信息）
-        original_records: list[MappingRecord] = []
-        for idx, (s, e) in enumerate(blocks):
-            left, right = self.get_original_layer_idx(ctx, (s, e))
-            record = MappingRecord(
-                layer_start=left,
-                layer_end=right,
-                partition=ctx.partition_plan[idx],
-                mapping_type="teledata"
-            )
-            original_records.append(record)
-
-        result = MappingRecordList()
-        i = 0
-        while i < K:
-            length_start_time = time.time()
-
-            start = i
-            # 获取前一个记录的 partition，用于 telegate 初始划分
-            prev_partition = result.records[-1].partition if result.records else None
-
-            # 1. 生成仅包含 start 块的 telegate 候选
-            s_layer = original_records[start].layer_start
-            e_layer = original_records[start].layer_end
-            current_telegate = self._try_generate_telegate(ctx, s_layer, e_layer, prev_partition)
-            current_end = start
-
-            # 2. 尝试向右扩展，每次扩展一步
-            next_idx = current_end + 1
-            while next_idx < K:
-
-                print(f"[DEBUG] next_idx: {next_idx}")
-
-                # 生成覆盖 [start, next_idx] 的新 telegate
-                new_e_layer = original_records[next_idx].layer_end
-                new_telegate = self._try_generate_telegate(
-                    ctx, s_layer, new_e_layer, current_telegate.records[-1].partition
-                )
-
-                print(f"[DEBUG] new_telegate: epairs [{new_telegate.total_costs.epairs}]")
-
-                # ###########################################################
-                # 方案一：保持当前段为 telegate，下一个块单独作为 teledata
-                # ###########################################################
-                # 计算分开方案的成本：当前 telegate 内部成本 + 与下一个 teledata 块的连接成本
-                teledata_costs, _ = CompilerUtils.evaluate_teledata(
-                    current_telegate.records[-1].partition, original_records[next_idx].partition, ctx.network)
-                split_cost = current_telegate.total_costs.epairs + teledata_costs.epairs
-
-                # ###########################################################
-                # 方案二：全部使用telegate
-                # ###########################################################
-                merge_cost = new_telegate.total_costs.epairs
-
-                print(f"[DEBUG] split cost: {split_cost} = {current_telegate.total_costs.epairs} + {teledata_costs.epairs}, merge cost: {merge_cost}")
-
-                if merge_cost < split_cost:
-                    # 合并更优，继续扩展
-                    current_telegate = new_telegate
-                    current_end = next_idx
-                    next_idx += 1
-                else:
-                    # 合并变差，停止扩展
-                    break
-
-            # 3. 决定最终 [start, current_end] 段使用 telegate 还是纯 teledata
-            # 计算纯 teledata 方案的总成本（包含与左侧的连接）
-            teledata_only_epairs = 0
-            if result.records:
-                teledata_costs, _ = CompilerUtils.evaluate_teledata(
-                    result.records[-1].partition, original_records[start].partition, ctx.network)
-                teledata_only_epairs += teledata_costs.epairs
-                print(f"[DEBUG] teledata_only_epairs: {teledata_only_epairs}")
-            for idx in range(start, current_end):
-                teledata_costs, _ = CompilerUtils.evaluate_teledata(
-                    original_records[idx].partition, original_records[idx+1].partition, ctx.network)
-                teledata_only_epairs += teledata_costs.epairs
-                print(f"[DEBUG] teledata_only_epairs: {teledata_only_epairs}")
-            print(f"[DEBUG] teledata_only_epairs: {teledata_only_epairs}")
-
-            # 计算 telegate 方案的总成本（包含与左侧的连接）
-            telegate_epairs = 0
-            if result.records:
-                teledata_costs, _ = CompilerUtils.evaluate_teledata(
-                    result.records[-1].partition, current_telegate.records[0].partition, ctx.network)
-                telegate_epairs += teledata_costs.epairs
-
-            if telegate_epairs + current_telegate.total_costs.epairs < teledata_only_epairs:
-                result.add_record(current_telegate.records[0])
-            else:
-                for idx in range(start, current_end + 1):
-                    result.add_record(original_records[idx])
-
-            print(f"[INFO] i: {i} Time: {time.time() - length_start_time}")
-
-            # 移动到下一段
-            i = current_end + 1
-
-        ctx.telegate_optimized = True
-
-        end_time = time.time()
-        print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds")
-        print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds", file=sys.stderr)
-        return result
-
     def _step_construct_hybrid_records_beam(self, ctx: CompilationContext) -> MappingRecordList:
         """
         束搜索构建混合记录
@@ -813,25 +649,32 @@ class NAVIHybrid(Compiler):
         K = len(blocks)
 
         beam_width = int(ctx.config.get("hybrid_beam_width", 3))
+        # 最多合并多少个block
         max_merge_span = int(ctx.config.get("hybrid_max_merge_span", 12))
+        # 在每个pos，最多尝试几次_try_generate_telegate
+        merge_probe_budget = int(ctx.config.get("hybrid_merge_probe_budget", 12))
+        # 最多探查几个pos
+        pos_probe_budget = int(ctx.config.get("hybrid_pos_probe_budget", 1))
         # 仅当候选显著超出 beam_width 时才做前向剪枝，减少重复排序开销。
         prune_trigger_ratio = int(ctx.config.get("hybrid_prune_trigger_ratio", 5))
+        # 防止数值输入有误
         beam_width = max(1, beam_width)
         max_merge_span = max(1, max_merge_span)
+        merge_probe_budget = max(1, merge_probe_budget)
+        pos_probe_budget = max(1, pos_probe_budget)
         prune_trigger_ratio = max(2, prune_trigger_ratio)
 
-        print(
+        log(
             f"[construct_hybrid_records_beam] blocks={K}, beam_width={beam_width}, "
-            f"max_merge_span={max_merge_span}, objective=(min epairs, max cat_ents, max hint_hits)"
-        )
-        print(
-            f"[construct_hybrid_records_beam] blocks={K}, beam_width={beam_width}, "
-            f"max_merge_span={max_merge_span}, objective=(min epairs, max cat_ents, max hint_hits)",
-            file=sys.stderr,
+            f"max_merge_span={max_merge_span}, merge_probe_budget={merge_probe_budget}, "
+            f"pos_probe_budget={pos_probe_budget}, "
+            f"objective=(min epairs, max cat_ents)"
         )
 
         if K == 0:
             return MappingRecordList()
+
+        eval_network = ctx.network # self._get_all_to_all_eval_network(ctx)
 
         original_records: list[MappingRecord] = []
         for idx, (s, e) in enumerate(blocks):
@@ -873,14 +716,22 @@ class NAVIHybrid(Compiler):
             pruned = sorted(best_by_sig.values(), key=_state_key)
             return pruned[:beam_width]
 
+        telegate_probe_positions = set(self._sample_budgeted_indices(0, K - 1, pos_probe_budget))
+        log(
+            f"[construct_hybrid_records_beam] telegate_probe_positions: {telegate_probe_positions}\n"
+            f"[construct_hybrid_records_beam] telegate_probe_positions={len(telegate_probe_positions)}/{K}"
+        )
+
         for pos in range(K):
-            # print(f"================= {pos} / {K} ==================")
+            print(f"\n================= {pos} / {K} ==================")
             pos_start_time = time.time()
             # 消费前剪枝：保证本层展开输入受控。
             if pos in states and len(states[pos]) > beam_width:
                 states[pos] = _prune(states[pos])
             current_states = states.get(pos, [])
+
             if not current_states:
+                log(f"[WARNING] pos {pos} has no states")
                 continue
 
             for base_epairs, base_cat_ents, base_hint_hits, base_records in current_states:
@@ -896,56 +747,80 @@ class NAVIHybrid(Compiler):
                 transition_cost = 0.0
                 if prev_partition is not None:
                     td_costs, _ = CompilerUtils.evaluate_teledata(
-                        prev_partition, td_record.partition, ctx.network
+                        prev_partition, td_record.partition, eval_network
                     )
-                    transition_cost = td_costs.epairs
+                    td_record.costs = copy.deepcopy(td_costs)
+                else:
+                    td_record.costs = ExecCosts()
+
+                transition_cost = float(td_record.costs.epairs)
 
                 next_epairs = base_epairs + transition_cost
                 states.setdefault(pos + 1, []).append((next_epairs, base_cat_ents, base_hint_hits, base_records + [td_record]))
 
-                # 选项 B：从 pos 开始合并为 telegate。
-                start_layer = original_records[pos].layer_start
-                upper_end = min(K - 1, pos + max_merge_span - 1)
+                # 选项 B：仅在采样到的pos上展开telegate，控制重计算规模。
+                if pos in telegate_probe_positions:
+                    start_layer = original_records[pos].layer_start
+                    upper_end = min(K - 1, pos + max_merge_span - 1)
+                    sampled_ends = self._sample_budgeted_indices(pos, upper_end, merge_probe_budget)
 
-                for end in range(pos, upper_end + 1):
-                    # TODO: 根据线路增长的epairs信息，决定是否需要进一步延长telegate测试
-                    end_layer = original_records[end].layer_end
-                    # print(f"[DEBUG] ===== {start_layer} - {end_layer} =====")
+                    if pos == 0 and (K - 1) not in sampled_ends:
+                        sampled_ends.append(K - 1)
+                        sampled_ends = sorted(set(sampled_ends))
 
-                    telegate_result = self._try_generate_telegate(
-                        ctx, start_layer, end_layer, prev_partition
+                    log(
+                        f"[construct_hybrid_records_beam] Sampling telegate for position {pos}, sampled ends: {sampled_ends}"
                     )
 
-                    tg_record = copy.deepcopy(telegate_result.records[0])
-                    transition_cost = 0.0
-                    if prev_partition is not None:
-                        tg_link_costs, _ = CompilerUtils.evaluate_teledata(
-                            prev_partition, tg_record.partition, ctx.network
+                    for end in sampled_ends:
+                        end_layer = original_records[end].layer_end
+                        # print(f"[DEBUG] ===== {start_layer} - {end_layer} =====")
+
+                        telegate_result = self._try_generate_telegate(
+                            ctx,
+                            start_layer,
+                            end_layer,
+                            prev_partition,
                         )
-                        transition_cost = tg_link_costs.epairs
-                    
-                    # print(f"[DEBUG] Telegate partition for layer {start_layer}-{end_layer}\n{tg_record.partition}")
-                    # print(f"[DEBUG] Transition cost: {transition_cost}\n")
 
-                    seg_cat_ents = int(telegate_result.total_costs.cat_ents)
-                    merged_epairs = base_epairs + transition_cost + telegate_result.total_costs.epairs
-                    merged_cat_ents = base_cat_ents + seg_cat_ents
+                        tg_record = copy.deepcopy(telegate_result.records[0])
+                        transition_cost = 0.0
+                        if prev_partition is not None:
+                            tg_link_costs, _ = CompilerUtils.evaluate_teledata(
+                                prev_partition, tg_record.partition, eval_network
+                            )
+                            tg_record.costs += tg_link_costs
 
-                    # [disabled] hint命中统计暂时停用。
-                    # hint = ptable_hints.get((start_layer, end_layer))
-                    # hint_hit = 1 if hint is not None and float(hint.get("cat_ents", 0.0)) > 0.0 else 0
-                    hint_hit = 0
-                    merged_hint_hits = base_hint_hits + hint_hit
+                        # transition_cost = float(tg_record.costs.epairs) - float(telegate_result.total_costs.epairs)
+                        
+                        # print(f"[DEBUG] Telegate partition for layer {start_layer}-{end_layer}\n{tg_record.partition}")
+                        # print(f"[DEBUG] Transition cost: {transition_cost}\n")
 
-                    states.setdefault(end + 1, []).append((merged_epairs, merged_cat_ents, merged_hint_hits, base_records + [tg_record]))
+                        seg_cat_ents = int(telegate_result.total_costs.cat_ents)
+                        merged_epairs = base_epairs + float(tg_record.costs.epairs)
+                        merged_cat_ents = base_cat_ents + seg_cat_ents
+
+                        # [disabled] hint命中统计暂时停用。
+                        # hint = ptable_hints.get((start_layer, end_layer))
+                        # hint_hit = 1 if hint is not None and float(hint.get("cat_ents", 0.0)) > 0.0 else 0
+                        hint_hit = 0
+                        merged_hint_hits = base_hint_hits + hint_hit
+
+                        states.setdefault(end + 1, []).append((merged_epairs, merged_cat_ents, merged_hint_hits, base_records + [tg_record]))
 
             # 修剪不好的records路径，控制状态爆炸
             for prune_pos in range(pos + 1, min(K, pos + max_merge_span) + 1):
                 if prune_pos in states and len(states[prune_pos]) > prune_trigger_ratio * beam_width:
                     states[prune_pos] = _prune(states[prune_pos])
+            
+            # 打印states
+            for p, s in states.items():
+                print(f"[DEBUG] Position {p}: ")
+                for state in s:
+                    print(f"[DEBUG] State: {state[0]}, {state[1]}, {state[2]}")
+            
             pos_end_time = time.time()
             print(f"[DEBUG] Position {pos} completed in {pos_end_time - pos_start_time} seconds")
-            # print(f"[DEBUG] Position {pos} completed in {pos_end_time - pos_start_time} seconds", file=sys.stderr)
 
         final_candidates = states.get(K, [])
         if len(final_candidates) > beam_width:
@@ -954,22 +829,539 @@ class NAVIHybrid(Compiler):
             raise RuntimeError("[ERROR] beam search failed to produce any hybrid plan.")
 
         best_projected_epairs, best_projected_cat_ents, best_hint_hits, best_records = min(final_candidates, key=_state_key)
+
         result = MappingRecordList()
         result.records = best_records
         result.summarize_total_costs()
 
         ctx.telegate_optimized = True
         end_time = time.time()
-        print(
+        log(
             f"[construct_hybrid_records_beam] best_key=(epairs={best_projected_epairs}, cat_ents={best_projected_cat_ents}, hint_hits={best_hint_hits}), "
             f"best_epairs={result.total_costs.epairs}, best_cat_ents={result.total_costs.cat_ents}, "
             f"Time: {end_time - start_time} seconds"
         )
-        print(
-            f"[construct_hybrid_records_beam] best_key=(epairs={best_projected_epairs}, cat_ents={best_projected_cat_ents}, hint_hits={best_hint_hits}), "
+        return result
+
+    def _step_construct_noise_aware_hybrid_records(self, ctx: CompilationContext) -> MappingRecordList:
+        """
+        噪声感知束搜索构建混合记录：
+        - 不替换现有 _step_construct_hybrid_records_beam；
+        - 在每一步扩展时显式携带 logical_phy_map；
+        - 用“当前映射下真实保真度损失和epairs增量”做打分。
+
+        评分口径：
+        score = 保真度, 历史累计真实epairs + 当前候选在(teledata + local/telegate)下的真实epairs增量
+        """
+        start_time = time.time()
+        blocks = ctx.subc_ranges
+        K = len(blocks)
+
+        beam_width = int(ctx.config.get("hybrid_beam_width", 3))
+        max_merge_span = int(ctx.config.get("hybrid_max_merge_span", 12))
+        merge_probe_budget = int(ctx.config.get("hybrid_merge_probe_budget", 12))
+        pos_probe_budget = int(ctx.config.get("hybrid_pos_probe_budget", 90))
+        prune_trigger_ratio = int(ctx.config.get("hybrid_prune_trigger_ratio", 5))
+        perm_budget = int(ctx.config.get("noise_aware_perm_budget", 6))
+        perm_neighbor_swaps = int(ctx.config.get("noise_aware_perm_neighbor_swaps", 1))
+        perm_refine_rounds = int(ctx.config.get("noise_aware_perm_refine_rounds", 2))
+        hops_weight = float(ctx.config.get("noise_aware_hops_weight", 1.0))
+        fidelity_loss_weight = float(ctx.config.get("noise_aware_fidelity_loss_weight", 1.0))
+        beam_width = max(1, beam_width)
+        max_merge_span = max(1, max_merge_span)
+        merge_probe_budget = max(1, merge_probe_budget)
+        pos_probe_budget = max(1, pos_probe_budget)
+        prune_trigger_ratio = max(2, prune_trigger_ratio)
+        perm_budget = max(1, perm_budget)
+        perm_neighbor_swaps = max(0, perm_neighbor_swaps)
+        perm_refine_rounds = max(0, perm_refine_rounds)
+
+        log(
+            f"[construct_noise_aware_hybrid_records] blocks={K}, beam_width={beam_width}, "
+            f"max_merge_span={max_merge_span}, merge_probe_budget={merge_probe_budget}, "
+            f"pos_probe_budget={pos_probe_budget}, perm_budget={perm_budget}, "
+            f"perm_neighbor_swaps={perm_neighbor_swaps}, objective=(min real_epairs)"
+        )
+
+        if K == 0:
+            return MappingRecordList()
+
+        cost_eval_network = ctx.network
+        n_backends = ctx.network.num_backends
+
+        original_records: list[MappingRecord] = []
+        for idx, (s, e) in enumerate(blocks):
+            left, right = self.get_original_layer_idx(ctx, (s, e))
+            record = MappingRecord(
+                layer_start=left,
+                layer_end=right,
+                partition=ctx.partition_plan[idx],
+                mapping_type="teledata",
+            )
+            original_records.append(record)
+
+        # states[pos] = [(total_fidelity_loss, epairs, [records...], logical_phy_map), ...]
+        states: dict[int, list[tuple[float, float, list[MappingRecord], dict[int, tuple[int, int | None]]]]] = {
+            0: [(0.0, 0.0, [], {})]
+        }
+        subcircuit_cache: dict[tuple[int, int], QuantumCircuit] = {}
+
+        def _state_key(
+            item: tuple[float, float, list[MappingRecord], dict[int, tuple[int, int | None]]]
+        ) -> tuple[float, float]:
+            total_fidelity_loss, epairs, _, _ = item
+            return (total_fidelity_loss, epairs)
+
+        def _partition_sig(partition: list[list[int]]) -> tuple[tuple[int, ...], ...]:
+            return tuple(tuple(sorted(part)) for part in partition)
+
+        def _prune(
+            candidates: list[tuple[float, float, list[MappingRecord], dict[int, tuple[int, int | None]]]]
+        ) -> list[tuple[float, float, list[MappingRecord], dict[int, tuple[int, int | None]]]]:
+            # 先按“末尾划分签名”去重，保留每种签名成本最小者，再按总成本截断。
+            best_by_sig: dict[
+                tuple[tuple[int, ...], ...],
+                tuple[float, float, list[MappingRecord], dict[int, tuple[int, int | None]]],
+            ] = {}
+            for item in candidates:
+                _, _, recs, _ = item
+                if not recs:
+                    sig = tuple()
+                else:
+                    sig = _partition_sig(recs[-1].partition)
+
+                old = best_by_sig.get(sig)
+                if old is None or _state_key(item) < _state_key(old):
+                    best_by_sig[sig] = item
+
+            pruned = sorted(best_by_sig.values(), key=_state_key)
+            return pruned[:beam_width]
+
+        def _get_record_subcircuit(record: MappingRecord) -> QuantumCircuit:
+            if record.extra_info is not None and "ops" in record.extra_info:
+                return record.extra_info["ops"]
+
+            key = (record.layer_start, record.layer_end)
+            if key in subcircuit_cache:
+                return subcircuit_cache[key]
+
+            subc = CompilerUtils.get_subcircuit_by_level(
+                num_qubits=ctx.circuit.num_qubits,
+                circuit=ctx.circuit,
+                circuit_layers=ctx.circuit_layers,
+                layer_start=record.layer_start,
+                layer_end=record.layer_end,
+            )
+            subcircuit_cache[key] = subc
+            return subc
+
+        def _apply_perm(partition: list[list[int]], perm: tuple[int, ...]) -> list[list[int]]:
+            return [partition[i] for i in perm]
+
+        def _invert_perm(perm: tuple[int, ...]) -> list[int]:
+            # perm[physical] = logical  -> inverse[logical] = physical
+            inv = [-1 for _ in range(len(perm))]
+            for physical, logical in enumerate(perm):
+                inv[logical] = physical
+            return inv
+
+        def _build_prev_preferred_perm(
+            prev_partition: Optional[list[list[int]]],
+            base_logical_map: dict[int, tuple[int, int | None]],
+        ) -> tuple[int, ...]:
+            """
+            从上一状态 logical_phy_map 提取一个“延续性”映射，作为 permutation 搜索起点。
+            返回格式：perm[physical] = logical。
+            """
+            identity = tuple(range(n_backends))
+            if prev_partition is None or len(base_logical_map) == 0:
+                return identity
+
+            vote: list[dict[int, int]] = [dict() for _ in range(n_backends)]
+            for logical_id, group in enumerate(prev_partition):
+                for q in group:
+                    if q not in base_logical_map:
+                        continue
+                    physical_id = base_logical_map[q][0]
+                    if physical_id is None:
+                        continue
+                    bucket = vote[logical_id]
+                    bucket[physical_id] = bucket.get(physical_id, 0) + 1
+
+            assigned_logical: set[int] = set()
+            assigned_physical: set[int] = set()
+            pairs: list[tuple[int, int, int]] = []  # (count, logical, physical)
+            for logical_id in range(n_backends):
+                for physical_id, cnt in vote[logical_id].items():
+                    pairs.append((cnt, logical_id, physical_id))
+            pairs.sort(reverse=True)
+
+            logical_to_physical = [-1 for _ in range(n_backends)]
+            for cnt, logical_id, physical_id in pairs:
+                if cnt <= 0:
+                    continue
+                if logical_id in assigned_logical or physical_id in assigned_physical:
+                    continue
+                logical_to_physical[logical_id] = physical_id
+                assigned_logical.add(logical_id)
+                assigned_physical.add(physical_id)
+
+            free_logical = [x for x in range(n_backends) if logical_to_physical[x] == -1]
+            free_physical = [x for x in range(n_backends) if x not in assigned_physical]
+            for logical_id, physical_id in zip(free_logical, free_physical):
+                logical_to_physical[logical_id] = physical_id
+
+            perm = [-1 for _ in range(n_backends)]
+            for logical_id, physical_id in enumerate(logical_to_physical):
+                perm[physical_id] = logical_id
+            return tuple(perm)
+
+        def _build_pair_demand(
+            prev_partition: Optional[list[list[int]]],
+            curr_partition: list[list[int]],
+            subcircuit: QuantumCircuit,
+        ) -> list[list[float]]:
+            """
+            构建逻辑分区间通信需求矩阵：
+            - 加入 partition 切换造成的迁移需求；
+            - 加入当前子线路中跨分区双比特/CommOp需求。
+            """
+            demand = [[0.0 for _ in range(n_backends)] for _ in range(n_backends)]
+
+            q_to_curr: dict[int, int] = {}
+            for pid, part in enumerate(curr_partition):
+                for q in part:
+                    q_to_curr[q] = pid
+
+            if prev_partition is not None:
+                q_to_prev: dict[int, int] = {}
+                for pid, part in enumerate(prev_partition):
+                    for q in part:
+                        q_to_prev[q] = pid
+
+                for q, prev_pid in q_to_prev.items():
+                    curr_pid = q_to_curr.get(q)
+                    if curr_pid is None or prev_pid == curr_pid:
+                        continue
+                    demand[prev_pid][curr_pid] += 1.0
+
+            for inst in subcircuit:
+                op = inst.operation
+                op_name = getattr(op, "name", "")
+                if op_name.startswith("comm_"):
+                    src = getattr(op, "src_qpu", None)
+                    dst = getattr(op, "dst_qpu", None)
+                    if isinstance(src, int) and isinstance(dst, int) and src != dst:
+                        w = 2.0 if getattr(op, "comm_type", "") == "rtp" else 1.0
+                        demand[src][dst] += w
+                    continue
+
+                if len(inst.qubits) != 2:
+                    continue
+                q0 = subcircuit.qubits.index(inst.qubits[0])
+                q1 = subcircuit.qubits.index(inst.qubits[1])
+                p0 = q_to_curr.get(q0)
+                p1 = q_to_curr.get(q1)
+                if p0 is None or p1 is None or p0 == p1:
+                    continue
+                demand[p0][p1] += 1.0
+                demand[p1][p0] += 1.0
+
+            return demand
+
+        def _mapping_penalty(physical_src: int, physical_dst: int) -> float:
+            if physical_src == physical_dst:
+                return 0.0
+            hops = float(ctx.network.Hops[physical_src][physical_dst])
+            loss = float(ctx.network.move_fidelity_loss[physical_src][physical_dst])
+            return hops_weight * hops + fidelity_loss_weight * loss
+
+        def _score_perm(perm: tuple[int, ...], demand: list[list[float]]) -> float:
+            logical_to_physical = _invert_perm(perm)
+            total = 0.0
+            for lsrc in range(n_backends):
+                psrc = logical_to_physical[lsrc]
+                for ldst in range(n_backends):
+                    w = demand[lsrc][ldst]
+                    if w <= 0:
+                        continue
+                    pdst = logical_to_physical[ldst]
+                    total += w * _mapping_penalty(psrc, pdst)
+            return total
+
+        def _refine_perm_by_swaps(base_perm: tuple[int, ...], demand: list[list[float]]) -> tuple[int, ...]:
+            """
+            对起始perm做小步邻域改进，不做全排列枚举。
+            """
+            best = base_perm
+            best_score = _score_perm(best, demand)
+
+            for _ in range(perm_refine_rounds):
+                improved = False
+                for i in range(n_backends):
+                    for j in range(i + 1, n_backends):
+                        cand = list(best)
+                        cand[i], cand[j] = cand[j], cand[i]
+                        cand_t = tuple(cand)
+                        cand_score = _score_perm(cand_t, demand)
+                        if cand_score + 1e-12 < best_score:
+                            best, best_score = cand_t, cand_score
+                            improved = True
+                if not improved:
+                    break
+            return best
+
+        def _build_perm_candidates(
+            prev_partition: Optional[list[list[int]]],
+            curr_record: MappingRecord,
+            base_logical_map: dict[int, tuple[int, int | None]],
+        ) -> list[tuple[int, ...]]:
+            identity = tuple(range(n_backends))
+            subcircuit = _get_record_subcircuit(curr_record)
+            demand = _build_pair_demand(prev_partition, curr_record.partition, subcircuit)
+
+            seed = _build_prev_preferred_perm(prev_partition, base_logical_map)
+            refined = _refine_perm_by_swaps(seed, demand)
+
+            candidates: list[tuple[int, ...]] = []
+            seen: set[tuple[int, ...]] = set()
+
+            def _push(p: tuple[int, ...]) -> None:
+                if p in seen:
+                    return
+                candidates.append(p)
+                seen.add(p)
+
+            _push(seed)
+            _push(refined)
+            _push(identity)
+
+            frontier = list(candidates)
+            for _ in range(perm_neighbor_swaps):
+                if len(candidates) >= perm_budget:
+                    break
+                next_frontier: list[tuple[int, ...]] = []
+                for perm in frontier:
+                    if len(candidates) >= perm_budget:
+                        break
+                    for i in range(n_backends):
+                        for j in range(i + 1, n_backends):
+                            cand = list(perm)
+                            cand[i], cand[j] = cand[j], cand[i]
+                            cand_t = tuple(cand)
+                            if cand_t in seen:
+                                continue
+                            _push(cand_t)
+                            next_frontier.append(cand_t)
+                            if len(candidates) >= perm_budget:
+                                break
+                        if len(candidates) >= perm_budget:
+                            break
+                frontier = next_frontier
+                if not frontier:
+                    break
+
+            # 先按链路感知启发式排序，再截断到预算。
+            candidates = sorted(candidates, key=lambda p: _score_perm(p, demand))
+            return candidates[:perm_budget]
+
+        def _evaluate_real_epairs_delta(
+            prev_partition: Optional[list[list[int]]],
+            curr_record: MappingRecord,
+            base_logical_map: dict[int, tuple[int, int | None]],
+            perm: Optional[tuple[int, ...]] = None,
+        ) -> tuple[float, float, dict[int, tuple[int, int | None]], MappingRecord]:
+            """
+            计算在“当前映射状态”下，引入 curr_record 的真实epairs增量。
+            返回: (delta_total_fidelity_loss, delta_epairs, next_logical_map, applied_record)
+            """
+            next_logical_map = copy.deepcopy(base_logical_map)
+            applied_record = copy.deepcopy(curr_record)
+
+            if perm is not None:
+                applied_record.partition = _apply_perm(applied_record.partition, perm)
+
+            delta_epairs = 0.0
+            delta_total_fidelity_loss = 0.0
+
+            if prev_partition is not None:
+                td_costs, next_logical_map = CompilerUtils.evaluate_teledata(
+                    prev_partition,
+                    applied_record.partition,
+                    cost_eval_network,
+                    logical_phy_map=next_logical_map,
+                )
+                delta_epairs += td_costs.epairs
+                delta_total_fidelity_loss += td_costs.total_fidelity_loss
+
+            subcircuit = _get_record_subcircuit(applied_record)
+            tg_costs, next_logical_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                applied_record.partition,
+                subcircuit,
+                cost_eval_network,
+                logical_phy_map=next_logical_map,
+                optimization_level=0,
+            )
+            delta_epairs += tg_costs.epairs
+            delta_total_fidelity_loss += tg_costs.total_fidelity_loss
+
+            return delta_total_fidelity_loss, delta_epairs, next_logical_map, applied_record
+
+        def _select_best_permuted_candidate(
+            prev_partition: Optional[list[list[int]]],
+            candidate_record: MappingRecord,
+            base_logical_map: dict[int, tuple[int, int | None]],
+        ) -> tuple[float, float, dict[int, tuple[int, int | None]], MappingRecord]:
+            """
+            对单个候选记录进行“小预算 permutation 搜索”，返回真实epairs最优方案。
+            """
+            perm_candidates = _build_perm_candidates(prev_partition, candidate_record, base_logical_map)
+
+            best_loss = float("inf")
+            best_delta = float("inf")
+            best_map: dict[int, tuple[int, int | None]] = {}
+            best_record: Optional[MappingRecord] = None
+
+            for perm in perm_candidates:
+                delta_loss, delta_epairs, next_map, applied_record = _evaluate_real_epairs_delta(
+                    prev_partition,
+                    candidate_record,
+                    base_logical_map,
+                    perm=perm,
+                )
+                if (delta_loss, delta_epairs) < (best_loss, best_delta):
+                    best_loss = delta_loss
+                    best_delta = delta_epairs
+                    best_map = next_map
+                    best_record = applied_record
+
+            assert best_record is not None
+            return best_loss, best_delta, best_map, best_record
+
+        def _build_noise_aware_teledata_baseline() -> tuple[float, float, list[MappingRecord]]:
+            baseline_records: list[MappingRecord] = []
+            baseline_total_loss = 0.0
+            baseline_epairs = 0.0
+            prev_part: Optional[list[list[int]]] = None
+            logical_map: dict[int, tuple[int, int | None]] = {}
+
+            for rec in original_records:
+                curr = copy.deepcopy(rec)
+                delta_loss, delta_epairs, logical_map, best_curr = _select_best_permuted_candidate(
+                    prev_part,
+                    curr,
+                    logical_map,
+                )
+                baseline_total_loss += delta_loss
+                baseline_epairs += delta_epairs
+                baseline_records.append(best_curr)
+                prev_part = best_curr.partition
+
+            return baseline_total_loss, baseline_epairs, baseline_records
+
+        td_only_total_loss, td_only_real_epairs, td_only_records = _build_noise_aware_teledata_baseline()
+        telegate_probe_positions = set(self._sample_budgeted_indices(0, K - 1, pos_probe_budget))
+        log(
+            f"[construct_noise_aware_hybrid_records] telegate_probe_positions={len(telegate_probe_positions)}/{K}"
+        )
+
+        for pos in range(K):
+            pos_start_time = time.time()
+            if pos in states and len(states[pos]) > beam_width:
+                states[pos] = _prune(states[pos])
+
+            current_states = states.get(pos, [])
+            if not current_states:
+                continue
+
+            for base_total_loss, base_epairs, base_records, base_map in current_states:
+                prev_partition = base_records[-1].partition if base_records else None
+
+                # 选项 A：当前原子块保持 teledata
+                td_record = copy.deepcopy(original_records[pos])
+                delta_loss, delta_epairs, next_map, best_td_record = _select_best_permuted_candidate(
+                    prev_partition,
+                    td_record,
+                    base_map,
+                )
+                states.setdefault(pos + 1, []).append(
+                    (
+                        base_total_loss + delta_loss,
+                        base_epairs + delta_epairs,
+                        base_records + [best_td_record],
+                        next_map,
+                    )
+                )
+
+                # 选项 B：仅在采样到的pos上展开telegate
+                if pos in telegate_probe_positions:
+                    start_layer = original_records[pos].layer_start
+                    upper_end = min(K - 1, pos + max_merge_span - 1)
+                    sampled_ends = self._sample_budgeted_indices(pos, upper_end, merge_probe_budget)
+
+                    for end in sampled_ends:
+                        end_layer = original_records[end].layer_end
+                        telegate_result = self._try_generate_telegate(
+                            ctx,
+                            start_layer,
+                            end_layer,
+                            prev_partition,
+                        )
+
+                        tg_record = copy.deepcopy(telegate_result.records[0])
+                        delta_loss, delta_epairs, next_map, best_tg_record = _select_best_permuted_candidate(
+                            prev_partition,
+                            tg_record,
+                            base_map,
+                        )
+
+                        states.setdefault(end + 1, []).append(
+                            (
+                                base_total_loss + delta_loss,
+                                base_epairs + delta_epairs,
+                                base_records + [best_tg_record],
+                                next_map,
+                            )
+                        )
+
+            for prune_pos in range(pos + 1, min(K, pos + max_merge_span) + 1):
+                if prune_pos in states and len(states[prune_pos]) > prune_trigger_ratio * beam_width:
+                    states[prune_pos] = _prune(states[prune_pos])
+
+            pos_end_time = time.time()
+            log(f"[DEBUG] NoiseAware Position {pos} completed in {pos_end_time - pos_start_time} seconds")
+
+        final_candidates = states.get(K, [])
+        if len(final_candidates) > beam_width:
+            final_candidates = _prune(final_candidates)
+        if not final_candidates:
+            raise RuntimeError("[ERROR] noise-aware beam search failed to produce any hybrid plan.")
+
+        best_total_loss, best_real_epairs, best_records, _ = min(
+            final_candidates,
+            key=_state_key,
+        )
+
+        # 兜底保证：noise-aware hybrid输出不应比teledata-only更差（按(total_fidelity_loss, epairs)口径比较）。
+        if (best_total_loss, best_real_epairs) > (td_only_total_loss, td_only_real_epairs):
+            log(
+                f"[noise_aware_hybrid_fallback] hybrid=(loss={best_total_loss}, epairs={best_real_epairs}) > "
+                f"teledata_only=(loss={td_only_total_loss}, epairs={td_only_real_epairs}), fallback to teledata-only"
+            )
+            best_total_loss = td_only_total_loss
+            best_real_epairs = td_only_real_epairs
+            best_records = td_only_records
+
+        result = MappingRecordList()
+        result.records = best_records
+        result.summarize_total_costs()
+
+        ctx.telegate_optimized = True
+        end_time = time.time()
+        log(
+            f"[construct_noise_aware_hybrid_records] best_key=(loss={best_total_loss}, real_epairs={best_real_epairs}), "
             f"best_epairs={result.total_costs.epairs}, best_cat_ents={result.total_costs.cat_ents}, "
-            f"Time: {end_time - start_time} seconds",
-            file=sys.stderr,
+            f"Time: {end_time - start_time} seconds"
         )
         return result
 
@@ -1042,45 +1434,37 @@ class NAVIHybrid(Compiler):
         """
         获取原线路中[ori_left, ori_right]的子线路
         """
-        # 1. 复制原电路的寄存器结构（包含量子和经典比特）
-        # 这样可以完美保留原电路的比特命名和结构
-        qregs = ctx.circuit.qregs
-        cregs = ctx.circuit.cregs
-        subcircuit = QuantumCircuit(*qregs, *cregs)
+        start_time = time.perf_counter()
+        try:
+            # 1. 复制原电路的寄存器结构（包含量子和经典比特）
+            # 这样可以完美保留原电路的比特命名和结构
+            qregs = ctx.circuit.qregs
+            cregs = ctx.circuit.cregs
+            subcircuit = QuantumCircuit(*qregs, *cregs)
 
-        # 2. 建立映射：{原电路比特对象: 子电路对应索引的比特对象}
-        # 量子比特映射
-        q_map = {old_q: subcircuit.qubits[i] for i, old_q in enumerate(ctx.circuit.qubits)}
-        # 经典比特映射（防止有测量门等操作经典比特的情况）
-        c_map = {old_c: subcircuit.clbits[i] for i, old_c in enumerate(ctx.circuit.clbits)} if subcircuit.clbits else {}
+            # 2. 建立映射：{原电路比特对象: 子电路对应索引的比特对象}
+            # 量子比特映射
+            q_map = {old_q: subcircuit.qubits[i] for i, old_q in enumerate(ctx.circuit.qubits)}
+            # 经典比特映射（防止有测量门等操作经典比特的情况）
+            c_map = {old_c: subcircuit.clbits[i] for i, old_c in enumerate(ctx.circuit.clbits)} if subcircuit.clbits else {}
 
-        # 3. 遍历并追加门，使用映射后的比特
-        for lev in range(ori_left, ori_right + 1):
-            for node in ctx.circuit_layers[lev]:
-                # 替换量子比特
-                new_qargs = [q_map[q] for q in node.qargs]
-                # 替换经典比特（如果有的话）
-                old_cargs = getattr(node, 'cargs', [])
-                new_cargs = [c_map[c] for c in old_cargs] if old_cargs else []
-                
-                subcircuit.append(node.op, new_qargs, new_cargs)
+            # 3. 遍历并追加门，使用映射后的比特
+            for lev in range(ori_left, ori_right + 1):
+                for node in ctx.circuit_layers[lev]:
+                    # 替换量子比特
+                    new_qargs = [q_map[q] for q in node.qargs]
+                    # 替换经典比特（如果有的话）
+                    old_cargs = getattr(node, 'cargs', [])
+                    new_cargs = [c_map[c] for c in old_cargs] if old_cargs else []
 
-        subcircuit = transpile(subcircuit, optimization_level=0)
+                    subcircuit.append(node.op, new_qargs, new_cargs)
 
-        return subcircuit
+            subcircuit = transpile(subcircuit, optimization_level=0)
 
-        # subcircuit = QuantumCircuit(ctx.circuit.num_qubits)
-        # for lev in range(ori_left, ori_right + 1):
-        #     for node in ctx.circuit_layers[lev]:
-        #         subcircuit.append(node.op, node.qargs, getattr(node, 'cargs', []))
-        # return subcircuit
-        # # layers = list(ctx.dag.layers())
-        # sub_dag = ctx.dag.copy_empty_like()
-        # for lev in range(ori_left, ori_right + 1):
-        #     # for node in layers[lev]["graph"].op_nodes():
-        #     for node in ctx.circuit_layers[lev]:
-        #         sub_dag.apply_operation_back(node.op, node.qargs, node.cargs)
-        # return dag_to_circuit(sub_dag) # 改成circuit_layers的形式
+            return subcircuit
+        finally:
+            ctx.get_ori_subc_calls += 1
+            ctx.get_ori_subc_total_time += time.perf_counter() - start_time
 
     def _try_generate_telegate(
             self, 
@@ -1134,16 +1518,19 @@ class NAVIHybrid(Compiler):
         # print(sub_qc)
 
         # 2. 调用 partitioner
+        # _try_generate_telegate内部统一使用all-to-all副本作为代价评估网络。
+        eval_network = ctx.network # self._get_all_to_all_eval_network(ctx)
         assert ctx.telegate_partitioner is not None
         telegate_record = ctx.telegate_partitioner.partition(
             circuit = sub_qc,
-            network = ctx.network,
+            network = eval_network,
             config = {
                 "layer_start": ori_left,
                 "layer_end": ori_right,
                 "partition": prev_partition,
                 "use_oee_init": bool(ctx.config.get("use_oee_init", True)),
                 "iteration": int(ctx.config.get("iteration", 50)),
+                "add_teledata_costs": False,
             }
         )
 

@@ -377,7 +377,7 @@ def QFTAdder(num_qubits):
 def MCMTcircuit(num_qubits, t=10):
     qc = QuantumCircuit(num_qubits)
 
-    for _ in range(1):
+    for _ in range(2):
         for i in range(0, num_qubits, t):
             if i + t <= num_qubits:
                 # 随机选择基础门
@@ -454,9 +454,9 @@ def VQC_AA(num_qubits):
     qc = QuantumCircuit(num_qubits)
     for _ in range(1):
         # 对每个量子比特应用随机的 RX 门
-        for i in range(num_qubits):
-            angle_rx = np.random.rand() * 2 * pi  # 随机生成 0 到 2π 的角度
-            qc.rx(angle_rx, i)
+        # for i in range(num_qubits):
+        #     angle_rx = np.random.rand() * 2 * pi  # 随机生成 0 到 2π 的角度
+        #     qc.rx(angle_rx, i)
 
         # 对每个量子比特应用随机的 RZ 门
         for i in range(num_qubits):

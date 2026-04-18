@@ -245,3 +245,313 @@
         print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds")
         print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds", file=sys.stderr)
         return result
+
+
+
+
+
+
+
+
+
+
+
+
+
+# mapper.py
+
+
+
+class SingleRecordGreedyRefinedMapper(Mapper):
+    """
+    单record增强贪心映射器：
+    - 多起点 + 2-opt局部搜索得到高质量seed perm
+    - 基于seed做1/2交换邻域候选
+    - 对有限候选做真实成本评估并选最优
+    """
+
+    @property
+    def name(self) -> str:
+        return "Single Record Greedy Refined Mapper"
+
+    def _refined_seed_perm_by_comm_matrix(
+            self,
+            comm_matrix: list[list[float]],
+            hops: list[list[int]],
+            max_seeds: int = 12,
+            perturb_rounds: int = 8,
+        ) -> tuple[int, ...]:
+        n = len(comm_matrix)
+        if n <= 1:
+            return tuple(range(n))
+
+        def _score_assign(curr_assign: tuple[int, ...]) -> float:
+            s = 0.0
+            for i in range(n):
+                for j in range(i + 1, n):
+                    w = comm_matrix[i][j]
+                    if w == 0:
+                        continue
+                    s += w * hops[curr_assign[i]][curr_assign[j]]
+            return s
+
+        def _to_perm(curr_assign: tuple[int, ...]) -> tuple[int, ...]:
+            inv = [0] * n
+            for logical_idx, physical_idx in enumerate(curr_assign):
+                inv[physical_idx] = logical_idx
+            return tuple(inv)
+
+        def _two_opt_local_search(seed_assign: tuple[int, ...]) -> tuple[int, ...]:
+            assign = list(seed_assign)
+            curr_score = _score_assign(tuple(assign))
+            while True:
+                best_pair: tuple[int, int] | None = None
+                best_score = curr_score
+                for i in range(n):
+                    for j in range(i + 1, n):
+                        trial = assign.copy()
+                        trial[i], trial[j] = trial[j], trial[i]
+                        s = _score_assign(tuple(trial))
+                        if s < best_score:
+                            best_score = s
+                            best_pair = (i, j)
+
+                if best_pair is None:
+                    break
+
+                i, j = best_pair
+                assign[i], assign[j] = assign[j], assign[i]
+                curr_score = best_score
+
+            return tuple(assign)
+
+        logical_strength = [sum(row) for row in comm_matrix]
+        physical_centrality = [sum(hops[p][q] for q in range(n) if q != p) for p in range(n)]
+        logical_order = sorted(range(n), key=lambda x: (-logical_strength[x], x))
+        physical_order = sorted(range(n), key=lambda x: (physical_centrality[x], x))
+
+        seed_assigns: list[tuple[int, ...]] = []
+        seen_assigns: set[tuple[int, ...]] = set()
+
+        def _add_seed(assign: tuple[int, ...]) -> None:
+            if assign in seen_assigns:
+                return
+            seen_assigns.add(assign)
+            seed_assigns.append(assign)
+
+        _add_seed(tuple(range(n)))
+
+        s2 = [0] * n
+        for lidx, pidx in zip(logical_order, physical_order):
+            s2[lidx] = pidx
+        _add_seed(tuple(s2))
+
+        max_rot = max(0, min(n, max_seeds - len(seed_assigns)))
+        for rot in range(max_rot):
+            lo = logical_order[rot:] + logical_order[:rot]
+            sr = [0] * n
+            for lidx, pidx in zip(lo, physical_order):
+                sr[lidx] = pidx
+            _add_seed(tuple(sr))
+
+        local_bests: list[tuple[int, ...]] = []
+        seen_local: set[tuple[int, ...]] = set()
+        for seed in seed_assigns[:max_seeds]:
+            refined = _two_opt_local_search(seed)
+            if refined not in seen_local:
+                seen_local.add(refined)
+                local_bests.append(refined)
+
+            for _ in range(max(0, perturb_rounds)):
+                trial = list(refined)
+                l_center = logical_order[0]
+                l_edge = logical_order[-1]
+                trial[l_center], trial[l_edge] = trial[l_edge], trial[l_center]
+                refined_perturbed = _two_opt_local_search(tuple(trial))
+                if refined_perturbed not in seen_local:
+                    seen_local.add(refined_perturbed)
+                    local_bests.append(refined_perturbed)
+                refined = refined_perturbed
+
+        if not local_bests:
+            local_bests = [tuple(range(n))]
+
+        best_assign = min(local_bests, key=_score_assign)
+        return _to_perm(best_assign)
+
+    def _candidate_perms_around_base(
+            self,
+            base_perm: tuple[int, ...],
+            comm_matrix: list[list[float]],
+            hops: list[list[int]],
+            max_candidates: int = 24,
+            include_two_swaps: bool = True,
+        ) -> list[tuple[int, ...]]:
+        n = len(base_perm)
+        max_candidates = max(1, int(max_candidates))
+
+        def _score_perm(perm: tuple[int, ...]) -> float:
+            s = 0.0
+            for p1 in range(n):
+                l1 = perm[p1]
+                for p2 in range(p1 + 1, n):
+                    l2 = perm[p2]
+                    w = comm_matrix[l1][l2]
+                    if w == 0:
+                        continue
+                    s += w * hops[p1][p2]
+            return s
+
+        cands: set[tuple[int, ...]] = {tuple(base_perm)}
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                p = list(base_perm)
+                p[i], p[j] = p[j], p[i]
+                cands.add(tuple(p))
+
+        if include_two_swaps and len(cands) < max_candidates:
+            one_swaps = list(cands)
+            for p0 in one_swaps:
+                for i in range(n):
+                    for j in range(i + 1, n):
+                        p = list(p0)
+                        p[i], p[j] = p[j], p[i]
+                        cands.add(tuple(p))
+                        if len(cands) >= max_candidates * 3:
+                            break
+                    if len(cands) >= max_candidates * 3:
+                        break
+                if len(cands) >= max_candidates * 3:
+                    break
+
+        ranked = sorted(cands, key=_score_perm)
+        return ranked[:max_candidates]
+
+    def map(self,
+            mapping_record_list: MappingRecordList,
+            circuit: QuantumCircuit,
+            circuit_layers: list[Any],
+            network: Network,
+            config: Optional[dict[str, Any]] = None) -> MappingRecordList:
+        start_time = time.time()
+        k = len(mapping_record_list.records)
+
+        if k != 1:
+            print(
+                f"[WARN] [{self.name}] expects exactly 1 record, got {k}. "
+                "Fallback to baseline reevaluation without refined greedy search."
+            )
+            self._prepare_records_for_reevaluate(mapping_record_list)
+            return self._reevaluate_mapping_record_list(
+                mapping_record_list,
+                circuit,
+                circuit_layers,
+                network,
+                config=config,
+            )
+
+        record = mapping_record_list.records[0]
+        original_partition = record.partition
+        n_physical = network.num_backends
+
+        if len(original_partition) != n_physical:
+            print(
+                f"[WARN] [{self.name}] partition count {len(original_partition)} != #QPUs {n_physical}. "
+                "Fallback to baseline reevaluation."
+            )
+            self._prepare_records_for_reevaluate(mapping_record_list)
+            return self._reevaluate_mapping_record_list(
+                mapping_record_list,
+                circuit,
+                circuit_layers,
+                network,
+                config=config,
+            )
+
+        if record.extra_info is not None and "ops" in record.extra_info:
+            subcircuit = record.extra_info["ops"]
+        else:
+            subcircuit = CompilerUtils.get_subcircuit_by_level(
+                num_qubits=circuit.num_qubits,
+                circuit=circuit,
+                circuit_layers=circuit_layers,
+                layer_start=record.layer_start,
+                layer_end=record.layer_end,
+            )
+
+        mapper_cfg = config or {}
+        refined_max_seeds = int(mapper_cfg.get("single_record_refined_max_seeds", 12))
+        refined_perturb_rounds = int(mapper_cfg.get("single_record_refined_perturb_rounds", 6))
+        refined_max_eval = int(mapper_cfg.get("single_record_refined_max_eval", min(24, max(8, 2 * n_physical * n_physical))))
+        refined_use_two_swaps = bool(mapper_cfg.get("single_record_refined_use_two_swaps", True))
+
+        comm_matrix = self._estimate_partition_comm_matrix_for_single_record(subcircuit, original_partition)
+        seed_perm = self._refined_seed_perm_by_comm_matrix(
+            comm_matrix,
+            network.Hops,
+            max_seeds=refined_max_seeds,
+            perturb_rounds=refined_perturb_rounds,
+        )
+        candidate_perms = self._candidate_perms_around_base(
+            seed_perm,
+            comm_matrix,
+            network.Hops,
+            max_candidates=refined_max_eval,
+            include_two_swaps=refined_use_two_swaps,
+        )
+
+        best_perm: Optional[tuple[int, ...]] = None
+        best_partition: Optional[list[list[int]]] = None
+        best_costs: Optional[ExecCosts] = None
+        best_logical_phy_map: Optional[dict[int, tuple[int, int | None]]] = None
+
+        for perm in candidate_perms:
+            partition = [original_partition[i] for i in perm]
+
+            trial_record = MappingRecord(
+                layer_start=record.layer_start,
+                layer_end=record.layer_end,
+                partition=partition,
+                mapping_type=record.mapping_type,
+                logical_phy_map=CompilerUtils.init_logical_phy_map(partition),
+                extra_info=copy.deepcopy(record.extra_info) if record.extra_info is not None else None,
+            )
+            trial_subcircuit = self._remap_commop_endpoints_by_perm(
+                copy.deepcopy(subcircuit),
+                perm,
+            )
+            if trial_record.extra_info is not None and "ops" in trial_record.extra_info:
+                trial_record.extra_info["ops"] = trial_subcircuit
+            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                trial_record,
+                trial_subcircuit,
+                network,
+            )
+
+            score = (costs.total_fidelity_loss, costs.epairs)
+            if best_costs is None or score < (best_costs.total_fidelity_loss, best_costs.epairs):
+                best_perm = perm
+                best_partition = partition
+                best_costs = copy.deepcopy(costs)
+                best_logical_phy_map = copy.deepcopy(logical_phy_map)
+
+        assert best_perm is not None
+        assert best_partition is not None
+        assert best_costs is not None
+        assert best_logical_phy_map is not None
+
+        record.partition = best_partition
+        record.costs = best_costs
+        record.logical_phy_map = best_logical_phy_map
+        if record.extra_info is None:
+            record.extra_info = {}
+        record.extra_info["perm"] = list(best_perm)
+
+        print(
+            f"[INFO] [{self.name}] seed_perm={seed_perm}, perm={best_perm}, "
+            f"candidates={len(candidate_perms)}, epairs={best_costs.epairs}, "
+            f"total_fidelity_loss={best_costs.total_fidelity_loss:.12f}"
+        )
+        print(f"[INFO] [{self.name}] completed in {time.time() - start_time:.2f} seconds.")
+        return mapping_record_list

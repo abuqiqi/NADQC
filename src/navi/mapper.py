@@ -61,9 +61,7 @@ class Mapper(ABC):
         k = len(mapping_record_list.records)  # 时间片数量
 
         logical_phy_map = {}
-        mapper_cfg = config or {}
-        debug_cat_telegate = bool(mapper_cfg.get("debug_cat_telegate", False))
-        
+
         for t in range(k):
             # print(f"\n\n\n[DEBUG] {t} / {k}")
 
@@ -78,17 +76,14 @@ class Mapper(ABC):
             record.costs = ExecCosts()  # 初始化成本对象
             record.logical_phy_map = logical_phy_map.copy() # 初始化当前时间片的logical_phy_map
 
-            # 
             # print(f"[DEBUG] After new init: \n{record}")
             # print(f"[DEBUG] partition: {record.partition}")
             # print(f"[DEBUG] logical_phy_map: {logical_phy_map}")
 
-            # TODO: 能否在构建MappingRecord的时候，都加上ops项？
             # telegate partition的时候会构建子线路
             # teledata的记录不需要考虑子线路，所以没有
             if record.extra_info is not None and "ops" in record.extra_info:
-                subcircuit = copy.deepcopy(record.extra_info["ops"])
-                subcircuit = self._refresh_commop_endpoints_for_partition(subcircuit, record.partition)
+                subcircuit = record.extra_info["ops"]
             else:
                 if record.mapping_type == "cat":
                     raise ValueError(f"[ERROR] For cat-type record, extra_info should have ops.")
@@ -115,112 +110,64 @@ class Mapper(ABC):
                 # print(f"[DEBUG] record (teledata): \n{record}")
                 # print(f"[DEBUG] after teledata: {record.logical_phy_map}")
 
-            # 计算local和telegate损失
-            # rec_cat_controls = None
-            # if record.extra_info is not None:
-            #     rec_cat_controls = record.extra_info.get("cat_controls")
-            # if debug_cat_telegate and record.mapping_type in {"telegate", "cat"}:
-            #     plain_costs = CompilerUtils.evaluate_telegate_with_cat(record.partition, eval_circuit, network)
-            #     cat_costs = CompilerUtils.evaluate_telegate_with_my_cat(
-            #         record.partition,
-            #         eval_circuit,
-            #         network,
-            #         cat_controls=rec_cat_controls,
-            #     )
-            #     print(
-            #         f"[cat_debug][mapper_reeval] t={t} layer=[{record.layer_start},{record.layer_end}] "
-            #         f"plain_epairs={plain_costs.epairs} cat_epairs={cat_costs.epairs}"
-            #     )
-
             tg_costs, curr_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                 record,
                 subcircuit,
                 network,
             )
-            # print(f"[DEBUG] record (local and telegate): \n{record}\n\n")
-
-            # print(f"[DEBUG] logical_phy_map: {record.logical_phy_map}")
-            # print(f"[DEBUG] After mapping - Time slice {t}: \n{record} \n\n")
 
         return mapping_record_list
 
-    def _refresh_commop_endpoints_for_partition(
-            self,
-            subcircuit: QuantumCircuit,
-            partition: list[list[int]],
-        ) -> QuantumCircuit:
+    def _prepare_records_for_reevaluate(self, mapping_record_list: MappingRecordList) -> None:
         """
-        按当前partition刷新CommOp中的src_qpu/dst_qpu元数据。
+        确保调用 _reevaluate_mapping_record_list 前，每条record都已处于最终物理QPU顺序，
+        且 CommOp 端点元数据已更新。
         """
-        qubit_to_qpu: dict[int, int] = {}
-        for qpu_id, group in enumerate(partition):
-            for lqid in group:
-                qubit_to_qpu[lqid] = qpu_id
-
-        for instruction in subcircuit:
-            op = instruction.operation
-            if not isinstance(op, CommOp):
+        for record in mapping_record_list.records:
+            if record.extra_info is None:
+                continue
+            perm = record.extra_info.get("perm")
+            if not isinstance(perm, (list, tuple)):
                 continue
 
-            op.src_qpu = qubit_to_qpu.get(op.source_qubit, op.src_qpu)
-
-            dst_candidates: set[int] = set()
-            for lqid in op.involved_qubits:
-                if lqid == op.source_qubit:
-                    continue
-                if lqid in qubit_to_qpu:
-                    dst_candidates.add(qubit_to_qpu[lqid])
-
-            # AutoComm收尾TP可能只有source本身（involved_qubits=[source], gate_list=[]）。
-            # 这类操作没有可推断的目标参与比特，保留原始dst_qpu即可。
-            is_single_source_tail = (
-                len(op.involved_qubits) == 1
-                and op.involved_qubits[0] == op.source_qubit
-                and len(op.gate_list) == 0
-            )
-            if is_single_source_tail:
-                continue
-
-            if len(dst_candidates) != 1:
-                raise RuntimeError(
-                    "[COMMOP_ENDPOINT] dst_candidates must be exactly one after perm remap. "
-                    f"source_qubit={op.source_qubit}, involved_qubits={op.involved_qubits}, "
-                    f"dst_candidates={sorted(dst_candidates)}, partition={partition}"
+            perm = tuple(int(x) for x in perm)
+            n_physical = len(record.partition)
+            if len(perm) != n_physical:
+                raise ValueError(
+                    f"[REMAP_PRECHECK] perm length mismatch: len(perm)={len(perm)}, "
+                    f"partition_size={n_physical}"
                 )
 
-            op.dst_qpu = next(iter(dst_candidates))
+            original_partition = record.partition
+            record.partition = [original_partition[i] for i in perm]
 
-        return subcircuit
+            if "ops" in record.extra_info:
+                record.extra_info["ops"] = self._remap_commop_endpoints_by_perm(
+                    copy.deepcopy(record.extra_info["ops"]),
+                    perm,
+                )
 
-    def _build_qpu_remap_from_perm(
-            self,
-            perm: tuple[int, ...],
-            n_physical: int,
-        ) -> dict[int, int]:
-        """
-        根据perm构建 old_qpu -> new_qpu 映射。
-        约定：new_partition[new_qpu] = old_partition[perm[new_qpu]]。
-        """
-        if len(perm) != n_physical:
-            raise ValueError(f"perm length mismatch: len(perm)={len(perm)}, n_physical={n_physical}")
+            del record.extra_info["perm"]
 
-        old_to_new: dict[int, int] = {}
-        for new_qpu, old_qpu in enumerate(perm):
-            old_to_new[int(old_qpu)] = int(new_qpu)
-
-        if len(old_to_new) != n_physical:
-            raise ValueError(f"invalid perm (duplicate old_qpu): perm={perm}")
-
-        return old_to_new
-
-    def _remap_commop_endpoints_by_qpu_map(
+    def _remap_commop_endpoints_by_perm(
             self,
             subcircuit: QuantumCircuit,
-            old_to_new_qpu: dict[int, int],
+            perm: tuple[int, ...],
         ) -> QuantumCircuit:
         """
-        使用 old_qpu->new_qpu 映射直接更新CommOp的src_qpu/dst_qpu。
+        按 perm 将 CommOp 的 src_qpu/dst_qpu 从 old_qpu 重写到 new_qpu。
+        约定：new_partition[new_qpu] = old_partition[perm[new_qpu]]。
         """
+        if len(perm) == 0:
+            return subcircuit
+
+        old_to_new_qpu: dict[int, int] = {}
+        for new_qpu, old_qpu in enumerate(perm):
+            old_to_new_qpu[int(old_qpu)] = int(new_qpu)
+
+        if len(old_to_new_qpu) != len(perm):
+            raise ValueError(f"invalid perm (duplicate old_qpu): perm={perm}")
+
         for instruction in subcircuit:
             op = instruction.operation
             if not isinstance(op, CommOp):
@@ -421,13 +368,10 @@ class DirectMapper(Mapper):
             network,
             config=config,
         )
-        identity_perm = tuple(range(network.num_backends))
-        final_perm_sequence = [identity_perm for _ in mapping_record_list.records]
-        print(f"[INFO] [Direct Mapper] final mapping perm sequence: {final_perm_sequence}")
         return mapping_record_list
 
 
-class SingleRecordExhaustiveDebugMapper(Mapper):
+class SingleRecordExhaustiveMapper(Mapper):
     """
     调试专用映射器：当且仅当record数量为1时，枚举m!个映射并输出每个映射的ExecCosts，
     最后选择(total_fidelity_loss, epairs)最小的映射返回。
@@ -448,8 +392,8 @@ class SingleRecordExhaustiveDebugMapper(Mapper):
 
         if k != 1:
             print(
-                f"[WARN] [{self.name}] expects exactly 1 record, got {k}. "
-                "Fallback to baseline reevaluation without permutation search."
+                f"[WARNING] [{self.name}] expects exactly 1 record, got {k}. "
+                "Fallback to Direct Mapper."
             )
             return self._reevaluate_mapping_record_list(
                 mapping_record_list,
@@ -460,12 +404,12 @@ class SingleRecordExhaustiveDebugMapper(Mapper):
             )
 
         record = mapping_record_list.records[0]
-        original_partition = copy.deepcopy(record.partition)
+        original_partition = record.partition
         n_physical = network.num_backends
         all_perms = list(itertools.permutations(range(n_physical)))
 
         if record.extra_info is not None and "ops" in record.extra_info:
-            subcircuit = copy.deepcopy(record.extra_info["ops"])
+            subcircuit = record.extra_info["ops"]
         else:
             subcircuit = CompilerUtils.get_subcircuit_by_level(
                 num_qubits=circuit.num_qubits,
@@ -480,30 +424,31 @@ class SingleRecordExhaustiveDebugMapper(Mapper):
             f"(m={n_physical})."
         )
 
-        best_perm: Optional[tuple[int, ...]] = None
-        best_partition: Optional[list[list[int]]] = None
-        best_costs: Optional[ExecCosts] = None
-        best_logical_phy_map: Optional[dict[int, tuple[int, int | None]]] = None
+        best_record: Optional[MappingRecord] = None
 
         for idx, perm in enumerate(all_perms):
-            partition = [copy.deepcopy(original_partition[i]) for i in perm]
+            partition = [original_partition[i] for i in perm]
             trial_record = MappingRecord(
                 layer_start=record.layer_start,
                 layer_end=record.layer_end,
                 partition=partition,
                 mapping_type=record.mapping_type,
                 logical_phy_map=CompilerUtils.init_logical_phy_map(partition),
-                extra_info=copy.deepcopy(record.extra_info) if record.extra_info is not None else None,
+                extra_info=record.extra_info,
             )
 
-            qpu_remap = self._build_qpu_remap_from_perm(perm, n_physical)
-            trial_subcircuit = self._remap_commop_endpoints_by_qpu_map(
+            # 更新CommOp里面的src_qpu和dst_qpu
+            trial_subcircuit = self._remap_commop_endpoints_by_perm(
                 copy.deepcopy(subcircuit),
-                qpu_remap,
+                perm,
             )
+            if trial_record.extra_info is None:
+                trial_record.extra_info = {}
+            trial_record.extra_info["ops"] = trial_subcircuit
+            trial_record.extra_info["perm"] = list(perm)
 
-            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                trial_record,
+            costs, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                trial_record, # logical_phy_map会在record中更新
                 trial_subcircuit,
                 network,
             )
@@ -515,29 +460,24 @@ class SingleRecordExhaustiveDebugMapper(Mapper):
             )
 
             score = (costs.total_fidelity_loss, costs.epairs)
-            if best_costs is None or score < (best_costs.total_fidelity_loss, best_costs.epairs):
-                best_perm = perm
-                best_partition = partition
-                best_costs = copy.deepcopy(costs)
-                best_logical_phy_map = copy.deepcopy(logical_phy_map)
+            if best_record is None:
+                best_record = copy.deepcopy(trial_record)
+            else:
+                best_score = (best_record.costs.total_fidelity_loss, best_record.costs.epairs)
+                if score < best_score:
+                    best_record = copy.deepcopy(trial_record)
 
-        assert best_perm is not None
-        assert best_partition is not None
-        assert best_costs is not None
-        assert best_logical_phy_map is not None
-
-        record.partition = best_partition
-        record.costs = best_costs
-        record.logical_phy_map = best_logical_phy_map
-        if record.extra_info is None:
-            record.extra_info = {}
-        record.extra_info["selected_perm"] = list(best_perm)
+        assert best_record is not None
+        assert best_record.extra_info is not None
 
         print(
-            f"[INFO] [{self.name}] best_perm={best_perm}, epairs={best_costs.epairs}, "
-            f"total_fidelity_loss={best_costs.total_fidelity_loss:.12f}"
+            f"[INFO] [{self.name}] best_perm={tuple(best_record.extra_info['perm'])}, "
+            f"epairs={best_record.costs.epairs}, "
+            f"total_fidelity_loss={best_record.costs.total_fidelity_loss:.12f}"
         )
         print(f"[INFO] [{self.name}] completed in {time.time() - start_time:.2f} seconds.")
+
+        mapping_record_list.records[0] = best_record
 
         return mapping_record_list
 
@@ -564,7 +504,7 @@ class SingleRecordGreedyMapper(Mapper):
 
         if k != 1:
             print(
-                f"[WARN] [{self.name}] expects exactly 1 record, got {k}. "
+                f"[WARNING] [{self.name}] expects exactly 1 record, got {k}. "
                 "Fallback to baseline reevaluation without greedy search."
             )
             return self._reevaluate_mapping_record_list(
@@ -576,24 +516,11 @@ class SingleRecordGreedyMapper(Mapper):
             )
 
         record = mapping_record_list.records[0]
-        original_partition = copy.deepcopy(record.partition)
+        original_partition = record.partition
         n_physical = network.num_backends
 
-        if len(original_partition) != n_physical:
-            print(
-                f"[WARN] [{self.name}] partition count {len(original_partition)} != #QPUs {n_physical}. "
-                "Fallback to baseline reevaluation."
-            )
-            return self._reevaluate_mapping_record_list(
-                mapping_record_list,
-                circuit,
-                circuit_layers,
-                network,
-                config=config,
-            )
-
         if record.extra_info is not None and "ops" in record.extra_info:
-            subcircuit = copy.deepcopy(record.extra_info["ops"])
+            subcircuit = record.extra_info["ops"]
         else:
             subcircuit = CompilerUtils.get_subcircuit_by_level(
                 num_qubits=circuit.num_qubits,
@@ -605,329 +532,38 @@ class SingleRecordGreedyMapper(Mapper):
 
         comm_matrix = self._estimate_partition_comm_matrix_for_single_record(subcircuit, original_partition)
         greedy_perm = self._greedy_perm_by_comm_matrix(comm_matrix, network.Hops)
-        qpu_remap = self._build_qpu_remap_from_perm(greedy_perm, n_physical)
-
-        best_partition = [copy.deepcopy(original_partition[i]) for i in greedy_perm]
+        best_partition = [original_partition[i] for i in greedy_perm]
+        
         trial_record = MappingRecord(
             layer_start=record.layer_start,
             layer_end=record.layer_end,
             partition=best_partition,
             mapping_type=record.mapping_type,
             logical_phy_map=CompilerUtils.init_logical_phy_map(best_partition),
-            extra_info=copy.deepcopy(record.extra_info) if record.extra_info is not None else None,
+            extra_info=record.extra_info,
         )
-        trial_subcircuit = self._remap_commop_endpoints_by_qpu_map(
+
+        # 更新CommOp里面的src_qpu和dst_qpu
+        trial_subcircuit = self._remap_commop_endpoints_by_perm(
             copy.deepcopy(subcircuit),
-            qpu_remap,
+            greedy_perm,
         )
-        costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+        if trial_record.extra_info is None:
+            trial_record.extra_info = {}
+        trial_record.extra_info["ops"] = trial_subcircuit
+        trial_record.extra_info["perm"] = list(greedy_perm)
+        
+        costs, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
             trial_record,
             trial_subcircuit,
             network,
         )
 
-        record.partition = best_partition
-        record.costs = copy.deepcopy(costs)
-        record.logical_phy_map = copy.deepcopy(logical_phy_map)
-        if record.extra_info is None:
-            record.extra_info = {}
-        record.extra_info["selected_perm"] = list(greedy_perm)
+        mapping_record_list.records[0] = trial_record
 
         print(
             f"[INFO] [{self.name}] greedy_perm={greedy_perm}, epairs={costs.epairs}, "
             f"total_fidelity_loss={costs.total_fidelity_loss:.12f}"
-        )
-        print(f"[INFO] [{self.name}] completed in {time.time() - start_time:.2f} seconds.")
-        return mapping_record_list
-
-
-class SingleRecordGreedyRefinedMapper(Mapper):
-    """
-    单record增强贪心映射器：
-    - 多起点 + 2-opt局部搜索得到高质量seed perm
-    - 基于seed做1/2交换邻域候选
-    - 对有限候选做真实成本评估并选最优
-    """
-
-    @property
-    def name(self) -> str:
-        return "Single Record Greedy Refined Mapper"
-
-    def _refined_seed_perm_by_comm_matrix(
-            self,
-            comm_matrix: list[list[float]],
-            hops: list[list[int]],
-            max_seeds: int = 12,
-            perturb_rounds: int = 8,
-        ) -> tuple[int, ...]:
-        n = len(comm_matrix)
-        if n <= 1:
-            return tuple(range(n))
-
-        def _score_assign(curr_assign: tuple[int, ...]) -> float:
-            s = 0.0
-            for i in range(n):
-                for j in range(i + 1, n):
-                    w = comm_matrix[i][j]
-                    if w == 0:
-                        continue
-                    s += w * hops[curr_assign[i]][curr_assign[j]]
-            return s
-
-        def _to_perm(curr_assign: tuple[int, ...]) -> tuple[int, ...]:
-            inv = [0] * n
-            for logical_idx, physical_idx in enumerate(curr_assign):
-                inv[physical_idx] = logical_idx
-            return tuple(inv)
-
-        def _two_opt_local_search(seed_assign: tuple[int, ...]) -> tuple[int, ...]:
-            assign = list(seed_assign)
-            curr_score = _score_assign(tuple(assign))
-            while True:
-                best_pair: tuple[int, int] | None = None
-                best_score = curr_score
-                for i in range(n):
-                    for j in range(i + 1, n):
-                        trial = assign.copy()
-                        trial[i], trial[j] = trial[j], trial[i]
-                        s = _score_assign(tuple(trial))
-                        if s < best_score:
-                            best_score = s
-                            best_pair = (i, j)
-
-                if best_pair is None:
-                    break
-
-                i, j = best_pair
-                assign[i], assign[j] = assign[j], assign[i]
-                curr_score = best_score
-
-            return tuple(assign)
-
-        logical_strength = [sum(row) for row in comm_matrix]
-        physical_centrality = [sum(hops[p][q] for q in range(n) if q != p) for p in range(n)]
-        logical_order = sorted(range(n), key=lambda x: (-logical_strength[x], x))
-        physical_order = sorted(range(n), key=lambda x: (physical_centrality[x], x))
-
-        seed_assigns: list[tuple[int, ...]] = []
-        seen_assigns: set[tuple[int, ...]] = set()
-
-        def _add_seed(assign: tuple[int, ...]) -> None:
-            if assign in seen_assigns:
-                return
-            seen_assigns.add(assign)
-            seed_assigns.append(assign)
-
-        _add_seed(tuple(range(n)))
-
-        s2 = [0] * n
-        for lidx, pidx in zip(logical_order, physical_order):
-            s2[lidx] = pidx
-        _add_seed(tuple(s2))
-
-        max_rot = max(0, min(n, max_seeds - len(seed_assigns)))
-        for rot in range(max_rot):
-            lo = logical_order[rot:] + logical_order[:rot]
-            sr = [0] * n
-            for lidx, pidx in zip(lo, physical_order):
-                sr[lidx] = pidx
-            _add_seed(tuple(sr))
-
-        local_bests: list[tuple[int, ...]] = []
-        seen_local: set[tuple[int, ...]] = set()
-        for seed in seed_assigns[:max_seeds]:
-            refined = _two_opt_local_search(seed)
-            if refined not in seen_local:
-                seen_local.add(refined)
-                local_bests.append(refined)
-
-            for _ in range(max(0, perturb_rounds)):
-                trial = list(refined)
-                l_center = logical_order[0]
-                l_edge = logical_order[-1]
-                trial[l_center], trial[l_edge] = trial[l_edge], trial[l_center]
-                refined_perturbed = _two_opt_local_search(tuple(trial))
-                if refined_perturbed not in seen_local:
-                    seen_local.add(refined_perturbed)
-                    local_bests.append(refined_perturbed)
-                refined = refined_perturbed
-
-        if not local_bests:
-            local_bests = [tuple(range(n))]
-
-        best_assign = min(local_bests, key=_score_assign)
-        return _to_perm(best_assign)
-
-    def _candidate_perms_around_base(
-            self,
-            base_perm: tuple[int, ...],
-            comm_matrix: list[list[float]],
-            hops: list[list[int]],
-            max_candidates: int = 24,
-            include_two_swaps: bool = True,
-        ) -> list[tuple[int, ...]]:
-        n = len(base_perm)
-        max_candidates = max(1, int(max_candidates))
-
-        def _score_perm(perm: tuple[int, ...]) -> float:
-            s = 0.0
-            for p1 in range(n):
-                l1 = perm[p1]
-                for p2 in range(p1 + 1, n):
-                    l2 = perm[p2]
-                    w = comm_matrix[l1][l2]
-                    if w == 0:
-                        continue
-                    s += w * hops[p1][p2]
-            return s
-
-        cands: set[tuple[int, ...]] = {tuple(base_perm)}
-
-        for i in range(n):
-            for j in range(i + 1, n):
-                p = list(base_perm)
-                p[i], p[j] = p[j], p[i]
-                cands.add(tuple(p))
-
-        if include_two_swaps and len(cands) < max_candidates:
-            one_swaps = list(cands)
-            for p0 in one_swaps:
-                for i in range(n):
-                    for j in range(i + 1, n):
-                        p = list(p0)
-                        p[i], p[j] = p[j], p[i]
-                        cands.add(tuple(p))
-                        if len(cands) >= max_candidates * 3:
-                            break
-                    if len(cands) >= max_candidates * 3:
-                        break
-                if len(cands) >= max_candidates * 3:
-                    break
-
-        ranked = sorted(cands, key=_score_perm)
-        return ranked[:max_candidates]
-
-    def map(self,
-            mapping_record_list: MappingRecordList,
-            circuit: QuantumCircuit,
-            circuit_layers: list[Any],
-            network: Network,
-            config: Optional[dict[str, Any]] = None) -> MappingRecordList:
-        start_time = time.time()
-        k = len(mapping_record_list.records)
-
-        if k != 1:
-            print(
-                f"[WARN] [{self.name}] expects exactly 1 record, got {k}. "
-                "Fallback to baseline reevaluation without refined greedy search."
-            )
-            return self._reevaluate_mapping_record_list(
-                mapping_record_list,
-                circuit,
-                circuit_layers,
-                network,
-                config=config,
-            )
-
-        record = mapping_record_list.records[0]
-        original_partition = copy.deepcopy(record.partition)
-        n_physical = network.num_backends
-
-        if len(original_partition) != n_physical:
-            print(
-                f"[WARN] [{self.name}] partition count {len(original_partition)} != #QPUs {n_physical}. "
-                "Fallback to baseline reevaluation."
-            )
-            return self._reevaluate_mapping_record_list(
-                mapping_record_list,
-                circuit,
-                circuit_layers,
-                network,
-                config=config,
-            )
-
-        if record.extra_info is not None and "ops" in record.extra_info:
-            subcircuit = copy.deepcopy(record.extra_info["ops"])
-        else:
-            subcircuit = CompilerUtils.get_subcircuit_by_level(
-                num_qubits=circuit.num_qubits,
-                circuit=circuit,
-                circuit_layers=circuit_layers,
-                layer_start=record.layer_start,
-                layer_end=record.layer_end,
-            )
-
-        mapper_cfg = config or {}
-        refined_max_seeds = int(mapper_cfg.get("single_record_refined_max_seeds", 12))
-        refined_perturb_rounds = int(mapper_cfg.get("single_record_refined_perturb_rounds", 6))
-        refined_max_eval = int(mapper_cfg.get("single_record_refined_max_eval", min(24, max(8, 2 * n_physical * n_physical))))
-        refined_use_two_swaps = bool(mapper_cfg.get("single_record_refined_use_two_swaps", True))
-
-        comm_matrix = self._estimate_partition_comm_matrix_for_single_record(subcircuit, original_partition)
-        seed_perm = self._refined_seed_perm_by_comm_matrix(
-            comm_matrix,
-            network.Hops,
-            max_seeds=refined_max_seeds,
-            perturb_rounds=refined_perturb_rounds,
-        )
-        candidate_perms = self._candidate_perms_around_base(
-            seed_perm,
-            comm_matrix,
-            network.Hops,
-            max_candidates=refined_max_eval,
-            include_two_swaps=refined_use_two_swaps,
-        )
-
-        best_perm: Optional[tuple[int, ...]] = None
-        best_partition: Optional[list[list[int]]] = None
-        best_costs: Optional[ExecCosts] = None
-        best_logical_phy_map: Optional[dict[int, tuple[int, int | None]]] = None
-
-        for perm in candidate_perms:
-            qpu_remap = self._build_qpu_remap_from_perm(perm, n_physical)
-            partition = [copy.deepcopy(original_partition[i]) for i in perm]
-
-            trial_record = MappingRecord(
-                layer_start=record.layer_start,
-                layer_end=record.layer_end,
-                partition=partition,
-                mapping_type=record.mapping_type,
-                logical_phy_map=CompilerUtils.init_logical_phy_map(partition),
-                extra_info=copy.deepcopy(record.extra_info) if record.extra_info is not None else None,
-            )
-            trial_subcircuit = self._remap_commop_endpoints_by_qpu_map(
-                copy.deepcopy(subcircuit),
-                qpu_remap,
-            )
-            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                trial_record,
-                trial_subcircuit,
-                network,
-            )
-
-            score = (costs.total_fidelity_loss, costs.epairs)
-            if best_costs is None or score < (best_costs.total_fidelity_loss, best_costs.epairs):
-                best_perm = perm
-                best_partition = partition
-                best_costs = copy.deepcopy(costs)
-                best_logical_phy_map = copy.deepcopy(logical_phy_map)
-
-        assert best_perm is not None
-        assert best_partition is not None
-        assert best_costs is not None
-        assert best_logical_phy_map is not None
-
-        record.partition = best_partition
-        record.costs = best_costs
-        record.logical_phy_map = best_logical_phy_map
-        if record.extra_info is None:
-            record.extra_info = {}
-        record.extra_info["selected_perm"] = list(best_perm)
-
-        print(
-            f"[INFO] [{self.name}] seed_perm={seed_perm}, selected_perm={best_perm}, "
-            f"candidates={len(candidate_perms)}, epairs={best_costs.epairs}, "
-            f"total_fidelity_loss={best_costs.total_fidelity_loss:.12f}"
         )
         print(f"[INFO] [{self.name}] completed in {time.time() - start_time:.2f} seconds.")
         return mapping_record_list
@@ -1222,7 +858,12 @@ class DPMapper(Mapper):
 
             best_partition = [original_partition[idx] for idx in perm]
             new_extra_info = copy.deepcopy(record.extra_info) if record.extra_info is not None else {}
-            new_extra_info["selected_perm"] = list(perm)
+            if "ops" in new_extra_info:
+                new_extra_info["ops"] = self._remap_commop_endpoints_by_perm(
+                    copy.deepcopy(new_extra_info["ops"]),
+                    perm,
+                )
+            new_extra_info["perm"] = list(perm)
             
             new_record = MappingRecord(
                 layer_start = record.layer_start,
@@ -1416,8 +1057,7 @@ class NeighborhoodBoundedDPMapper(Mapper):
 
                 if seg_record.extra_info is not None and "ops" in seg_record.extra_info:
                     subcircuit = copy.deepcopy(seg_record.extra_info["ops"])
-                    qpu_remap = self._build_qpu_remap_from_perm(perm, n_physical)
-                    subcircuit = self._remap_commop_endpoints_by_qpu_map(subcircuit, qpu_remap)
+                    subcircuit = self._remap_commop_endpoints_by_perm(subcircuit, perm)
                 else:
                     if seg_record.mapping_type == "cat":
                         raise ValueError("[ERROR] For cat-type record, extra_info should have ops.")
@@ -1627,7 +1267,12 @@ class NeighborhoodBoundedDPMapper(Mapper):
             perm = all_perms[orig_idx]
             best_partition = [record.partition[i] for i in perm]
             new_extra_info = copy.deepcopy(record.extra_info) if record.extra_info is not None else {}
-            new_extra_info["selected_perm"] = list(perm)
+            if "ops" in new_extra_info:
+                new_extra_info["ops"] = self._remap_commop_endpoints_by_perm(
+                    copy.deepcopy(new_extra_info["ops"]),
+                    perm,
+                )
+            new_extra_info["perm"] = list(perm)
 
             new_record = MappingRecord(
                 layer_start=record.layer_start,
@@ -1855,7 +1500,12 @@ class BoundedDPMapper(Mapper):
             perm = all_perms[orig_idx]
             best_partition = [record.partition[i] for i in perm]
             new_extra_info = copy.deepcopy(record.extra_info) if record.extra_info is not None else {}
-            new_extra_info["selected_perm"] = list(perm)
+            if "ops" in new_extra_info:
+                new_extra_info["ops"] = self._remap_commop_endpoints_by_perm(
+                    copy.deepcopy(new_extra_info["ops"]),
+                    perm,
+                )
+            new_extra_info["perm"] = list(perm)
 
             new_record = MappingRecord(
                 layer_start=record.layer_start,
@@ -1883,9 +1533,9 @@ class MapperFactory:
     """映射器工厂类"""
     _registry = {
         "direct": "DirectMapper",
-        "single_record_debug": "SingleRecordExhaustiveDebugMapper",
+        "single_record_debug": "SingleRecordExhaustiveMapper",
         "single_record_greedy": "SingleRecordGreedyMapper",
-        "single_record_refined": "SingleRecordGreedyRefinedMapper",
+        # "single_record_refined": "SingleRecordGreedyRefinedMapper",
         "greedy": "GreedyMapper",
         "dp": "DPMapper",
         "boundeddp": "BoundedDPMapper",
@@ -1938,4 +1588,3 @@ class MapperFactory:
         :return: 可用映射器类型列表
         """
         return list(cls._registry.keys())
-

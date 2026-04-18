@@ -53,6 +53,27 @@ def _collect_gate_block_qubits(gate_block, source_qubit=None):
                 ordered.append(q)
     return ordered
 
+
+def _validate_comm_gate_block_endpoints(gate_block, source_qubit, src_node, target_node, qubit_node_mapping):
+    """
+    验证通信块中的非source比特是否都落在目标QPU。
+    若混入其他QPU比特，返回False。
+    """
+    source = int(source_qubit)
+    src = int(src_node)
+    dst = int(target_node)
+    invalid = []
+    for g in gate_block:
+        for q in gate_qubits(g):
+            q = int(q)
+            if q == source:
+                continue
+            qpu = int(qubit_node_mapping[q])
+            if qpu != dst:
+                invalid.append((q, qpu))
+
+    return invalid
+
 # assume gates are formed of CX and single-qubit gates. It is okay to have other gates if related rules are defined
 def comm_aggregate(gate_list, qubit_node_mapping, allow_gate_pattern=True, allow_test_merge=False, refine_iter_cnt=3, check_commute_func=commute_func_right):
     if allow_gate_pattern == True:
@@ -223,7 +244,11 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                 qb_slot[source_qb] = max(qb_slot[source_qb],qb_slot[tcqb]+latency_metric["CB"]) + latency_metric["1Q"]
                 epr_cnt += 1
                 comm_costs[0] += 1
-                involved_qubits = _collect_gate_block_qubits(gb[1], source_qubit=source)
+                # _validate_comm_gate_block_endpoints(gb[1], source, source_node, target_node, qubit_node_mapping)
+                involved_qubits = _collect_gate_block_qubits(
+                    gb[1],
+                    source_qubit=source,
+                )
                 gate_list = _convert_gate_block_to_qiskit_gates(gb[1])
                 op_list.append(
                     CommOp(
@@ -314,7 +339,11 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                     # 一去一回两次tp，因此这里是 +2
                     epr_cnt += 2
                     comm_costs[1] += 2
-                    involved_qubits = _collect_gate_block_qubits(gb[1], source_qubit=source)
+                    # _validate_comm_gate_block_endpoints(gb[1], source, source_node, target_node, qubit_node_mapping)
+                    involved_qubits = _collect_gate_block_qubits(
+                        gb[1],
+                        source_qubit=source,
+                    )
                     gate_list = _convert_gate_block_to_qiskit_gates(gb[1])
                     op_list.append(
                         CommOp(
@@ -373,7 +402,17 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                         qb_slot[source_qb] += latency_metric["1Q"] # reset
                         epr_cnt += 1
                         comm_costs[1] += 1
-                        involved_qubits = _collect_gate_block_qubits(gb[1+tnidx], source_qubit=source)
+                        # _validate_comm_gate_block_endpoints(
+                        #     gb[1 + tnidx],
+                        #     source,
+                        #     source_node,
+                        #     target_node,
+                        #     qubit_node_mapping,
+                        # )
+                        involved_qubits = _collect_gate_block_qubits(
+                            gb[1 + tnidx],
+                            source_qubit=source,
+                        )
                         gate_list = _convert_gate_block_to_qiskit_gates(gb[1+tnidx])
                         op_list.append(
                             CommOp(

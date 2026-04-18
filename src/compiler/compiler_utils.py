@@ -435,19 +435,105 @@ class CompilerUtils:
             dst_candidates.add(cand)
 
         if len(dst_candidates) > 1:
-            raise RuntimeError(
-                "[COMM_ENDPOINT] Inconsistent destination QPUs for non-source qubits: "
-                f"source_qubit={op.source_qubit}, involved={op.involved_qubits}, "
-                f"src_qpu={src_qpu}, dst_candidates={sorted(dst_candidates)}"
-            )
+            # AutoComm may pack source-side single-qubit gates into CommOp.
+            # Keep endpoint metadata as authority when involved_qubits are mixed.
+            dst_qpu = op.dst_qpu
+            return src_qpu, dst_qpu
 
         if len(dst_candidates) == 1:
             dst_qpu = next(iter(dst_candidates))
+            if int(op.dst_qpu) != int(dst_qpu):
+                raise RuntimeError(
+                    "[COMM_ENDPOINT] dst_qpu metadata inconsistent with involved_qubits-derived destination: "
+                    f"source_qubit={op.source_qubit}, involved={op.involved_qubits}, "
+                    f"src_qpu={src_qpu}, op.dst_qpu={op.dst_qpu}, derived_dst_qpu={dst_qpu}"
+                )
 
         if dst_qpu is None:
             dst_qpu = op.dst_qpu
 
         return src_qpu, dst_qpu
+
+    # @staticmethod
+    # def diagnose_commop_endpoint_consistency(
+    #     circuit: QuantumCircuit,
+    #     logical_phy_map: dict[int, tuple[int, int | None]],
+    #     stage: str,
+    #     strict: bool = True,
+    # ) -> list[dict[str, Any]]:
+    #     """
+    #     诊断子线路中CommOp端点是否与logical_phy_map一致。
+    #     主要检查：
+    #     1) （已停用）非source involved_qubits是否落在唯一dst_qpu
+    #     2) op.dst_qpu是否与involved_qubits推断dst一致
+    #     3) op.src_qpu是否与source当前位置一致
+    #     """
+    #     issues: list[dict[str, Any]] = []
+
+    #     def _lookup_qpu(lqid: int) -> Optional[int]:
+    #         if lqid in logical_phy_map:
+    #             return int(logical_phy_map[lqid][0])
+    #         key_str = str(lqid)
+    #         if key_str in logical_phy_map:
+    #             return int(logical_phy_map[key_str][0])
+    #         return None
+
+    #     for inst_idx, instruction in enumerate(circuit.data):
+    #         op = instruction.operation
+    #         if not isinstance(op, CommOp):
+    #             continue
+
+    #         src_qpu_mapped = _lookup_qpu(op.source_qubit)
+
+    #         dst_candidates: set[int] = set()
+    #         for lqid in op.involved_qubits:
+    #             if int(lqid) == int(op.source_qubit):
+    #                 continue
+    #             cand = _lookup_qpu(int(lqid))
+    #             if cand is not None:
+    #                 dst_candidates.add(int(cand))
+
+    #         issue_reason = None
+    #         # NOTE:
+    #         # AutoComm may pack source-side single-qubit gates into the same CommOp,
+    #         # which can make non-source involved_qubits span multiple QPUs.
+    #         # Therefore we intentionally skip "multiple_dst_candidates" as an error.
+    #         if len(dst_candidates) == 1 and int(op.dst_qpu) != int(next(iter(dst_candidates))):
+    #             issue_reason = "dst_qpu_mismatch"
+    #         elif src_qpu_mapped is not None and int(op.src_qpu) != int(src_qpu_mapped):
+    #             issue_reason = "src_qpu_mismatch"
+
+    #         if issue_reason is not None:
+    #             issues.append(
+    #                 {
+    #                     "stage": stage,
+    #                     "inst_idx": inst_idx,
+    #                     "reason": issue_reason,
+    #                     "comm_type": op.comm_type,
+    #                     "source_qubit": int(op.source_qubit),
+    #                     "involved_qubits": [int(q) for q in op.involved_qubits],
+    #                     "op_src_qpu": int(op.src_qpu),
+    #                     "op_dst_qpu": int(op.dst_qpu),
+    #                     "mapped_src_qpu": src_qpu_mapped,
+    #                     "dst_candidates": sorted(dst_candidates),
+    #                     "gate_count": len(op.gate_list),
+    #                 }
+    #             )
+
+    #     if strict and len(issues) > 0:
+    #         first = issues[0]
+    #         raise RuntimeError(
+    #             "[COMM_DIAG] CommOp endpoint inconsistency detected. "
+    #             f"stage={first['stage']}, inst_idx={first['inst_idx']}, reason={first['reason']}, "
+    #             f"comm_type={first['comm_type']}, source_qubit={first['source_qubit']}, "
+    #             f"involved_qubits={first['involved_qubits']}, op_src_qpu={first['op_src_qpu']}, "
+    #             f"op_dst_qpu={first['op_dst_qpu']}, mapped_src_qpu={first['mapped_src_qpu']}, "
+    #             f"dst_candidates={first['dst_candidates']}, gate_count={first['gate_count']}, "
+    #             f"total_issues={len(issues)}"
+    #         )
+
+    #     return issues
+
     """
     编译工具类
     """
@@ -556,10 +642,8 @@ class CompilerUtils:
         按CommOp + 门序列统一评估通信与本地门成本
         """
         partition = None
-        record: Optional[MappingRecord] = None
 
         if isinstance(arg, MappingRecord):
-            record = arg
             partition = arg.partition
             logical_phy_map = arg.logical_phy_map
         else:

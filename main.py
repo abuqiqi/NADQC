@@ -96,7 +96,7 @@ if __name__ == "__main__":
     # 获取全局配置
     args = get_args()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = "0" # f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
+    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
     original_stdout = sys.stdout
     with open(f'outputs/{filename}.txt', 'w', buffering=1) as f:
         sys.stdout = f

@@ -119,8 +119,6 @@ class NAVIHybrid(Compiler):
             ctx.hybrid_records = self._step_construct_hybrid_records_beam(ctx)
         hybrid_eval_epairs = ctx.hybrid_records.total_costs.epairs
 
-        # TODO: Step 6.3: 构建telegate-only记录
-
         # Step 6.3: 在all-to-all口径下比较epairs，选择更优者进入mapper
         chosen_records_tag = "hybrid"
         if teledata_eval_epairs < hybrid_eval_epairs:
@@ -155,7 +153,7 @@ class NAVIHybrid(Compiler):
         # 单record场景下，同时输出贪心与全排列两种mapper的结果，便于直接比较。
         compare_single_record_mappers = bool(config.get("compare_single_record_mappers", True))
         if compare_single_record_mappers and len(ctx.hybrid_records.records) == 1:
-            compare_mapper_ids = ["single_record_greedy", "single_record_refined", "single_record_debug"]
+            compare_mapper_ids = ["single_record_greedy", "single_record_debug"]
             compare_results: dict[str, MappingRecordList] = {}
 
             for mid in compare_mapper_ids:
@@ -242,15 +240,15 @@ class NAVIHybrid(Compiler):
     # 步骤实现 (Step Implementations)
     # =========================================================================
 
-    def _get_all_to_all_eval_network(self, ctx: CompilationContext) -> Network:
-        """
-        获取预构建的all-to-all评估网络副本。
-        """
-        prebuilt = getattr(ctx.network, "all_to_all_copy", None)
-        if prebuilt is not None:
-            return prebuilt
+    # def _get_all_to_all_eval_network(self, ctx: CompilationContext) -> Network:
+    #     """
+    #     获取预构建的all-to-all评估网络副本。
+    #     """
+    #     prebuilt = getattr(ctx.network, "all_to_all_copy", None)
+    #     if prebuilt is not None:
+    #         return prebuilt
 
-        raise RuntimeError("[ERROR] ctx.network.all_to_all_copy is missing.")
+    #     raise RuntimeError("[ERROR] ctx.network.all_to_all_copy is missing.")
 
     def _sample_budgeted_indices(self, start_idx: int, end_idx: int, budget: int) -> list[int]:
         """
@@ -309,14 +307,14 @@ class NAVIHybrid(Compiler):
         """
         start_time = time.time()
 
-        if bool(ctx.config.get("enable_cat_gate_reorder", False)):
-            reordered_circuit, reorder_stats = self._reorder_cat_candidate_gates(ctx.circuit)
-            ctx.circuit = reordered_circuit
-            if bool(ctx.config.get("debug_cat_gate_reorder", True)):
-                log(
-                    f"[cat_debug][gate_reorder] runs={reorder_stats['runs']}, "
-                    f"gates={reorder_stats['gates']}, moved={reorder_stats['moved']}"
-                )
+        # if bool(ctx.config.get("enable_cat_gate_reorder", False)):
+        #     reordered_circuit, reorder_stats = self._reorder_cat_candidate_gates(ctx.circuit)
+        #     ctx.circuit = reordered_circuit
+        #     if bool(ctx.config.get("debug_cat_gate_reorder", True)):
+        #         log(
+        #             f"[cat_debug][gate_reorder] runs={reorder_stats['runs']}, "
+        #             f"gates={reorder_stats['gates']}, moved={reorder_stats['moved']}"
+        #         )
 
         ctx.dag = circuit_to_dag(ctx.circuit)
         
@@ -389,81 +387,81 @@ class NAVIHybrid(Compiler):
         log(f"[INFO] remove_single_qubit_gates: {end_time - start_time} seconds")
         return
 
-    def _reorder_cat_candidate_gates(self, circuit: QuantumCircuit) -> tuple[QuantumCircuit, dict[str, int]]:
-        """
-        在语义安全前提下，对连续的 CZ/RZZ 双比特门做局部重排，
-        让共享锚点（控制位）的门相邻，提高后续 CAT 机会。
-        """
-        reordered = QuantumCircuit(*circuit.qregs, *circuit.cregs)
-        qindex = {q: i for i, q in enumerate(circuit.qubits)}
+    # def _reorder_cat_candidate_gates(self, circuit: QuantumCircuit) -> tuple[QuantumCircuit, dict[str, int]]:
+    #     """
+    #     在语义安全前提下，对连续的 CZ/RZZ 双比特门做局部重排，
+    #     让共享锚点（控制位）的门相邻，提高后续 CAT 机会。
+    #     """
+    #     reordered = QuantumCircuit(*circuit.qregs, *circuit.cregs)
+    #     qindex = {q: i for i, q in enumerate(circuit.qubits)}
 
-        runs = 0
-        total_gates = 0
-        moved_gates = 0
-        run_buffer: list[tuple[Any, list[Any], list[Any]]] = []
+    #     runs = 0
+    #     total_gates = 0
+    #     moved_gates = 0
+    #     run_buffer: list[tuple[Any, list[Any], list[Any]]] = []
 
-        def _unpack_instruction(inst: Any) -> tuple[Any, list[Any], list[Any]]:
-            op = getattr(inst, "operation", inst[0])
-            qargs = list(getattr(inst, "qubits", inst[1]))
-            cargs = list(getattr(inst, "clbits", inst[2]))
-            return op, qargs, cargs
+    #     def _unpack_instruction(inst: Any) -> tuple[Any, list[Any], list[Any]]:
+    #         op = getattr(inst, "operation", inst[0])
+    #         qargs = list(getattr(inst, "qubits", inst[1]))
+    #         cargs = list(getattr(inst, "clbits", inst[2]))
+    #         return op, qargs, cargs
 
-        def _is_diag_twoq(op: Any, qargs: list[Any], cargs: list[Any]) -> bool:
-            return len(qargs) == 2 and len(cargs) == 0 and getattr(op, "name", "") in {"cz", "rzz"}
+    #     def _is_diag_twoq(op: Any, qargs: list[Any], cargs: list[Any]) -> bool:
+    #         return len(qargs) == 2 and len(cargs) == 0 and getattr(op, "name", "") in {"cz", "rzz"}
 
-        def _flush_run() -> None:
-            nonlocal runs, total_gates, moved_gates, run_buffer
-            if not run_buffer:
-                return
+    #     def _flush_run() -> None:
+    #         nonlocal runs, total_gates, moved_gates, run_buffer
+    #         if not run_buffer:
+    #             return
 
-            runs += 1
-            total_gates += len(run_buffer)
+    #         runs += 1
+    #         total_gates += len(run_buffer)
 
-            freq: dict[int, int] = {}
-            for _, qargs, _ in run_buffer:
-                q0 = qindex[qargs[0]]
-                q1 = qindex[qargs[1]]
-                freq[q0] = freq.get(q0, 0) + 1
-                freq[q1] = freq.get(q1, 0) + 1
+    #         freq: dict[int, int] = {}
+    #         for _, qargs, _ in run_buffer:
+    #             q0 = qindex[qargs[0]]
+    #             q1 = qindex[qargs[1]]
+    #             freq[q0] = freq.get(q0, 0) + 1
+    #             freq[q1] = freq.get(q1, 0) + 1
 
-            decorated: list[tuple[tuple[int, int, int], tuple[Any, list[Any], list[Any]]]] = []
-            for idx, item in enumerate(run_buffer):
-                _, qargs, _ = item
-                q0 = qindex[qargs[0]]
-                q1 = qindex[qargs[1]]
+    #         decorated: list[tuple[tuple[int, int, int], tuple[Any, list[Any], list[Any]]]] = []
+    #         for idx, item in enumerate(run_buffer):
+    #             _, qargs, _ = item
+    #             q0 = qindex[qargs[0]]
+    #             q1 = qindex[qargs[1]]
 
-                if (freq[q0] > freq[q1]) or (freq[q0] == freq[q1] and q0 <= q1):
-                    anchor, target = q0, q1
-                else:
-                    anchor, target = q1, q0
+    #             if (freq[q0] > freq[q1]) or (freq[q0] == freq[q1] and q0 <= q1):
+    #                 anchor, target = q0, q1
+    #             else:
+    #                 anchor, target = q1, q0
 
-                decorated.append(((anchor, target, idx), item))
+    #             decorated.append(((anchor, target, idx), item))
 
-            sorted_run = [item for _, item in sorted(decorated, key=lambda x: x[0])]
+    #         sorted_run = [item for _, item in sorted(decorated, key=lambda x: x[0])]
 
-            moved_gates += sum(1 for idx, item in enumerate(sorted_run) if item is not run_buffer[idx])
+    #         moved_gates += sum(1 for idx, item in enumerate(sorted_run) if item is not run_buffer[idx])
 
-            for op, qargs, cargs in sorted_run:
-                reordered.append(op, qargs, cargs)
+    #         for op, qargs, cargs in sorted_run:
+    #             reordered.append(op, qargs, cargs)
 
-            run_buffer = []
+    #         run_buffer = []
 
-        for inst in circuit.data:
-            op, qargs, cargs = _unpack_instruction(inst)
-            if _is_diag_twoq(op, qargs, cargs):
-                run_buffer.append((op, qargs, cargs))
-            else:
-                _flush_run()
-                reordered.append(op, qargs, cargs)
+    #     for inst in circuit.data:
+    #         op, qargs, cargs = _unpack_instruction(inst)
+    #         if _is_diag_twoq(op, qargs, cargs):
+    #             run_buffer.append((op, qargs, cargs))
+    #         else:
+    #             _flush_run()
+    #             reordered.append(op, qargs, cargs)
 
-        _flush_run()
+    #     _flush_run()
 
-        stats = {
-            "runs": runs,
-            "gates": total_gates,
-            "moved": moved_gates,
-        }
-        return reordered, stats
+    #     stats = {
+    #         "runs": runs,
+    #         "gates": total_gates,
+    #         "moved": moved_gates,
+    #     }
+    #     return reordered, stats
 
     def _step_build_partition_table(self, ctx: CompilationContext) -> list[Any]:
         """
@@ -654,7 +652,7 @@ class NAVIHybrid(Compiler):
         # 在每个pos，最多尝试几次_try_generate_telegate
         merge_probe_budget = int(ctx.config.get("hybrid_merge_probe_budget", 12))
         # 最多探查几个pos
-        pos_probe_budget = int(ctx.config.get("hybrid_pos_probe_budget", 1))
+        pos_probe_budget = int(ctx.config.get("hybrid_pos_probe_budget", K))
         # 仅当候选显著超出 beam_width 时才做前向剪枝，减少重复排序开销。
         prune_trigger_ratio = int(ctx.config.get("hybrid_prune_trigger_ratio", 5))
         # 防止数值输入有误
@@ -814,10 +812,10 @@ class NAVIHybrid(Compiler):
                     states[prune_pos] = _prune(states[prune_pos])
             
             # 打印states
-            for p, s in states.items():
-                print(f"[DEBUG] Position {p}: ")
-                for state in s:
-                    print(f"[DEBUG] State: {state[0]}, {state[1]}, {state[2]}")
+            # for p, s in states.items():
+            #     print(f"[DEBUG] Position {p}: ")
+            #     for state in s:
+            #         print(f"[DEBUG] State: {state[0]}, {state[1]}, {state[2]}")
             
             pos_end_time = time.time()
             print(f"[DEBUG] Position {pos} completed in {pos_end_time - pos_start_time} seconds")

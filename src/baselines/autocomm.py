@@ -82,6 +82,13 @@ class QAutoComm(Compiler):
             epr_cnt, all_latency, assigned_gate_blocks, comm_costs = mapping_record_list
             op_list = QuantumCircuit(circuit.num_qubits)
 
+        # CompilerUtils.diagnose_commop_endpoint_consistency(
+        #     circuit=op_list,
+        #     logical_phy_map=logical_phy_map,
+        #     stage="autocomm_post_schedule_pre_mapper",
+        #     strict=True,
+        # )
+
         # print(f"Transpiled circuit:\n")
         # print(circuit)
         # print(f"\n[DEBUG] op_list:\n")

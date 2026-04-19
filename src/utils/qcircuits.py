@@ -1,8 +1,20 @@
 from qiskit import QuantumCircuit, transpile
-from qiskit.circuit.library import *
+from qiskit.circuit.library import (
+    QuantumVolume, 
+    QFT, 
+    PauliEvolutionGate, 
+    CDKMRippleCarryAdder, 
+    DraperQFTAdder, 
+    Permutation,
+    IQP,
+    TwoLocal,
+    MCMT,
+    XGate, HGate, ZGate, RZGate
+)
+from qiskit.circuit.random import random_circuit
 import random
 import numpy as np
-from math import *
+from math import pi
 import os
 import sys
 from qiskit.quantum_info import Pauli
@@ -20,16 +32,22 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
     assert num_qpus == len(qpus), "[ERROR] num_qpus != len(qpus)"
     
     circ = None
+    optimization_level = 3
     if name == "QV":
         circ = QuantumVolume(num_qubits, seed=26).decompose()
     elif name == "QFT":
         circ = QFT(num_qubits).decompose()
     elif name == "CuccaroAdder":
-        circ = CDKMRippleCarryAdder(num_qubits).decompose()
+        circ = CuccaroAdder(num_qubits).decompose()
     elif name == "DraperQFTAdder":
-        circ = DraperQFTAdder(num_qubits).decompose()
+        circ = MyDraperQFTAdder(num_qubits).decompose()
     elif name == "Permutation":
+        optimization_level = 0
         circ = Permutation(num_qubits, seed=21)
+    elif name == "Random":
+        circ = random_circuit(num_qubits, 50, max_operands=4, seed=42)
+    # elif name == "QPE":
+
     elif "Fraction" in name: # CP_p_d
         parts = name.split("_")
         assert len(parts) >= 2, "[ERROR] Too few arguments for Fraction_p_depth."
@@ -52,6 +70,10 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         circ = myIQP(num_qubits).decompose()
     elif name == "VQC_AA":
         circ = VQC_AA(num_qubits).decompose()
+    elif name == "VQE" or name.startswith("VQE_"):
+        circ = build_vqe_benchmark(name, num_qubits).decompose()
+    elif name == "BV":
+        circ = BV(num_qubits).decompose()
     elif name == "test":
         circ = QuantumCircuit(4)
         circ.h(range(4))
@@ -83,7 +105,7 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         qpus = [qpu_capacity] * num_qpus
 
     # 将线路转换到basis gates
-    trans_circ = transpile(circ, basis_gates=basis_gates, optimization_level=3)
+    trans_circ = transpile(circ, basis_gates=basis_gates, optimization_level=optimization_level)
     # MAX_ALLOWED_DEPTH = 1000
     # if trans_circ.depth() > MAX_ALLOWED_DEPTH:
     #     print(f"[INFO] Circuit depth ({circ.depth()}) exceeds threshold ({MAX_ALLOWED_DEPTH}). Truncating...")
@@ -184,6 +206,60 @@ def load_circ_from_qasm(path, circ_name=None):
     filename = os.path.join(path, circ_name + ".qasm")
     circ = QuantumCircuit.from_qasm_file(filename)
     return circ
+
+def CuccaroAdder(num_qubits):
+    """
+    创建总量子比特数尽可能接近 num_qubits 的全加法器线路。
+    若 num_qubits 为奇数，自动减 1 调整为偶数。
+
+    参数:
+        num_qubits: 期望的总量子比特数（若奇数则自动减1）
+
+    返回:
+        CDKMRippleCarryAdder 实例，实际量子比特数等于调整后的 actual_qubits
+    """
+    actual_qubits = num_qubits
+    if actual_qubits < 4:
+        raise ValueError("full 加法器至少需要 4 个量子比特")
+    if actual_qubits % 2 != 0:
+        actual_qubits -= 1
+        print(
+            f"警告: Full adder要求偶数个量子比特，已自动将 {num_qubits} 调整为 {actual_qubits}"
+        )
+
+    n = (actual_qubits - 2) // 2
+    adder = CDKMRippleCarryAdder(num_state_qubits=n, kind="full")
+
+    # full adder 的总量子比特数应为 2 * n + 2
+    assert actual_qubits == adder.num_qubits
+    return adder
+
+def MyDraperQFTAdder(num_qubits):
+    """
+    创建总量子比特数尽可能接近 num_qubits 的 Draper QFT Adder 线路。
+    若 num_qubits 为奇数，自动减 1 调整为偶数。
+
+    参数:
+        num_qubits: 期望的总量子比特数（若奇数则自动减1）
+
+    返回:
+        DraperQFTAdder 实例，实际量子比特数等于调整后的 actual_qubits
+    """
+    actual_qubits = num_qubits
+    if actual_qubits < 2:
+        raise ValueError("DraperQFTAdder 至少需要 2 个量子比特")
+    if actual_qubits % 2 != 0:
+        actual_qubits -= 1
+        print(
+            f"警告: DraperQFTAdder 需要偶数个量子比特，已自动将 {num_qubits} 调整为 {actual_qubits}"
+        )
+
+    n = actual_qubits // 2
+    adder = DraperQFTAdder(num_state_qubits=n)
+
+    # fixed DraperQFTAdder 的总量子比特数应为 2 * n
+    assert actual_qubits == adder.num_qubits
+    return adder
 
 # class QASMbm:
 #     def __init__(self, 
@@ -472,3 +548,147 @@ def VQC_AA(num_qubits):
                 angle_crz = np.random.rand() * 2 * pi  # 随机生成 0 到 2π 的角度
                 qc.crz(angle_crz, i, j)  # 应用 CRZ 门
     return qc
+
+def build_vqe_benchmark(name: str, num_qubits: int):
+    """
+    构造一个基于 Qiskit QuantumCircuit 接口的 VQE benchmark 电路。
+
+    支持以下名称格式：
+    - VQE: 使用默认配置 reps=2, entanglement="linear"
+    - VQE_<reps>: 例如 VQE_4
+    - VQE_<reps>_<entanglement>: 例如 VQE_3_ring, VQE_2_full
+
+    entanglement 目前支持:
+    - linear: 0-1-2-... 链式纠缠
+    - ring: 在线性基础上补一条首尾纠缠
+    - full: 全连接纠缠
+    """
+    parts = name.split("_")
+    reps = 2
+    entanglement = "linear"
+
+    if len(parts) >= 2 and parts[1] != "":
+        try:
+            reps = int(parts[1])
+        except ValueError:
+            entanglement = parts[1].lower()
+
+    if len(parts) >= 3 and parts[2] != "":
+        entanglement = parts[2].lower()
+
+    return VQE(num_qubits=num_qubits, reps=reps, entanglement=entanglement)
+
+def VQE(num_qubits: int, reps: int = 2, entanglement: str = "linear", seed: int = 26):
+    """
+    使用 Qiskit TwoLocal 构造一个用于 benchmark 的 VQE ansatz。
+
+    设计目标：
+    - 直接复用 Qiskit TwoLocal 模板，接口和 VQE 习惯更一致；
+    - 电路结构稳定、参数可复现，适合作为编译/划分 benchmark；
+    - 通过 reps 和 entanglement 控制线路规模。
+    """
+    if num_qubits < 1:
+        raise ValueError("num_qubits must be >= 1")
+    if reps < 1:
+        raise ValueError("reps must be >= 1")
+
+    entanglement = entanglement.lower()
+    if entanglement not in {"linear", "ring", "full"}:
+        raise ValueError(
+            f"Unsupported VQE entanglement pattern: {entanglement}. "
+            "Expected one of {'linear', 'ring', 'full'}."
+        )
+    two_local_entanglement = "circular" if entanglement == "ring" else entanglement
+
+    rng = np.random.default_rng(seed)
+
+    # 使用一个确定性的 Hartree-Fock 风格初态，避免生成过于稀疏的前缀层。
+    initial_state = QuantumCircuit(num_qubits, name="HF")
+    for qubit in range(num_qubits // 2):
+        initial_state.x(qubit)
+
+    ansatz = TwoLocal(
+        num_qubits=num_qubits,
+        rotation_blocks=["ry", "rz"],
+        entanglement_blocks="cx",
+        entanglement=two_local_entanglement,
+        reps=reps,
+        skip_final_rotation_layer=False,
+        initial_state=initial_state,
+        parameter_prefix="theta",
+        flatten=True,
+        name=f"VQE_{reps}_{entanglement}",
+    )
+
+    parameter_values = {
+        parameter: float(rng.uniform(0, 2 * np.pi))
+        for parameter in ansatz.parameters
+    }
+    return ansatz.assign_parameters(parameter_values)
+
+def BV(num_qubits, secret_bitstring=None):
+    """
+    为给定的秘密比特串构建Bernstein-Vazirani算法电路。
+    
+    参数:
+        num_qubits (int): 电路中总量子比特数（包括辅助比特）
+        secret_bitstring (str, optional): 由'0'和'1'组成的秘密字符串。
+                                         长度应为 num_qubits - 1。
+                                         如果为None，则随机生成。
+        
+    返回:
+        QuantumCircuit: 完整的BV算法量子电路。
+    """
+    # 数据比特的数量 = 总量子比特数 - 1（辅助比特）
+    n = num_qubits - 1
+    
+    # 如果secret_bitstring是None，随机生成一个
+    if secret_bitstring is None:
+        secret_bitstring = ''.join(np.random.choice(['0', '1'], size=n))
+        # print(f"随机生成的秘密比特串: {secret_bitstring}")
+    
+    # 如果secret_bitstring太长，截取前n位
+    if len(secret_bitstring) > n:
+        secret_bitstring = secret_bitstring[:n]
+        # print(f"秘密比特串过长，已截取前{n}位: {secret_bitstring}")
+    
+    # 如果secret_bitstring太短，在后面补0
+    if len(secret_bitstring) < n:
+        secret_bitstring = secret_bitstring.ljust(n, '0')
+        # print(f"秘密比特串过短，已补充0至{n}位: {secret_bitstring}")
+    
+    # 需要 n 个数据比特 + 1个辅助比特
+    circuit = QuantumCircuit(num_qubits) # , n
+    
+    # 1. 对辅助比特应用X门，使其进入 |1> 态
+    # 辅助比特是最后一个量子比特（索引为n）
+    circuit.x(n)
+    
+    # 2. 对所有比特应用Hadamard门
+    circuit.h(range(num_qubits))
+    
+    # 3. 构建Oracle：根据秘密比特串，在对应位置添加CNOT门
+    # 如果秘密比特串的第i位是'1'，则在第i个数据比特和辅助比特之间添加CNOT门
+    for i, bit in enumerate(secret_bitstring):
+        if bit == '1':
+            circuit.cx(i, n)
+    
+    # 4. 再次对所有数据比特应用Hadamard门（不包括辅助比特）
+    circuit.h(range(n))
+    
+    # 5. 测量数据比特
+    # circuit.measure(range(n), range(n))
+    
+    return circuit
+
+# def QPE(num_qubits, unitary_matrix=None):
+#     # 如果unitary_matrix
+#     # 随机
+#     num_eval_qubits = num_qubits - 1
+
+#     circ = PhaseEstimation(
+#         num_evaluation_qubits: int,  # 计数/估计比特数 t
+#         unitary: Gate | QuantumCircuit,  # 待估计的酉算子 U
+#         iqft: QuantumCircuit | None = None,  # 自定义逆QFT，默认内置标准IQFT
+#         name: str = "QPE"
+#     )

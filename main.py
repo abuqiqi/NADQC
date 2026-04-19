@@ -64,8 +64,8 @@ def main(args):
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     # compiler_ids = ["fgproee"] # , "staticoee", "wbcp", "navi"
     # compiler_ids = ["wbcp"]
-    # compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi", "navihybrid"] # , "navinew"
-    compiler_ids = ["autocomm", "navihybrid"] # "navi", 
+    compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi", "navihybrid"] # , "navinew"
+    # compiler_ids = ["autocomm", "navihybrid"] # "navi", 
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
     for compiler_id in compiler_ids:
@@ -74,7 +74,7 @@ def main(args):
     for compiler in compilers:
         print(f"Compiler: [{compiler.name}]")
         compile_config = {
-            "circuit_name": f"{args.circuit_name}{args.qubit_count}",
+            "circuit_name": f"{args.circuit_name}{trans_circ.num_qubits}",
             **global_config.get("compile_config", {}),
             **global_config.get("compiler_config", {}).get(compiler.compiler_id, {}),
         }

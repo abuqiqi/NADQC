@@ -42,10 +42,10 @@
 # ##########
 # 4x20 mesh
 # ##########
-python main.py -cname Permutation -nq 80 -core 4 -cap 20 -net mesh_grid
-python main.py -cname MCMT -nq 80 -core 4 -cap 20 -net mesh_grid
-python main.py -cname IQP -nq 80 -core 4 -cap 20 -net mesh_grid
-python main.py -cname QAOA -nq 80 -core 4 -cap 20 -net mesh_grid
+# python main.py -cname Permutation -nq 80 -core 4 -cap 20 -net mesh_grid
+# python main.py -cname MCMT -nq 80 -core 4 -cap 20 -net mesh_grid
+# python main.py -cname IQP -nq 80 -core 4 -cap 20 -net mesh_grid
+# python main.py -cname QAOA -nq 80 -core 4 -cap 20 -net mesh_grid
 python main.py -cname QFT -nq 80 -core 4 -cap 20 -net mesh_grid
 python main.py -cname QV -nq 80 -core 4 -cap 20 -net mesh_grid
 python main.py -cname VQC_AA -nq 80 -core 4 -cap 20 -net mesh_grid

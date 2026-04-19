@@ -61,15 +61,11 @@ class NAVIHybrid(Compiler):
         telegate_partitioner_type = config.get("telegate_partitioner", "cat") # "oee", "cat"
         telegate_partitioner = TelegatePartitionerFactory.create_telegate_partitioner(telegate_partitioner_type)
 
-        # hybrid records模式与mapper绑定：
-        # - noise-aware records: direct mapper
-        # - beam records(all-to-all cost model): boundeddp_neighbor mapper
-        # mapper_type = "direct" if use_noise_aware_hybrid_records else "direct" # "boundeddp_neighbor"
-        # mapper = MapperFactory.create_mapper(mapper_type)
-        # hybrid records模式默认使用single_record_debug，
-        # 也支持通过config["mapper"]覆盖。
-        mapper_type = config.get("mapper", "single_record_debug")
-        mapper = MapperFactory.create_mapper(mapper_type)
+        # mapper 会在 Step 7 按最终 record 数动态选择：
+        # - 单 record: single_record_greedy
+        # - 多 record: boundeddp_neighbor（与 NAVI 一致）
+        # 这里先放一个占位 mapper，避免上下文为空。
+        mapper = MapperFactory.create_mapper("direct")
 
         # 3. 初始化上下文 (Context)
         ctx = CompilationContext(
@@ -150,58 +146,24 @@ class NAVIHybrid(Compiler):
         # Step 7: 最终映射 (考虑噪声)
         assert ctx.mapper is not None
 
-        # 单record场景下，同时输出贪心与全排列两种mapper的结果，便于直接比较。
-        compare_single_record_mappers = bool(config.get("compare_single_record_mappers", True))
-        if compare_single_record_mappers and len(ctx.hybrid_records.records) == 1:
-            compare_mapper_ids = ["single_record_greedy", "single_record_debug"]
-            compare_results: dict[str, MappingRecordList] = {}
-
-            for mid in compare_mapper_ids:
-                mapper_i = MapperFactory.create_mapper(mid)
-                mapped_i = mapper_i.map(
-                    copy.deepcopy(ctx.hybrid_records),
-                    ctx.circuit,
-                    ctx.circuit_layers,
-                    ctx.network,
-                    config=ctx.config,
-                )
-                mapped_i.summarize_total_costs()
-                compare_results[mid] = mapped_i
-
-                c = mapped_i.total_costs
-                log(
-                    f"[mapper_compare] mapper={mid}, "
-                    f"epairs={c.epairs}, total_fidelity_loss={c.total_fidelity_loss}, "
-                    f"num_comms={c.num_comms}, cat_ents={c.cat_ents}"
-                )
-
-            preferred_mapper = str(config.get("mapper", "single_record_refined")).lower()
-            if preferred_mapper in compare_results:
-                final_result = compare_results[preferred_mapper]
-            else:
-                best_mid = min(
-                    compare_results,
-                    key=lambda mid: (
-                        compare_results[mid].total_costs.total_fidelity_loss,
-                        compare_results[mid].total_costs.epairs,
-                    ),
-                )
-                final_result = compare_results[best_mid]
-                log(f"[mapper_compare] preferred mapper '{preferred_mapper}' not in compare set, fallback to best='{best_mid}'")
-
-            c = final_result.total_costs
-            log(
-                f"[mapper_compare] selected_result mapper={preferred_mapper}, "
-                f"epairs={c.epairs}, total_fidelity_loss={c.total_fidelity_loss}"
-            )
+        if len(ctx.hybrid_records.records) == 1:
+            selected_mapper_id = str(config.get("single_record_mapper", "single_record_greedy")).lower()
         else:
-            final_result = ctx.mapper.map(
-                ctx.hybrid_records,
-                ctx.circuit,
-                ctx.circuit_layers,
-                ctx.network,
-                config=ctx.config,
-            )
+            selected_mapper_id = str(config.get("multi_record_mapper", "boundeddp_neighbor")).lower()
+
+        ctx.mapper = MapperFactory.create_mapper(selected_mapper_id)
+        log(
+            f"[hybrid_mapper_select] records={len(ctx.hybrid_records.records)}, "
+            f"selected_mapper={selected_mapper_id}"
+        )
+
+        final_result = ctx.mapper.map(
+            ctx.hybrid_records,
+            ctx.circuit,
+            ctx.circuit_layers,
+            ctx.network,
+            config=ctx.config,
+        )
 
         end_time = time.time()
         exec_time = end_time - start_time

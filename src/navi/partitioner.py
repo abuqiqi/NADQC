@@ -131,81 +131,6 @@ class BasePartitioner(Partitioner):
         return remaining_components
 
 
-class GreedyPartitioner(BasePartitioner):
-    """
-    贪心分区器：按照贪心策略分配量子电路组件到QPU
-    """
-    
-    def get_name(self) -> str:
-        return "Greedy Partitioner"
-
-    def partition(self, components: list[list[int]]) -> list[list[list[int]]]:
-        """
-        使用贪心策略进行分区
-        """
-        partition = [[] for _ in range(len(self.qpus))]
-        capacities = self.qpus.copy()  # 每个QPU的剩余容量
-        
-        for com in components:  # 放置第i个components
-            placed = False
-            for idx, qpu in enumerate(partition):  # 尝试放到第idx个QPU上
-                if len(com) <= capacities[idx]:
-                    qpu.extend(com)
-                    capacities[idx] -= len(com)
-                    placed = True
-                    break
-            if not placed:  # 无法完整容纳com，将com拆分开放进不同的分区
-                temp_com = com.copy()  # 避免修改原始数据
-                while temp_com:  # 循环拆分直到组件分配完毕
-                    max_idx = capacities.index(max(capacities))  # 剩余容量最大的QPU
-                    put_num = min(capacities[max_idx], len(temp_com))  # 计算本次可放入的数量
-                    partition[max_idx].extend(temp_com[:put_num])
-                    capacities[max_idx] -= put_num
-                    temp_com = temp_com[put_num:]  # 剩余未分配的组件部分
-        
-        return [partition]
-
-
-class DynamicProgrammingPartitioner(BasePartitioner):
-    """
-    动态规划分区器：使用DP算法寻找较优的分区方案
-    """
-    
-    def get_name(self) -> str:
-        return "Dynamic Programming Partitioner"
-
-    def partition(self, components: list[list[int]]) -> list[list[list[int]]]:
-        """
-        使用动态规划进行分区
-        """
-        legal_partition = []  # 一组合法划分
-        temp_components = copy.deepcopy(components)  # 避免修改原始数据
-        
-        for qpu_idx in range(len(self.qpus)):  # 处理第qpu_idx个QPU
-            # 更新component_sizes
-            component_sizes = [len(comp) for comp in temp_components]
-            # 计算components是否可以组成大小不超过当前QPU容量的分区
-            dp = self._group_components_to(self.qpus[qpu_idx], component_sizes)
-            # 计算剩余QPU的容量
-            remaining_qpu_capacity = sum(self.qpus[qpu_idx+1:])
-            # 计算合适的分区大小
-            target = self._find_target(dp, sum(component_sizes), self.qpus[qpu_idx], remaining_qpu_capacity)
-            # 如果没有成功分离出适合第qpu_idx个QPU的划分，返回空
-            if target < 0:
-                return []
-            # 如果成功分离了，通过trace获取可能的分区
-            curr_legal_partitions = self._trace(dp, temp_components, len(temp_components)-1, target, [[]])
-            # 选取字典序最小的划分
-            # TODO：选取与QPU[qpu_idx]的上一个划分差距最小的划分
-            sorted_curr_legal_partitions = self._sort_partitions(curr_legal_partitions)
-            curr_partition = sorted_curr_legal_partitions[0]
-            legal_partition.append(curr_partition)  # 加入当前QPU上的划分情况
-            # 后处理，从temp_components中删除partition里的qubit
-            temp_components = self._get_remaining_components(temp_components, curr_partition)
-        
-        return [legal_partition]
-
-
 class RecursiveDynamicProgrammingPartitioner(BasePartitioner):
     """
     递归动态规划分区器：使用递归和DP生成多种分区方案
@@ -282,6 +207,84 @@ class RecursiveDynamicProgrammingPartitioner(BasePartitioner):
             self._recursive_partition_helper(current_partition, remaining_components, qpu_idx + 1)
             # 回溯，尝试其他划分
             current_partition.pop()
+
+
+class GreedyPartitioner(BasePartitioner):
+    """
+    贪心分区器：按照贪心策略分配量子电路组件到QPU
+    """
+    
+    def get_name(self) -> str:
+        return "Greedy Partitioner"
+
+    def partition(self, components: list[list[int]]) -> list[list[list[int]]]:
+        """
+        使用贪心策略进行分区
+        """
+        partition = [[] for _ in range(len(self.qpus))]
+        capacities = self.qpus.copy()  # 每个QPU的剩余容量
+        
+        for com in components:  # 放置第i个components
+            placed = False
+            for idx, qpu in enumerate(partition):  # 尝试放到第idx个QPU上
+                if len(com) <= capacities[idx]:
+                    qpu.extend(com)
+                    capacities[idx] -= len(com)
+                    placed = True
+                    break
+            if not placed:  # 无法完整容纳com，将com拆分开放进不同的分区
+                temp_com = com.copy()  # 避免修改原始数据
+                while temp_com:  # 循环拆分直到组件分配完毕
+                    max_idx = capacities.index(max(capacities))  # 剩余容量最大的QPU
+                    put_num = min(capacities[max_idx], len(temp_com))  # 计算本次可放入的数量
+                    partition[max_idx].extend(temp_com[:put_num])
+                    capacities[max_idx] -= put_num
+                    temp_com = temp_com[put_num:]  # 剩余未分配的组件部分
+        
+        return [partition]
+
+
+class DynamicProgrammingPartitioner(BasePartitioner):
+    """
+    动态规划分区器：使用DP算法寻找较优的分区方案
+    """
+    
+    def get_name(self) -> str:
+        return "Dynamic Programming Partitioner"
+
+    def partition(self, components: list[list[int]]) -> list[list[list[int]]]:
+        """
+        使用动态规划进行分区
+        """
+        legal_partition = []  # 一组合法划分
+        temp_components = copy.deepcopy(components)  # 避免修改原始数据
+        
+        for qpu_idx in range(len(self.qpus)):  # 处理第qpu_idx个QPU
+            # 更新component_sizes
+            component_sizes = [len(comp) for comp in temp_components]
+            # 计算components是否可以组成大小不超过当前QPU容量的分区
+            dp = self._group_components_to(self.qpus[qpu_idx], component_sizes)
+            # 计算剩余QPU的容量
+            remaining_qpu_capacity = sum(self.qpus[qpu_idx+1:])
+            # 计算合适的分区大小
+            target = self._find_target(dp, sum(component_sizes), self.qpus[qpu_idx], remaining_qpu_capacity)
+            # 如果没有成功分离出适合第qpu_idx个QPU的划分，返回空
+            if target < 0:
+                return []
+            # 如果成功分离了，通过trace获取可能的分区
+            curr_legal_partitions = self._trace(dp, temp_components, len(temp_components)-1, target, [[]])
+            # 选取字典序最小的划分
+            # TODO：选取与QPU[qpu_idx]的上一个划分差距最小的划分
+            sorted_curr_legal_partitions = self._sort_partitions(curr_legal_partitions)
+            curr_partition = sorted_curr_legal_partitions[0]
+            legal_partition.append(curr_partition)  # 加入当前QPU上的划分情况
+            # 后处理，从temp_components中删除partition里的qubit
+            temp_components = self._get_remaining_components(temp_components, curr_partition)
+        
+        return [legal_partition]
+
+
+
 
 
 class PartitionerFactory:

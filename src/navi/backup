@@ -246,6 +246,527 @@
         print(f"[construct_hybrid_records] Time: {end_time - start_time} seconds", file=sys.stderr)
         return result
 
+    def _step_construct_noise_aware_hybrid_records(self, ctx: CompilationContext) -> MappingRecordList:
+        """
+        噪声感知束搜索构建混合记录：
+        - 不替换现有 _step_construct_hybrid_records_beam；
+        - 在每一步扩展时显式携带 logical_phy_map；
+        - 用“当前映射下真实保真度损失和epairs增量”做打分。
+
+        评分口径：
+        score = 保真度, 历史累计真实epairs + 当前候选在(teledata + local/telegate)下的真实epairs增量
+        """
+        start_time = time.time()
+        blocks = ctx.subc_ranges
+        K = len(blocks)
+
+        beam_width = int(ctx.config.get("hybrid_beam_width", 3))
+        max_merge_span = int(ctx.config.get("hybrid_max_merge_span", 12))
+        merge_probe_budget = int(ctx.config.get("hybrid_merge_probe_budget", 12))
+        pos_probe_budget = int(ctx.config.get("hybrid_pos_probe_budget", 90))
+        prune_trigger_ratio = int(ctx.config.get("hybrid_prune_trigger_ratio", 5))
+        perm_budget = int(ctx.config.get("noise_aware_perm_budget", 6))
+        perm_neighbor_swaps = int(ctx.config.get("noise_aware_perm_neighbor_swaps", 1))
+        perm_refine_rounds = int(ctx.config.get("noise_aware_perm_refine_rounds", 2))
+        hops_weight = float(ctx.config.get("noise_aware_hops_weight", 1.0))
+        fidelity_loss_weight = float(ctx.config.get("noise_aware_fidelity_loss_weight", 1.0))
+        beam_width = max(1, beam_width)
+        max_merge_span = max(1, max_merge_span)
+        merge_probe_budget = max(1, merge_probe_budget)
+        pos_probe_budget = max(1, pos_probe_budget)
+        prune_trigger_ratio = max(2, prune_trigger_ratio)
+        perm_budget = max(1, perm_budget)
+        perm_neighbor_swaps = max(0, perm_neighbor_swaps)
+        perm_refine_rounds = max(0, perm_refine_rounds)
+
+        log(
+            f"[construct_noise_aware_hybrid_records] blocks={K}, beam_width={beam_width}, "
+            f"max_merge_span={max_merge_span}, merge_probe_budget={merge_probe_budget}, "
+            f"pos_probe_budget={pos_probe_budget}, perm_budget={perm_budget}, "
+            f"perm_neighbor_swaps={perm_neighbor_swaps}, objective=(min real_epairs)"
+        )
+
+        if K == 0:
+            return MappingRecordList()
+
+        cost_eval_network = ctx.network
+        n_backends = ctx.network.num_backends
+
+        original_records: list[MappingRecord] = []
+        for idx, (s, e) in enumerate(blocks):
+            left, right = self.get_original_layer_idx(ctx, (s, e))
+            record = MappingRecord(
+                layer_start=left,
+                layer_end=right,
+                partition=ctx.partition_plan[idx],
+                mapping_type="teledata",
+            )
+            original_records.append(record)
+
+        # states[pos] = [(total_fidelity_loss, epairs, [records...], logical_phy_map), ...]
+        states: dict[int, list[tuple[float, float, list[MappingRecord], dict[int, tuple[int, int | None]]]]] = {
+            0: [(0.0, 0.0, [], {})]
+        }
+        subcircuit_cache: dict[tuple[int, int], QuantumCircuit] = {}
+
+        def _state_key(
+            item: tuple[float, float, list[MappingRecord], dict[int, tuple[int, int | None]]]
+        ) -> tuple[float, float]:
+            total_fidelity_loss, epairs, _, _ = item
+            return (total_fidelity_loss, epairs)
+
+        def _partition_sig(partition: list[list[int]]) -> tuple[tuple[int, ...], ...]:
+            return tuple(tuple(sorted(part)) for part in partition)
+
+        def _prune(
+            candidates: list[tuple[float, float, list[MappingRecord], dict[int, tuple[int, int | None]]]]
+        ) -> list[tuple[float, float, list[MappingRecord], dict[int, tuple[int, int | None]]]]:
+            # 先按“末尾划分签名”去重，保留每种签名成本最小者，再按总成本截断。
+            best_by_sig: dict[
+                tuple[tuple[int, ...], ...],
+                tuple[float, float, list[MappingRecord], dict[int, tuple[int, int | None]]],
+            ] = {}
+            for item in candidates:
+                _, _, recs, _ = item
+                if not recs:
+                    sig = tuple()
+                else:
+                    sig = _partition_sig(recs[-1].partition)
+
+                old = best_by_sig.get(sig)
+                if old is None or _state_key(item) < _state_key(old):
+                    best_by_sig[sig] = item
+
+            pruned = sorted(best_by_sig.values(), key=_state_key)
+            return pruned[:beam_width]
+
+        def _get_record_subcircuit(record: MappingRecord) -> QuantumCircuit:
+            if record.extra_info is not None and "ops" in record.extra_info:
+                return record.extra_info["ops"]
+
+            key = (record.layer_start, record.layer_end)
+            if key in subcircuit_cache:
+                return subcircuit_cache[key]
+
+            subc = CompilerUtils.get_subcircuit_by_level(
+                num_qubits=ctx.circuit.num_qubits,
+                circuit=ctx.circuit,
+                circuit_layers=ctx.circuit_layers,
+                layer_start=record.layer_start,
+                layer_end=record.layer_end,
+            )
+            subcircuit_cache[key] = subc
+            return subc
+
+        def _apply_perm(partition: list[list[int]], perm: tuple[int, ...]) -> list[list[int]]:
+            return [partition[i] for i in perm]
+
+        def _invert_perm(perm: tuple[int, ...]) -> list[int]:
+            # perm[physical] = logical  -> inverse[logical] = physical
+            inv = [-1 for _ in range(len(perm))]
+            for physical, logical in enumerate(perm):
+                inv[logical] = physical
+            return inv
+
+        def _build_prev_preferred_perm(
+            prev_partition: Optional[list[list[int]]],
+            base_logical_map: dict[int, tuple[int, int | None]],
+        ) -> tuple[int, ...]:
+            """
+            从上一状态 logical_phy_map 提取一个“延续性”映射，作为 permutation 搜索起点。
+            返回格式：perm[physical] = logical。
+            """
+            identity = tuple(range(n_backends))
+            if prev_partition is None or len(base_logical_map) == 0:
+                return identity
+
+            vote: list[dict[int, int]] = [dict() for _ in range(n_backends)]
+            for logical_id, group in enumerate(prev_partition):
+                for q in group:
+                    if q not in base_logical_map:
+                        continue
+                    physical_id = base_logical_map[q][0]
+                    if physical_id is None:
+                        continue
+                    bucket = vote[logical_id]
+                    bucket[physical_id] = bucket.get(physical_id, 0) + 1
+
+            assigned_logical: set[int] = set()
+            assigned_physical: set[int] = set()
+            pairs: list[tuple[int, int, int]] = []  # (count, logical, physical)
+            for logical_id in range(n_backends):
+                for physical_id, cnt in vote[logical_id].items():
+                    pairs.append((cnt, logical_id, physical_id))
+            pairs.sort(reverse=True)
+
+            logical_to_physical = [-1 for _ in range(n_backends)]
+            for cnt, logical_id, physical_id in pairs:
+                if cnt <= 0:
+                    continue
+                if logical_id in assigned_logical or physical_id in assigned_physical:
+                    continue
+                logical_to_physical[logical_id] = physical_id
+                assigned_logical.add(logical_id)
+                assigned_physical.add(physical_id)
+
+            free_logical = [x for x in range(n_backends) if logical_to_physical[x] == -1]
+            free_physical = [x for x in range(n_backends) if x not in assigned_physical]
+            for logical_id, physical_id in zip(free_logical, free_physical):
+                logical_to_physical[logical_id] = physical_id
+
+            perm = [-1 for _ in range(n_backends)]
+            for logical_id, physical_id in enumerate(logical_to_physical):
+                perm[physical_id] = logical_id
+            return tuple(perm)
+
+        def _build_pair_demand(
+            prev_partition: Optional[list[list[int]]],
+            curr_partition: list[list[int]],
+            subcircuit: QuantumCircuit,
+        ) -> list[list[float]]:
+            """
+            构建逻辑分区间通信需求矩阵：
+            - 加入 partition 切换造成的迁移需求；
+            - 加入当前子线路中跨分区双比特/CommOp需求。
+            """
+            demand = [[0.0 for _ in range(n_backends)] for _ in range(n_backends)]
+
+            q_to_curr: dict[int, int] = {}
+            for pid, part in enumerate(curr_partition):
+                for q in part:
+                    q_to_curr[q] = pid
+
+            if prev_partition is not None:
+                q_to_prev: dict[int, int] = {}
+                for pid, part in enumerate(prev_partition):
+                    for q in part:
+                        q_to_prev[q] = pid
+
+                for q, prev_pid in q_to_prev.items():
+                    curr_pid = q_to_curr.get(q)
+                    if curr_pid is None or prev_pid == curr_pid:
+                        continue
+                    demand[prev_pid][curr_pid] += 1.0
+
+            for inst in subcircuit:
+                op = inst.operation
+                op_name = getattr(op, "name", "")
+                if op_name.startswith("comm_"):
+                    src = getattr(op, "src_qpu", None)
+                    dst = getattr(op, "dst_qpu", None)
+                    if isinstance(src, int) and isinstance(dst, int) and src != dst:
+                        w = 2.0 if getattr(op, "comm_type", "") == "rtp" else 1.0
+                        demand[src][dst] += w
+                    continue
+
+                if len(inst.qubits) != 2:
+                    continue
+                q0 = subcircuit.qubits.index(inst.qubits[0])
+                q1 = subcircuit.qubits.index(inst.qubits[1])
+                p0 = q_to_curr.get(q0)
+                p1 = q_to_curr.get(q1)
+                if p0 is None or p1 is None or p0 == p1:
+                    continue
+                demand[p0][p1] += 1.0
+                demand[p1][p0] += 1.0
+
+            return demand
+
+        def _mapping_penalty(physical_src: int, physical_dst: int) -> float:
+            if physical_src == physical_dst:
+                return 0.0
+            hops = float(ctx.network.Hops[physical_src][physical_dst])
+            loss = float(ctx.network.move_fidelity_loss[physical_src][physical_dst])
+            return hops_weight * hops + fidelity_loss_weight * loss
+
+        def _score_perm(perm: tuple[int, ...], demand: list[list[float]]) -> float:
+            logical_to_physical = _invert_perm(perm)
+            total = 0.0
+            for lsrc in range(n_backends):
+                psrc = logical_to_physical[lsrc]
+                for ldst in range(n_backends):
+                    w = demand[lsrc][ldst]
+                    if w <= 0:
+                        continue
+                    pdst = logical_to_physical[ldst]
+                    total += w * _mapping_penalty(psrc, pdst)
+            return total
+
+        def _refine_perm_by_swaps(base_perm: tuple[int, ...], demand: list[list[float]]) -> tuple[int, ...]:
+            """
+            对起始perm做小步邻域改进，不做全排列枚举。
+            """
+            best = base_perm
+            best_score = _score_perm(best, demand)
+
+            for _ in range(perm_refine_rounds):
+                improved = False
+                for i in range(n_backends):
+                    for j in range(i + 1, n_backends):
+                        cand = list(best)
+                        cand[i], cand[j] = cand[j], cand[i]
+                        cand_t = tuple(cand)
+                        cand_score = _score_perm(cand_t, demand)
+                        if cand_score + 1e-12 < best_score:
+                            best, best_score = cand_t, cand_score
+                            improved = True
+                if not improved:
+                    break
+            return best
+
+        def _build_perm_candidates(
+            prev_partition: Optional[list[list[int]]],
+            curr_record: MappingRecord,
+            base_logical_map: dict[int, tuple[int, int | None]],
+        ) -> list[tuple[int, ...]]:
+            identity = tuple(range(n_backends))
+            subcircuit = _get_record_subcircuit(curr_record)
+            demand = _build_pair_demand(prev_partition, curr_record.partition, subcircuit)
+
+            seed = _build_prev_preferred_perm(prev_partition, base_logical_map)
+            refined = _refine_perm_by_swaps(seed, demand)
+
+            candidates: list[tuple[int, ...]] = []
+            seen: set[tuple[int, ...]] = set()
+
+            def _push(p: tuple[int, ...]) -> None:
+                if p in seen:
+                    return
+                candidates.append(p)
+                seen.add(p)
+
+            _push(seed)
+            _push(refined)
+            _push(identity)
+
+            frontier = list(candidates)
+            for _ in range(perm_neighbor_swaps):
+                if len(candidates) >= perm_budget:
+                    break
+                next_frontier: list[tuple[int, ...]] = []
+                for perm in frontier:
+                    if len(candidates) >= perm_budget:
+                        break
+                    for i in range(n_backends):
+                        for j in range(i + 1, n_backends):
+                            cand = list(perm)
+                            cand[i], cand[j] = cand[j], cand[i]
+                            cand_t = tuple(cand)
+                            if cand_t in seen:
+                                continue
+                            _push(cand_t)
+                            next_frontier.append(cand_t)
+                            if len(candidates) >= perm_budget:
+                                break
+                        if len(candidates) >= perm_budget:
+                            break
+                frontier = next_frontier
+                if not frontier:
+                    break
+
+            # 先按链路感知启发式排序，再截断到预算。
+            candidates = sorted(candidates, key=lambda p: _score_perm(p, demand))
+            return candidates[:perm_budget]
+
+        def _evaluate_real_epairs_delta(
+            prev_partition: Optional[list[list[int]]],
+            curr_record: MappingRecord,
+            base_logical_map: dict[int, tuple[int, int | None]],
+            perm: Optional[tuple[int, ...]] = None,
+        ) -> tuple[float, float, dict[int, tuple[int, int | None]], MappingRecord]:
+            """
+            计算在“当前映射状态”下，引入 curr_record 的真实epairs增量。
+            返回: (delta_total_fidelity_loss, delta_epairs, next_logical_map, applied_record)
+            """
+            next_logical_map = copy.deepcopy(base_logical_map)
+            applied_record = copy.deepcopy(curr_record)
+
+            if perm is not None:
+                applied_record.partition = _apply_perm(applied_record.partition, perm)
+
+            delta_epairs = 0.0
+            delta_total_fidelity_loss = 0.0
+
+            if prev_partition is not None:
+                td_costs, next_logical_map = CompilerUtils.evaluate_teledata(
+                    prev_partition,
+                    applied_record.partition,
+                    cost_eval_network,
+                    logical_phy_map=next_logical_map,
+                )
+                delta_epairs += td_costs.epairs
+                delta_total_fidelity_loss += td_costs.total_fidelity_loss
+
+            subcircuit = _get_record_subcircuit(applied_record)
+            tg_costs, next_logical_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                applied_record.partition,
+                subcircuit,
+                cost_eval_network,
+                logical_phy_map=next_logical_map,
+                optimization_level=0,
+            )
+            delta_epairs += tg_costs.epairs
+            delta_total_fidelity_loss += tg_costs.total_fidelity_loss
+
+            return delta_total_fidelity_loss, delta_epairs, next_logical_map, applied_record
+
+        def _select_best_permuted_candidate(
+            prev_partition: Optional[list[list[int]]],
+            candidate_record: MappingRecord,
+            base_logical_map: dict[int, tuple[int, int | None]],
+        ) -> tuple[float, float, dict[int, tuple[int, int | None]], MappingRecord]:
+            """
+            对单个候选记录进行“小预算 permutation 搜索”，返回真实epairs最优方案。
+            """
+            perm_candidates = _build_perm_candidates(prev_partition, candidate_record, base_logical_map)
+
+            best_loss = float("inf")
+            best_delta = float("inf")
+            best_map: dict[int, tuple[int, int | None]] = {}
+            best_record: Optional[MappingRecord] = None
+
+            for perm in perm_candidates:
+                delta_loss, delta_epairs, next_map, applied_record = _evaluate_real_epairs_delta(
+                    prev_partition,
+                    candidate_record,
+                    base_logical_map,
+                    perm=perm,
+                )
+                if (delta_loss, delta_epairs) < (best_loss, best_delta):
+                    best_loss = delta_loss
+                    best_delta = delta_epairs
+                    best_map = next_map
+                    best_record = applied_record
+
+            assert best_record is not None
+            return best_loss, best_delta, best_map, best_record
+
+        def _build_noise_aware_teledata_baseline() -> tuple[float, float, list[MappingRecord]]:
+            baseline_records: list[MappingRecord] = []
+            baseline_total_loss = 0.0
+            baseline_epairs = 0.0
+            prev_part: Optional[list[list[int]]] = None
+            logical_map: dict[int, tuple[int, int | None]] = {}
+
+            for rec in original_records:
+                curr = copy.deepcopy(rec)
+                delta_loss, delta_epairs, logical_map, best_curr = _select_best_permuted_candidate(
+                    prev_part,
+                    curr,
+                    logical_map,
+                )
+                baseline_total_loss += delta_loss
+                baseline_epairs += delta_epairs
+                baseline_records.append(best_curr)
+                prev_part = best_curr.partition
+
+            return baseline_total_loss, baseline_epairs, baseline_records
+
+        td_only_total_loss, td_only_real_epairs, td_only_records = _build_noise_aware_teledata_baseline()
+        telegate_probe_positions = set(self._sample_budgeted_indices(0, K - 1, pos_probe_budget))
+        log(
+            f"[construct_noise_aware_hybrid_records] telegate_probe_positions={len(telegate_probe_positions)}/{K}"
+        )
+
+        for pos in range(K):
+            pos_start_time = time.time()
+            if pos in states and len(states[pos]) > beam_width:
+                states[pos] = _prune(states[pos])
+
+            current_states = states.get(pos, [])
+            if not current_states:
+                continue
+
+            for base_total_loss, base_epairs, base_records, base_map in current_states:
+                prev_partition = base_records[-1].partition if base_records else None
+
+                # 选项 A：当前原子块保持 teledata
+                td_record = copy.deepcopy(original_records[pos])
+                delta_loss, delta_epairs, next_map, best_td_record = _select_best_permuted_candidate(
+                    prev_partition,
+                    td_record,
+                    base_map,
+                )
+                states.setdefault(pos + 1, []).append(
+                    (
+                        base_total_loss + delta_loss,
+                        base_epairs + delta_epairs,
+                        base_records + [best_td_record],
+                        next_map,
+                    )
+                )
+
+                # 选项 B：仅在采样到的pos上展开telegate
+                if pos in telegate_probe_positions:
+                    start_layer = original_records[pos].layer_start
+                    upper_end = min(K - 1, pos + max_merge_span - 1)
+                    sampled_ends = self._sample_budgeted_indices(pos, upper_end, merge_probe_budget)
+
+                    for end in sampled_ends:
+                        end_layer = original_records[end].layer_end
+                        telegate_result = self._try_generate_telegate(
+                            ctx,
+                            start_layer,
+                            end_layer,
+                            prev_partition,
+                        )
+
+                        tg_record = copy.deepcopy(telegate_result.records[0])
+                        delta_loss, delta_epairs, next_map, best_tg_record = _select_best_permuted_candidate(
+                            prev_partition,
+                            tg_record,
+                            base_map,
+                        )
+
+                        states.setdefault(end + 1, []).append(
+                            (
+                                base_total_loss + delta_loss,
+                                base_epairs + delta_epairs,
+                                base_records + [best_tg_record],
+                                next_map,
+                            )
+                        )
+
+            for prune_pos in range(pos + 1, min(K, pos + max_merge_span) + 1):
+                if prune_pos in states and len(states[prune_pos]) > prune_trigger_ratio * beam_width:
+                    states[prune_pos] = _prune(states[prune_pos])
+
+            pos_end_time = time.time()
+            log(f"[DEBUG] NoiseAware Position {pos} completed in {pos_end_time - pos_start_time} seconds")
+
+        final_candidates = states.get(K, [])
+        if len(final_candidates) > beam_width:
+            final_candidates = _prune(final_candidates)
+        if not final_candidates:
+            raise RuntimeError("[ERROR] noise-aware beam search failed to produce any hybrid plan.")
+
+        best_total_loss, best_real_epairs, best_records, _ = min(
+            final_candidates,
+            key=_state_key,
+        )
+
+        # 兜底保证：noise-aware hybrid输出不应比teledata-only更差（按(total_fidelity_loss, epairs)口径比较）。
+        if (best_total_loss, best_real_epairs) > (td_only_total_loss, td_only_real_epairs):
+            log(
+                f"[noise_aware_hybrid_fallback] hybrid=(loss={best_total_loss}, epairs={best_real_epairs}) > "
+                f"teledata_only=(loss={td_only_total_loss}, epairs={td_only_real_epairs}), fallback to teledata-only"
+            )
+            best_total_loss = td_only_total_loss
+            best_real_epairs = td_only_real_epairs
+            best_records = td_only_records
+
+        result = MappingRecordList()
+        result.records = best_records
+        result.summarize_total_costs()
+
+        ctx.telegate_optimized = True
+        end_time = time.time()
+        log(
+            f"[construct_noise_aware_hybrid_records] best_key=(loss={best_total_loss}, real_epairs={best_real_epairs}), "
+            f"best_epairs={result.total_costs.epairs}, best_cat_ents={result.total_costs.cat_ents}, "
+            f"Time: {end_time - start_time} seconds"
+        )
+        return result
 
 
 

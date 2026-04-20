@@ -61,8 +61,6 @@ class CompilationContext:
     telegate_strict_seen_keys: set[Any] = field(default_factory=set)
     telegate_range_seen_keys: set[Any] = field(default_factory=set)
     ptable_telegate_hints: dict[tuple[int, int], dict[str, float]] = field(default_factory=dict)
-    get_ori_subc_calls: int = 0
-    get_ori_subc_total_time: float = 0.0
     
     # --- 运行时组件 (Runtime Components) ---
     partitioner: Optional[Partitioner] = None
@@ -741,35 +739,30 @@ class NAVI(Compiler):
         """
         获取原线路中[ori_left, ori_right]的子线路
         """
-        start_time = time.perf_counter()
-        try:
-            # 1. 复制原电路的寄存器结构（包含量子和经典比特）
-            # 这样可以完美保留原电路的比特命名和结构
-            qregs = ctx.circuit.qregs
-            cregs = ctx.circuit.cregs
-            subcircuit = QuantumCircuit(*qregs, *cregs)
+        # 1. 复制原电路的寄存器结构（包含量子和经典比特）
+        # 这样可以完美保留原电路的比特命名和结构
+        qregs = ctx.circuit.qregs
+        cregs = ctx.circuit.cregs
+        subcircuit = QuantumCircuit(*qregs, *cregs)
 
-            # 2. 建立映射：{原电路比特对象: 子电路对应索引的比特对象}
-            # 量子比特映射
-            q_map = {old_q: subcircuit.qubits[i] for i, old_q in enumerate(ctx.circuit.qubits)}
-            # 经典比特映射（防止有测量门等操作经典比特的情况）
-            c_map = {old_c: subcircuit.clbits[i] for i, old_c in enumerate(ctx.circuit.clbits)} if subcircuit.clbits else {}
+        # 2. 建立映射：{原电路比特对象: 子电路对应索引的比特对象}
+        # 量子比特映射
+        q_map = {old_q: subcircuit.qubits[i] for i, old_q in enumerate(ctx.circuit.qubits)}
+        # 经典比特映射（防止有测量门等操作经典比特的情况）
+        c_map = {old_c: subcircuit.clbits[i] for i, old_c in enumerate(ctx.circuit.clbits)} if subcircuit.clbits else {}
 
-            # 3. 遍历并追加门，使用映射后的比特
-            for lev in range(ori_left, ori_right + 1):
-                for node in ctx.circuit_layers[lev]:
-                    # 替换量子比特
-                    new_qargs = [q_map[q] for q in node.qargs]
-                    # 替换经典比特（如果有的话）
-                    old_cargs = getattr(node, 'cargs', [])
-                    new_cargs = [c_map[c] for c in old_cargs] if old_cargs else []
+        # 3. 遍历并追加门，使用映射后的比特
+        for lev in range(ori_left, ori_right + 1):
+            for node in ctx.circuit_layers[lev]:
+                # 替换量子比特
+                new_qargs = [q_map[q] for q in node.qargs]
+                # 替换经典比特（如果有的话）
+                old_cargs = getattr(node, 'cargs', [])
+                new_cargs = [c_map[c] for c in old_cargs] if old_cargs else []
 
-                    subcircuit.append(node.op, new_qargs, new_cargs)
+                subcircuit.append(node.op, new_qargs, new_cargs)
 
-            return subcircuit
-        finally:
-            ctx.get_ori_subc_calls += 1
-            ctx.get_ori_subc_total_time += time.perf_counter() - start_time
+        return subcircuit
 
         # subcircuit = QuantumCircuit(ctx.circuit.num_qubits)
         # for lev in range(ori_left, ori_right + 1):

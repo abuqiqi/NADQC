@@ -69,6 +69,11 @@ class Network:
                 for i in range(self.num_backends)
                 for j in range(i+1, self.num_backends)
             }
+        elif self.net_type == 'chain':
+            network_coupling = {
+                (i, i + 1): random.uniform(self.fidelity_range[0], self.fidelity_range[1])
+                for i in range(self.num_backends - 1)
+            }
         elif self.net_type == 'mesh_grid':
             n_rows, n_cols = self.size
             assert self.num_backends == n_rows * n_cols, "Size does not match number of backends"
@@ -79,7 +84,6 @@ class Network:
             for row in range(n_rows - 1):
                 for col in range(n_cols):
                     network_coupling[(row * n_cols + col, (row + 1) * n_cols + col)] = random.uniform(self.fidelity_range[0], self.fidelity_range[1])
-        # TODO: chain
         elif self.net_type == 'self_defined':
             network_coupling = network_config.get('network_coupling', {})
             self.fidelity_range = [

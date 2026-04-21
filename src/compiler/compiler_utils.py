@@ -31,6 +31,21 @@ class ExecCosts:
     execution_time: float = 0.0
 
     local_gate_num: int = 0    # 本地量子门总个数
+    flush_calls: int = 0       # _flush_local_subcircuits 调用次数（含空flush）
+    nonempty_flushes: int = 0  # 实际触发了至少一个非空子线路结算的flush次数
+    local_transpile_calls: int = 0  # 本地子线路 transpile 总次数（按QPU逐个累计）
+    comm_block_events: int = 0  # CommOp 事件数量
+    comm_block_local_gate_num: int = 0  # CommOp gate_list 中的本地执行门数（未含routing）
+    comm_block_local_fidelity_loss: float = 0.0  # CommOp gate_list 对应本地执行损失
+    comm_block_local_fidelity_log_sum: float = 0.0  # CommOp gate_list 对应本地执行log保真度和
+    comm_block_remote_fidelity_loss: float = 0.0  # CommOp 对应远程链路损失
+    comm_block_remote_fidelity_log_sum: float = 0.0  # CommOp 对应远程链路log保真度和
+    telegate_exec_events: int = 0  # 普通跨QPU门按synthetic CommOp(cat)执行的事件数
+    telegate_exec_local_gate_num: int = 0  # telegate目标端本地执行门数（未含routing）
+    telegate_exec_local_fidelity_loss: float = 0.0  # telegate目标端本地执行损失
+    telegate_exec_local_fidelity_log_sum: float = 0.0  # telegate目标端本地执行log保真度和
+    telegate_exec_remote_fidelity_loss: float = 0.0  # telegate对应远程链路损失
+    telegate_exec_remote_fidelity_log_sum: float = 0.0  # telegate对应远程链路log保真度和
 
     @property
     def num_comms(self) -> int:
@@ -81,6 +96,22 @@ class ExecCosts:
             f"local_fidelity={self.local_fidelity}, "
             f"time={self.execution_time:.2f}), "
             f"local_gate_num={self.local_gate_num}"
+            # Debug fields kept for temporary diagnostics; hide from default pprint/terminal output.
+            # f", flush_calls={self.flush_calls}"
+            # f", nonempty_flushes={self.nonempty_flushes}"
+            # f", local_transpile_calls={self.local_transpile_calls}"
+            # f", comm_block_events={self.comm_block_events}"
+            # f", comm_block_local_gate_num={self.comm_block_local_gate_num}"
+            # f", comm_block_local_fidelity_loss={self.comm_block_local_fidelity_loss}"
+            # f", comm_block_local_fidelity_log_sum={self.comm_block_local_fidelity_log_sum}"
+            # f", comm_block_remote_fidelity_loss={self.comm_block_remote_fidelity_loss}"
+            # f", comm_block_remote_fidelity_log_sum={self.comm_block_remote_fidelity_log_sum}"
+            # f", telegate_exec_events={self.telegate_exec_events}"
+            # f", telegate_exec_local_gate_num={self.telegate_exec_local_gate_num}"
+            # f", telegate_exec_local_fidelity_loss={self.telegate_exec_local_fidelity_loss}"
+            # f", telegate_exec_local_fidelity_log_sum={self.telegate_exec_local_fidelity_log_sum}"
+            # f", telegate_exec_remote_fidelity_loss={self.telegate_exec_remote_fidelity_loss}"
+            # f", telegate_exec_remote_fidelity_log_sum={self.telegate_exec_remote_fidelity_log_sum}"
         )
 
     def __repr__(self) -> str:
@@ -102,6 +133,21 @@ class ExecCosts:
         self.remote_fidelity *= other.remote_fidelity
         self.local_fidelity *= other.local_fidelity
         self.local_gate_num += other.local_gate_num
+        self.flush_calls += other.flush_calls
+        self.nonempty_flushes += other.nonempty_flushes
+        self.local_transpile_calls += other.local_transpile_calls
+        self.comm_block_events += other.comm_block_events
+        self.comm_block_local_gate_num += other.comm_block_local_gate_num
+        self.comm_block_local_fidelity_loss += other.comm_block_local_fidelity_loss
+        self.comm_block_local_fidelity_log_sum += other.comm_block_local_fidelity_log_sum
+        self.comm_block_remote_fidelity_loss += other.comm_block_remote_fidelity_loss
+        self.comm_block_remote_fidelity_log_sum += other.comm_block_remote_fidelity_log_sum
+        self.telegate_exec_events += other.telegate_exec_events
+        self.telegate_exec_local_gate_num += other.telegate_exec_local_gate_num
+        self.telegate_exec_local_fidelity_loss += other.telegate_exec_local_fidelity_loss
+        self.telegate_exec_local_fidelity_log_sum += other.telegate_exec_local_fidelity_log_sum
+        self.telegate_exec_remote_fidelity_loss += other.telegate_exec_remote_fidelity_loss
+        self.telegate_exec_remote_fidelity_log_sum += other.telegate_exec_remote_fidelity_log_sum
         return self
 
     def to_dict(self) -> dict:
@@ -131,6 +177,22 @@ class ExecCosts:
             "local_fidelity",
             "remote_fidelity",
             "local_gate_num",
+            # Debug fields kept for temporary diagnostics; hide from default CSV/JSON summaries.
+            # "flush_calls",
+            # "nonempty_flushes",
+            # "local_transpile_calls",
+            # "comm_block_events",
+            # "comm_block_local_gate_num",
+            # "comm_block_local_fidelity_loss",
+            # "comm_block_local_fidelity_log_sum",
+            # "comm_block_remote_fidelity_loss",
+            # "comm_block_remote_fidelity_log_sum",
+            # "telegate_exec_events",
+            # "telegate_exec_local_gate_num",
+            # "telegate_exec_local_fidelity_loss",
+            # "telegate_exec_local_fidelity_log_sum",
+            # "telegate_exec_remote_fidelity_loss",
+            # "telegate_exec_remote_fidelity_log_sum",
         ]
 
         # 生成有序字典
@@ -747,12 +809,151 @@ class CompilerUtils:
                 mapped_qubits: list[int] = [tmp_global_to_local_lqid[q] for q in global_lqids]
                 subcircuits[dst_qpu].append(gate_op, mapped_qubits)
 
+        def _estimate_gate_error(backend: Any, gate_name: str, qubits: list[int]) -> float:
+            gate_key = f"{gate_name}{'_'.join(map(str, qubits))}"
+            gate_error = backend.gate_dict.get(gate_key, {}).get("gate_error_value", None)
+            if gate_error == 1:
+                gate_error = 0.99
+                print(f"[WARNING] {gate_key}: {gate_error}")
+
+            if gate_error is None or (isinstance(gate_error, float) and math.isnan(gate_error)):
+                gate_error = backend.gate_dict[gate_name]["gate_error_value"]
+
+            assert gate_error is not None, f"Gate error not found for gate_key: {gate_key} in backend.gate_dict"
+            gate_error = float(gate_error)
+            return min(max(gate_error, 0.0), 0.99)
+
+        def _accumulate_comm_block_local_stats(
+            dst_qpu: int,
+            gate_list: list[Gate],
+            tmp_global_to_local_lqid: dict[int, int],
+            stats_prefix: str,
+        ) -> None:
+            if len(gate_list) == 0:
+                return
+
+            backend = network.backends[dst_qpu]
+            for gate_op in gate_list:
+                global_lqids = getattr(gate_op, "_global_lqids", None)
+                if global_lqids is None:
+                    raise RuntimeError(
+                        f"[COMM_FLOW] gate_list门缺少 _global_lqids/_autocomm_qids 元数据: gate={gate_op}"
+                    )
+                mapped_qubits = [tmp_global_to_local_lqid[q] for q in global_lqids]
+                gate_error = _estimate_gate_error(backend, gate_op.name, mapped_qubits)
+                if stats_prefix == "comm_block":
+                    costs.comm_block_local_gate_num += 1
+                    costs.comm_block_local_fidelity_loss += gate_error
+                    costs.comm_block_local_fidelity_log_sum += np.log(1 - gate_error)
+                else:
+                    costs.telegate_exec_local_gate_num += 1
+                    costs.telegate_exec_local_fidelity_loss += gate_error
+                    costs.telegate_exec_local_fidelity_log_sum += np.log(1 - gate_error)
+
+        def _build_synthetic_telegate_commop(
+            op: Any,
+            global_qids: list[int],
+        ) -> Optional[CommOp]:
+            if len(global_qids) != 2 or not isinstance(op, Gate):
+                return None
+
+            gate_name = str(op.name).lower()
+            if gate_name in {"barrier", "measure"}:
+                return None
+
+            src_global = int(global_qids[0])
+            dst_global = int(global_qids[1])
+            src_qpu = int(runtime_pos[src_global][0])
+            dst_qpu = int(runtime_pos[dst_global][0])
+            if src_qpu == dst_qpu:
+                return None
+
+            gate_copy = op.to_mutable() if hasattr(op, "to_mutable") else copy.deepcopy(op)
+            setattr(gate_copy, "_global_lqids", [src_global, dst_global])
+            return CommOp(
+                comm_type="cat",
+                source_qubit=src_global,
+                src_qpu=src_qpu,
+                dst_qpu=dst_qpu,
+                involved_qubits=[src_global, dst_global],
+                gate_list=[gate_copy],
+            )
+
+        def _process_comm_like_op(comm_op: CommOp, stats_prefix: str) -> None:
+            nonlocal costs
+            src_qpu, dst_qpu = CompilerUtils._resolve_comm_qpu_endpoints_from_logical_map(
+                logical_phy_map=logical_phy_map,
+                op=comm_op,
+            )
+
+            if strict_flush_on_remote:
+                _flush_local_subcircuits()
+
+            remote_loss_before = costs.remote_fidelity_loss
+            remote_log_before = costs.remote_fidelity_log_sum
+
+            if stats_prefix == "comm_block":
+                costs.comm_block_events += 1
+            else:
+                costs.telegate_exec_events += 1
+
+            if comm_op.comm_type == "cat":
+                costs = CompilerUtils.update_remote_move_costs(
+                    costs, src_qpu, dst_qpu, 1, network
+                )
+                costs.cat_ents += 1
+                dst_slot = _find_free_slot(dst_qpu, owner=comm_op.source_qubit)
+                try:
+                    tmp_map = _build_tmp_local_map_for_comm(comm_op.source_qubit, dst_slot)
+                    _accumulate_comm_block_local_stats(dst_qpu, comm_op.gate_list, tmp_map, stats_prefix)
+                    _append_comm_gate_block(dst_qpu, comm_op.gate_list, tmp_map)
+                finally:
+                    _release_slot(dst_qpu, dst_slot, expected_owner=comm_op.source_qubit)
+
+            elif comm_op.comm_type == "rtp":
+                costs = CompilerUtils.update_remote_move_costs(
+                    costs, src_qpu, dst_qpu, 2, network
+                )
+                dst_slot = _find_free_slot(dst_qpu, owner=comm_op.source_qubit)
+                try:
+                    tmp_map = _build_tmp_local_map_for_comm(comm_op.source_qubit, dst_slot)
+                    _accumulate_comm_block_local_stats(dst_qpu, comm_op.gate_list, tmp_map, stats_prefix)
+                    _append_comm_gate_block(dst_qpu, comm_op.gate_list, tmp_map)
+                finally:
+                    _release_slot(dst_qpu, dst_slot, expected_owner=comm_op.source_qubit)
+
+            elif comm_op.comm_type == "tp":
+                costs = CompilerUtils.update_remote_move_costs(
+                    costs, src_qpu, dst_qpu, 1, network
+                )
+                dst_slot = _find_free_slot(dst_qpu, owner=comm_op.source_qubit)
+                try:
+                    tmp_map = _build_tmp_local_map_for_comm(comm_op.source_qubit, dst_slot)
+                    _accumulate_comm_block_local_stats(dst_qpu, comm_op.gate_list, tmp_map, stats_prefix)
+                    _append_comm_gate_block(dst_qpu, comm_op.gate_list, tmp_map)
+                finally:
+                    _release_slot(dst_qpu, dst_slot, expected_owner=comm_op.source_qubit)
+
+            remote_loss_delta = costs.remote_fidelity_loss - remote_loss_before
+            remote_log_delta = costs.remote_fidelity_log_sum - remote_log_before
+            if stats_prefix == "comm_block":
+                costs.comm_block_remote_fidelity_loss += remote_loss_delta
+                costs.comm_block_remote_fidelity_log_sum += remote_log_delta
+            else:
+                costs.telegate_exec_remote_fidelity_loss += remote_loss_delta
+                costs.telegate_exec_remote_fidelity_log_sum += remote_log_delta
+
+            if strict_flush_on_remote:
+                _flush_local_subcircuits()
+
         def _flush_local_subcircuits() -> None:
             """
             将当前缓存的本地子线路统一结算到local fidelity，并更新logical_phy_map。
             strict_flush_on_remote=True时由远程事件触发分段结算，避免跨远程边界的过度合并。
             """
             nonlocal logical_phy_map, subcircuits, costs
+            costs.flush_calls += 1
+            flushed_any = False
 
             for qpu_id in range(len(subcircuits)):
                 subcircuit = subcircuits[qpu_id]
@@ -760,6 +961,9 @@ class CompilerUtils:
 
                 if subcircuit.size() == 0:
                     continue
+
+                flushed_any = True
+                costs.local_transpile_calls += 1
 
                 initial_layout = CompilerUtils.get_initial_layout(
                     subcircuit,
@@ -785,17 +989,7 @@ class CompilerUtils:
                     gate_name = instruction.operation.name
                     qubits = [transpiled_circuit.qubits.index(qubit) for qubit in instruction.qubits]
                     assert qubits[0] is not None, f"Qubit index is None for instruction: {instruction}"
-                    gate_key = f"{gate_name}{'_'.join(map(str, qubits))}"
-
-                    gate_error = backend.gate_dict.get(gate_key, {}).get("gate_error_value", None)
-                    if gate_error == 1:
-                        gate_error = 0.99
-                        print(f"[WARNING] {gate_key}: {gate_error}")
-
-                    if gate_error is None or (isinstance(gate_error, float) and math.isnan(gate_error)):
-                        gate_error = backend.gate_dict[gate_name]["gate_error_value"]
-
-                    assert gate_error is not None, f"Gate error not found for gate_key: {gate_key} in backend.gate_dict"
+                    gate_error = _estimate_gate_error(backend, gate_name, qubits)
                     costs.local_gate_num += 1
                     costs.local_fidelity_loss += gate_error
                     costs.local_fidelity *= (1 - gate_error)
@@ -803,6 +997,9 @@ class CompilerUtils:
 
                 # 清空该QPU缓冲，下一段继续累计。
                 subcircuits[qpu_id] = QuantumCircuit(capacity_by_qpu[qpu_id])
+
+            if flushed_any:
+                costs.nonempty_flushes += 1
 
         for instruction in circuit:
             op = instruction.operation
@@ -812,56 +1009,7 @@ class CompilerUtils:
             # print(f"[DEBUG] qids: {global_qids}")
 
             if isinstance(op, CommOp):
-                src_qpu, dst_qpu = CompilerUtils._resolve_comm_qpu_endpoints_from_logical_map(
-                    logical_phy_map=logical_phy_map,
-                    op=op,
-                )
-
-                if strict_flush_on_remote:
-                    _flush_local_subcircuits()
-
-                if op.comm_type == "cat":
-                    costs = CompilerUtils.update_remote_move_costs(
-                        costs, src_qpu, dst_qpu, 1, network
-                    )
-                    costs.cat_ents += 1
-                    dst_slot = _find_free_slot(dst_qpu, owner=op.source_qubit)
-                    try:
-                        tmp_map = _build_tmp_local_map_for_comm(op.source_qubit, dst_slot)
-                        _append_comm_gate_block(dst_qpu, op.gate_list, tmp_map)
-                    finally:
-                        _release_slot(dst_qpu, dst_slot, expected_owner=op.source_qubit)
-
-                elif op.comm_type == "rtp":
-                    costs = CompilerUtils.update_remote_move_costs(
-                        costs, src_qpu, dst_qpu, 2, network
-                    )
-                    dst_slot = _find_free_slot(dst_qpu, owner=op.source_qubit)
-                    try:
-                        tmp_map = _build_tmp_local_map_for_comm(op.source_qubit, dst_slot)
-                        _append_comm_gate_block(dst_qpu, op.gate_list, tmp_map)
-                    finally:
-                        _release_slot(dst_qpu, dst_slot, expected_owner=op.source_qubit)
-
-                elif op.comm_type == "tp":
-                    costs = CompilerUtils.update_remote_move_costs(
-                        costs, src_qpu, dst_qpu, 1, network
-                    )
-                    dst_slot = _find_free_slot(dst_qpu, owner=op.source_qubit)
-                    try:
-                        tmp_map = _build_tmp_local_map_for_comm(op.source_qubit, dst_slot)
-                        _append_comm_gate_block(dst_qpu, op.gate_list, tmp_map)
-                    finally:
-                        # 当前策略：临时通信语义，tp按片段内临时迁移处理，通信结束后释放通信槽。
-                        # 因为迁移过去一定是放到comm_slot，所以应该不影响本地量子门操作的建立。
-                        _release_slot(dst_qpu, dst_slot, expected_owner=op.source_qubit)
-                        # TODO: （更严谨）持久迁移语义：
-                        # TP 后更新 runtime_pos 到 dst，并让态继续驻留；
-                        # 要么占着 comm_slot，要么立刻转存到 dst 的计算槽后再释放 comm_slot。
-                        # 这个更贴近“真实 TP”。
-
-                if strict_flush_on_remote:
-                    _flush_local_subcircuits()
+                _process_comm_like_op(op, "comm_block")
 
             else:
                 # print(f"[DEBUG] Processing normal gate: {op}")
@@ -876,19 +1024,23 @@ class CompilerUtils:
                     subcircuits[qpu_id].append(instruction.operation, mapped_qubits)
                 # 操作跨越多个分区，为telegate操作
                 else:
-                    if strict_flush_on_remote:
-                        _flush_local_subcircuits()
+                    synthetic_comm = _build_synthetic_telegate_commop(op, global_qids)
+                    if synthetic_comm is not None:
+                        _process_comm_like_op(synthetic_comm, "telegate")
+                    else:
+                        if strict_flush_on_remote:
+                            _flush_local_subcircuits()
 
-                    for i in range(len(global_qids) - 1):
-                        q1, q2 = global_qids[i], global_qids[i + 1]
-                        p1, p2 = runtime_pos[q1][0], runtime_pos[q2][0]
-                        if p1 != p2:
-                            costs = CompilerUtils.update_remote_move_costs(
-                                costs, p1, p2, 1, network
-                            )
+                        for i in range(len(global_qids) - 1):
+                            q1, q2 = global_qids[i], global_qids[i + 1]
+                            p1, p2 = runtime_pos[q1][0], runtime_pos[q2][0]
+                            if p1 != p2:
+                                costs = CompilerUtils.update_remote_move_costs(
+                                    costs, p1, p2, 1, network
+                                )
 
-                    if strict_flush_on_remote:
-                        _flush_local_subcircuits()
+                        if strict_flush_on_remote:
+                            _flush_local_subcircuits()
 
         # 检查所有通信槽是否都已释放。
         for qpu_id in range(len(partition)):

@@ -15,8 +15,20 @@ def _build_compile_config(global_config: dict, compiler: Compiler, circuit_name:
     }
 
 
+def _print_flush_stats(compiler_name: str, result) -> None:
+    total_costs = result.total_costs
+    print(
+        f"[FLUSH] [{compiler_name}] "
+        f"flush_calls={total_costs.flush_calls}, "
+        f"nonempty_flushes={total_costs.nonempty_flushes}, "
+        f"local_transpile_calls={total_costs.local_transpile_calls}"
+    )
+
+
 def _ordered_result_info(result_info: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
     preferred_order = [
+        "Static OEE",
+        "FGP-rOEE",
         "WBCP",
         "AutoComm",
         "NAVI Hybrid TD Direct",
@@ -152,6 +164,7 @@ def _run_shared_prefix_navi_variants(
                 records_time=direct_noise_aware_records_time,
             )
         pprint(result.total_costs)
+        _print_flush_stats(compiler.name, result)
         result_info[compiler.name] = {
             "F_eff": np.exp(result.total_costs.total_fidelity_log_sum / task_info["#Depth"]),
             **result.total_costs.to_dict()
@@ -220,7 +233,8 @@ def main(args):
     # compiler_ids = ["wbcp"]
     # compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi", "navihybrid"] # , "navinew"
     # compiler_ids = ["autocomm", "navihybrid"] # "navi", 
-    compiler_ids = ["wbcp", "autocomm", "navihybridtd", "navihybriddirectmapper", "navihybrid", "navihybriddirect"]
+    compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navihybridtd", "navihybriddirectmapper", "navihybrid"] # , "navihybriddirect"
+    # compiler_ids = ["staticoee", "navihybrid"]
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
     for compiler_id in compiler_ids:
@@ -247,6 +261,7 @@ def main(args):
         print(compile_config, file=sys.stdout)
         result = compiler.compile(trans_circ, network, compile_config)
         pprint(result.total_costs)
+        _print_flush_stats(compiler.name, result)
         result_info[compiler.name] = {
             "F_eff": np.exp(result.total_costs.total_fidelity_log_sum / task_info["#Depth"]),
             **result.total_costs.to_dict()
@@ -265,7 +280,7 @@ if __name__ == "__main__":
     # 获取全局配置
     args = get_args()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = "0" # f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
+    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
     original_stdout = sys.stdout
     with open(f'outputs/{filename}.txt', 'w', buffering=1) as f:
         sys.stdout = f

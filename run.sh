@@ -1,6 +1,11 @@
 # ##########
 # 2,3,4,5x10
 # ##########
+# python main.py -cname Random -nq 20 -core 2 -cap 10
+# python main.py -cname Random -nq 30 -core 3 -cap 10
+# python main.py -cname Random -nq 40 -core 4 -cap 10
+# python main.py -cname Random -nq 50 -core 5 -cap 10
+
 # python main.py -cname QAOA -nq 20 -core 2 -cap 10
 # python main.py -cname QAOA -nq 30 -core 3 -cap 10
 # python main.py -cname QAOA -nq 40 -core 4 -cap 10
@@ -19,6 +24,11 @@
 # ##########
 # 2,3,4,5x20
 # ##########
+# python main.py -cname Random -nq 40 -core 2 -cap 20
+# python main.py -cname Random -nq 60 -core 3 -cap 20
+# python main.py -cname Random -nq 80 -core 4 -cap 20
+# python main.py -cname Random -nq 100 -core 5 -cap 20
+
 # python main.py -cname QAOA -nq 40 -core 2 -cap 20
 # python main.py -cname QAOA -nq 60 -core 3 -cap 20
 # python main.py -cname QAOA -nq 80 -core 4 -cap 20
@@ -35,18 +45,26 @@
 # python main.py -cname QV -nq 100 -core 5 -cap 20
 
 # ##########
-# 2,3,4,5x30
+# 3x10,20,30,40,50
 # ##########
-
+python main.py -cname Random -nq 30 -core 3 -cap 10 -net chain
+python main.py -cname Random -nq 60 -core 3 -cap 20 -net chain
+python main.py -cname Random -nq 90 -core 3 -cap 30 -net chain
+python main.py -cname Random -nq 120 -core 3 -cap 40 -net chain
+python main.py -cname Random -nq 150 -core 3 -cap 50 -net chain
 
 # ##########
 # 4x20 mesh
 # ##########
-# python main.py -cname Permutation -nq 80 -core 4 -cap 20 -net mesh_grid
-# python main.py -cname MCMT -nq 80 -core 4 -cap 20 -net mesh_grid
-# python main.py -cname IQP -nq 80 -core 4 -cap 20 -net mesh_grid
-# python main.py -cname QAOA -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname BV -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname CuccaroAdder -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname DraperQFTAdder -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname Permutation -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname MCMT -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname IQP -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname QAOA -nq 80 -core 4 -cap 20 -net mesh_grid
 python main.py -cname QFT -nq 80 -core 4 -cap 20 -net mesh_grid
+python main.py -cname Random -nq 80 -core 4 -cap 20 -net mesh_grid
 python main.py -cname QV -nq 80 -core 4 -cap 20 -net mesh_grid
 python main.py -cname VQC_AA -nq 80 -core 4 -cap 20 -net mesh_grid
 python main.py -cname Pauli -nq 80 -core 4 -cap 20 -net mesh_grid

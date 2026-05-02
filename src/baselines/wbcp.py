@@ -62,7 +62,7 @@ class WBCP(Compiler):
         circuit_layers = list(circuit_dag.layers())
 
         num_depths = circuit.depth()
-        win_len = max(1, min(num_depths // 20, 500)) # 范围在[1, 500]，过长的线路设置成500
+        win_len = max(30, min(num_depths // 20, 500)) # 范围在[30, 500]，过长的线路设置成500
         if win_len == 0:
             win_len = num_depths
         num_subc = math.ceil(num_depths / win_len)
@@ -150,7 +150,8 @@ class WBCP(Compiler):
                     layer_end = right,
                     partition = previous_partition,
                     mapping_type = "telegate",
-                    logical_phy_map = previous_record.logical_phy_map # 沿用上一个record的logical_phy_map作为初始状态
+                    logical_phy_map = previous_record.logical_phy_map, # 沿用上一个record的logical_phy_map作为初始状态
+                    comm_phy_map = previous_record.comm_phy_map
                 )
                 # 完整评估划分，只有local and telegate开销
                 _ = CompilerUtils.evaluate_local_and_telegate_with_cat(record, sub_qc, network)

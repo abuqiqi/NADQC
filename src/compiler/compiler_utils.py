@@ -30,7 +30,8 @@ class ExecCosts:
     local_fidelity: float = 1.0
     execution_time: float = 0.0
 
-    local_gate_num: int = 0    # 本地量子门总个数
+    local_gate_num: int = 0    # transpile 后本地物理量子门总个数
+    payload_gate_num: int = 0  # transpile 前进入本地执行流程的 payload/body 门数
     flush_calls: int = 0       # _flush_local_subcircuits 调用次数（含空flush）
     nonempty_flushes: int = 0  # 实际触发了至少一个非空子线路结算的flush次数
     local_transpile_calls: int = 0  # 本地子线路 transpile 总次数（按QPU逐个累计）
@@ -95,7 +96,8 @@ class ExecCosts:
             f"local_fidelity_log_sum={self.local_fidelity_log_sum}, "
             f"local_fidelity={self.local_fidelity}, "
             f"time={self.execution_time:.2f}), "
-            f"local_gate_num={self.local_gate_num}"
+            f"local_gate_num={self.local_gate_num}, "
+            f"payload_gate_num={self.payload_gate_num}"
             # Debug fields kept for temporary diagnostics; hide from default pprint/terminal output.
             # f", flush_calls={self.flush_calls}"
             # f", nonempty_flushes={self.nonempty_flushes}"
@@ -133,6 +135,7 @@ class ExecCosts:
         self.remote_fidelity *= other.remote_fidelity
         self.local_fidelity *= other.local_fidelity
         self.local_gate_num += other.local_gate_num
+        self.payload_gate_num += other.payload_gate_num
         self.flush_calls += other.flush_calls
         self.nonempty_flushes += other.nonempty_flushes
         self.local_transpile_calls += other.local_transpile_calls
@@ -177,6 +180,7 @@ class ExecCosts:
             "local_fidelity",
             "remote_fidelity",
             "local_gate_num",
+            "payload_gate_num",
             # Debug fields kept for temporary diagnostics; hide from default CSV/JSON summaries.
             # "flush_calls",
             # "nonempty_flushes",
@@ -260,6 +264,7 @@ class MappingRecord:
     mapping_type: str = ""         # 映射类型（如 "teledata"、"telegate"）
     costs: ExecCosts = ExecCosts() # 执行成本，包含保真度损失、通信开销、执行时间等指标
     logical_phy_map: dict[int, tuple[int, int | None]] = dataclasses.field(default_factory=dict) # 量子比特映射信息，记录每个全局逻辑比特在物理上的位置（QPU编号和物理比特编号）
+    comm_phy_map: dict[int, list[int | None]] = dataclasses.field(default_factory=dict) # 每个QPU长期通信logical ancilla的物理位置
     # 可选字段：扩展信息（如额外配置、备注）
     extra_info: Optional[dict[str, Any]] = None
 
@@ -268,6 +273,7 @@ class MappingRecord:
         object.__setattr__(self, "partition", copy.deepcopy(self.partition))
         object.__setattr__(self, "costs", copy.deepcopy(self.costs))
         object.__setattr__(self, "logical_phy_map", copy.deepcopy(self.logical_phy_map))
+        object.__setattr__(self, "comm_phy_map", copy.deepcopy(self.comm_phy_map))
         if self.extra_info is not None:
             object.__setattr__(self, "extra_info", copy.deepcopy(self.extra_info))
 
@@ -280,6 +286,7 @@ class MappingRecord:
             "mapping_type": self.mapping_type,
             "costs": self.costs.to_dict(),  # 直接用自定义 to_dict
             "logical_phy_map": self.logical_phy_map,
+            "comm_phy_map": self.comm_phy_map,
             "extra_info": self.extra_info
         }
 
@@ -697,7 +704,7 @@ class CompilerUtils:
         circuit: QuantumCircuit,
         network: Network,
         logical_phy_map: dict[int, tuple[int, int | None]] = {},
-        optimization_level: int = 0,
+        optimization_level: int = 2,
         strict_flush_on_remote: bool = True,
     ) -> tuple[ExecCosts, dict[int, tuple[int, int | None]]]:
         """
@@ -708,8 +715,10 @@ class CompilerUtils:
         if isinstance(arg, MappingRecord):
             partition = arg.partition
             logical_phy_map = arg.logical_phy_map
+            comm_phy_map = copy.deepcopy(getattr(arg, "comm_phy_map", {}) or {})
         else:
             partition = arg
+            comm_phy_map = {}
 
         if len(logical_phy_map) == 0:
             logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
@@ -730,6 +739,7 @@ class CompilerUtils:
 
         # 子线路容量使用“当前分组大小 + comm_slot_reserve”，避免直接按后端总量建超大子线路。
         reserve = int(getattr(network, "comm_slot_reserve", 1) or 1)
+        debug_layout_tracking = bool(getattr(network, "debug_layout_tracking", False))
         backend_caps_full = network.get_backend_qubit_counts(include_comm_slot=True)
         capacity_by_qpu: list[int] = [] # |partition[j]| + reserve
         comm_slot_start: dict[int, int] = {}
@@ -740,6 +750,16 @@ class CompilerUtils:
             assert target_cap <= full_cap, f"QPU {qpu_id} 的目标容量 {target_cap} 超过了后端容量 {full_cap}"
             capacity_by_qpu.append(target_cap)
             comm_slot_start[qpu_id] = len(group)
+
+        normalized_comm_phy_map: dict[int, list[int | None]] = {}
+        for qpu_id in range(len(partition)):
+            saved = comm_phy_map.get(qpu_id, comm_phy_map.get(str(qpu_id), []))
+            saved = list(saved) if saved is not None else []
+            normalized_comm_phy_map[qpu_id] = [
+                int(saved[i]) if i < len(saved) and saved[i] is not None else None
+                for i in range(reserve)
+            ]
+        comm_phy_map = normalized_comm_phy_map
 
         # slot_owner[qpu_id][local_lqid] = 当前占用该槽位的global_lqid，None表示空闲。
         slot_owner: list[list[Optional[int]]] = [
@@ -817,7 +837,14 @@ class CompilerUtils:
                 print(f"[WARNING] {gate_key}: {gate_error}")
 
             if gate_error is None or (isinstance(gate_error, float) and math.isnan(gate_error)):
-                gate_error = backend.gate_dict[gate_name]["gate_error_value"]
+                gate_error = backend.gate_dict.get(gate_name, {}).get("gate_error_value", None)
+
+            # Virtual phase gates can appear in transpiled/synthesized local blocks even
+            # when the backend calibration table only contains rz-like primitives.
+            if gate_error is None or (isinstance(gate_error, float) and math.isnan(gate_error)):
+                if len(qubits) == 1 and gate_name in {"z", "s", "sdg", "t", "tdg", "p", "u1"}:
+                    print(f"[WARNING] Missing calibrated error for virtual gate {gate_name}; assuming 0.0")
+                    gate_error = 0.0
 
             assert gate_error is not None, f"Gate error not found for gate_key: {gate_key} in backend.gate_dict"
             gate_error = float(gate_error)
@@ -896,6 +923,7 @@ class CompilerUtils:
                 costs.comm_block_events += 1
             else:
                 costs.telegate_exec_events += 1
+            costs.payload_gate_num += len(comm_op.gate_list)
 
             if comm_op.comm_type == "cat":
                 costs = CompilerUtils.update_remote_move_costs(
@@ -905,7 +933,8 @@ class CompilerUtils:
                 dst_slot = _find_free_slot(dst_qpu, owner=comm_op.source_qubit)
                 try:
                     tmp_map = _build_tmp_local_map_for_comm(comm_op.source_qubit, dst_slot)
-                    _accumulate_comm_block_local_stats(dst_qpu, comm_op.gate_list, tmp_map, stats_prefix)
+                    # Debug-only pre-transpile CommOp payload stats are disabled.
+                    # _accumulate_comm_block_local_stats(dst_qpu, comm_op.gate_list, tmp_map, stats_prefix)
                     _append_comm_gate_block(dst_qpu, comm_op.gate_list, tmp_map)
                 finally:
                     _release_slot(dst_qpu, dst_slot, expected_owner=comm_op.source_qubit)
@@ -917,7 +946,8 @@ class CompilerUtils:
                 dst_slot = _find_free_slot(dst_qpu, owner=comm_op.source_qubit)
                 try:
                     tmp_map = _build_tmp_local_map_for_comm(comm_op.source_qubit, dst_slot)
-                    _accumulate_comm_block_local_stats(dst_qpu, comm_op.gate_list, tmp_map, stats_prefix)
+                    # Debug-only pre-transpile CommOp payload stats are disabled.
+                    # _accumulate_comm_block_local_stats(dst_qpu, comm_op.gate_list, tmp_map, stats_prefix)
                     _append_comm_gate_block(dst_qpu, comm_op.gate_list, tmp_map)
                 finally:
                     _release_slot(dst_qpu, dst_slot, expected_owner=comm_op.source_qubit)
@@ -929,7 +959,8 @@ class CompilerUtils:
                 dst_slot = _find_free_slot(dst_qpu, owner=comm_op.source_qubit)
                 try:
                     tmp_map = _build_tmp_local_map_for_comm(comm_op.source_qubit, dst_slot)
-                    _accumulate_comm_block_local_stats(dst_qpu, comm_op.gate_list, tmp_map, stats_prefix)
+                    # Debug-only pre-transpile CommOp payload stats are disabled.
+                    # _accumulate_comm_block_local_stats(dst_qpu, comm_op.gate_list, tmp_map, stats_prefix)
                     _append_comm_gate_block(dst_qpu, comm_op.gate_list, tmp_map)
                 finally:
                     _release_slot(dst_qpu, dst_slot, expected_owner=comm_op.source_qubit)
@@ -951,7 +982,7 @@ class CompilerUtils:
             将当前缓存的本地子线路统一结算到local fidelity，并更新logical_phy_map。
             strict_flush_on_remote=True时由远程事件触发分段结算，避免跨远程边界的过度合并。
             """
-            nonlocal logical_phy_map, subcircuits, costs
+            nonlocal logical_phy_map, comm_phy_map, subcircuits, costs
             costs.flush_calls += 1
             flushed_any = False
 
@@ -965,12 +996,36 @@ class CompilerUtils:
                 flushed_any = True
                 costs.local_transpile_calls += 1
 
+                comm_initial_layout = {
+                    comm_slot_start[qpu_id] + slot_offset: phy_id
+                    for slot_offset, phy_id in enumerate(comm_phy_map[qpu_id])
+                    if phy_id is not None
+                }
+                prev_comm_phy_snapshot = list(comm_phy_map[qpu_id])
+                if debug_layout_tracking and any(p is not None for p in prev_comm_phy_snapshot) and len(comm_initial_layout) == 0:
+                    print(
+                        f"[LAYOUT_TRACK][WARN] qpu={qpu_id} comm initial layout unexpectedly empty; "
+                        f"prev_comm_phy_map={prev_comm_phy_snapshot}",
+                        # file=sys.stderr,
+                    )
+                if debug_layout_tracking:
+                    print(
+                        f"[LAYOUT_TRACK][PRE] qpu={qpu_id} flush={costs.flush_calls} "
+                        f"subc_size={subcircuit.size()} comm_initial_layout={comm_initial_layout} "
+                        f"prev_comm_phy_map={prev_comm_phy_snapshot}",
+                        # file=sys.stderr,
+                    )
+
                 initial_layout = CompilerUtils.get_initial_layout(
                     subcircuit,
                     partition[qpu_id],
                     global_to_local_lqid,
                     logical_phy_map,
+                    fixed_local_layout=comm_initial_layout,
+                    physical_qubit_count=backend.num_qubits,
                 )
+                if debug_layout_tracking:
+                    print(f"[DEBUG] Initial layout for qpu[{qpu_id}]: {initial_layout}\n\n")
 
                 transpiled_circuit = transpile(
                     subcircuit,
@@ -981,9 +1036,75 @@ class CompilerUtils:
                     seed_transpiler=42,
                 )
 
+                logical_phy_map_before_update = copy.deepcopy(logical_phy_map)
+                local_phy_map_after_transpile = CompilerUtils.get_local_to_physical_map(transpiled_circuit)
+
                 logical_phy_map = CompilerUtils.get_logical_to_physical_map(
-                    transpiled_circuit, partition[qpu_id], global_to_local_lqid, logical_phy_map
+                    transpiled_circuit,
+                    partition[qpu_id],
+                    global_to_local_lqid,
+                    logical_phy_map,
                 )
+                local_phy_map = local_phy_map_after_transpile
+                for slot_offset in range(reserve):
+                    local_slot = comm_slot_start[qpu_id] + slot_offset
+                    phy_idx = local_phy_map.get(local_slot)
+                    if phy_idx is None and 0 <= local_slot < transpiled_circuit.num_qubits:
+                        phy_idx = local_slot
+                    comm_phy_map[qpu_id][slot_offset] = phy_idx
+
+                layout_trace_records = getattr(network, "layout_trace_records", None)
+                if isinstance(layout_trace_records, list):
+                    initial_local_to_phy: dict[int, int] = {}
+                    for local_lqid, qobj in enumerate(subcircuit.qubits):
+                        phy_id = initial_layout.get(qobj)
+                        if phy_id is not None:
+                            initial_local_to_phy[int(local_lqid)] = int(phy_id)
+                    resident_before = {
+                        int(q): list(logical_phy_map_before_update[q])
+                        for q in partition[qpu_id]
+                        if q in logical_phy_map_before_update
+                    }
+                    resident_after = {
+                        int(q): list(logical_phy_map[q])
+                        for q in partition[qpu_id]
+                        if q in logical_phy_map
+                    }
+                    layout_trace_records.append({
+                        "qpu_id": int(qpu_id),
+                        "flush_call": int(costs.flush_calls),
+                        "subcircuit_size": int(subcircuit.size()),
+                        "subcircuit_depth": int(subcircuit.depth() or 0),
+                        "subcircuit_ops": dict(subcircuit.count_ops()),
+                        "transpiled_size": int(transpiled_circuit.size()),
+                        "transpiled_depth": int(transpiled_circuit.depth() or 0),
+                        "transpiled_ops": dict(transpiled_circuit.count_ops()),
+                        "initial_local_to_phy": initial_local_to_phy,
+                        "final_local_to_phy": {
+                            int(k): (int(v) if v is not None else None)
+                            for k, v in local_phy_map_after_transpile.items()
+                        },
+                        "comm_initial_layout": {
+                            int(k): int(v)
+                            for k, v in comm_initial_layout.items()
+                        },
+                        "comm_phy_map_before": [
+                            int(v) if v is not None else None
+                            for v in prev_comm_phy_snapshot
+                        ],
+                        "comm_phy_map_after": [
+                            int(v) if v is not None else None
+                            for v in comm_phy_map[qpu_id]
+                        ],
+                        "resident_logical_phy_before": resident_before,
+                        "resident_logical_phy_after": resident_after,
+                    })
+                if debug_layout_tracking:
+                    print(
+                        f"[LAYOUT_TRACK][POST] qpu={qpu_id} flush={costs.flush_calls} "
+                        f"updated_comm_phy_map={comm_phy_map[qpu_id]}",
+                        # file=sys.stderr,
+                    )
 
                 for instruction in transpiled_circuit:
                     gate_name = instruction.operation.name
@@ -1022,6 +1143,7 @@ class CompilerUtils:
                     qpu_id = involved_qpus.pop()
                     mapped_qubits = [runtime_pos[q][1] for q in global_qids]
                     subcircuits[qpu_id].append(instruction.operation, mapped_qubits)
+                    costs.payload_gate_num += 1
                 # 操作跨越多个分区，为telegate操作
                 else:
                     synthetic_comm = _build_synthetic_telegate_commop(op, global_qids)
@@ -1057,6 +1179,7 @@ class CompilerUtils:
         if isinstance(arg, MappingRecord):
             arg.costs += costs
             arg.logical_phy_map = logical_phy_map
+            arg.comm_phy_map = comm_phy_map
             return arg.costs, logical_phy_map
 
         return costs, logical_phy_map
@@ -1222,6 +1345,8 @@ class CompilerUtils:
             curr_partition = curr_record.partition
             # 初始化logical_phy_map
             logical_phy_map = curr_record.logical_phy_map
+            if not getattr(curr_record, "comm_phy_map", None):
+                curr_record.comm_phy_map = copy.deepcopy(getattr(prev_record, "comm_phy_map", {}) or {})
 
             # 进入teledata前，logical_phy_map理论上应与上一片段分区一致
             ok, reason = CompilerUtils._check_logical_map_partition_consistency(prev_partition, logical_phy_map)
@@ -1421,10 +1546,10 @@ class CompilerUtils:
             return costs
         
         hops = network.Hops[src][dst]
-        rswaps = 2 * hops - 1
+        # rswaps = 2 * hops - 1
         
-        costs.remote_swaps += rswaps * weight
-        costs.epairs += 2 * rswaps * weight
+        costs.remote_swaps += 2 * hops * weight # rswaps * weight
+        costs.epairs += 2 * hops * weight # 2 * rswaps * weight
         costs.remote_fidelity_loss += network.swap_fidelity_loss[src][dst] * weight
         costs.remote_fidelity *= network.swap_fidelity[src][dst] ** weight
         costs.remote_fidelity_log_sum += np.log(network.swap_fidelity[src][dst]) * weight
@@ -1477,7 +1602,7 @@ class CompilerUtils:
         transpiled_circuit: QuantumCircuit,
         partition_qubits: list[int],
         global_to_local_lqid: dict[int, int],
-        logical_phy_map: dict[int, tuple[int, int | None]]
+        logical_phy_map: dict[int, tuple[int, int | None]],
     ) -> dict[int, tuple[int, int | None]]:
         """
         从transpiled电路中提取稳定的逻辑→物理比特映射
@@ -1485,7 +1610,32 @@ class CompilerUtils:
         # 初始化：按当前partition实际使用的本地索引建表。
         # 注意：启用通信预留槽位后，本地索引可能是稀疏的（如 0,2,5）。
         local_slots = sorted({global_to_local_lqid[q] for q in partition_qubits})
-        local_lqid_to_pqid = {slot: None for slot in local_slots}
+        all_local_lqid_to_pqid = CompilerUtils.get_local_to_physical_map(transpiled_circuit)
+        local_lqid_to_pqid = {
+            slot: all_local_lqid_to_pqid.get(slot)
+            for slot in local_slots
+        }
+
+        for global_q in partition_qubits:
+            # 获取每个global逻辑比特对应的子线路本地逻辑比特索引
+            local_idx = global_to_local_lqid[global_q]
+            # 更新logical_phy_map，把物理比特索引填上
+            phy_idx = local_lqid_to_pqid.get(local_idx)
+            if phy_idx is None and 0 <= local_idx < transpiled_circuit.num_qubits:
+                # 回退：如果layout未给出该位，保守使用本地索引自身。
+                phy_idx = local_idx
+            logical_phy_map[global_q] = (logical_phy_map[global_q][0], phy_idx)
+
+        return logical_phy_map
+
+    @staticmethod
+    def get_local_to_physical_map(
+        transpiled_circuit: QuantumCircuit,
+    ) -> dict[int, int | None]:
+        """
+        从transpiled电路中提取子线路local logical slot到物理位的映射。
+        """
+        local_lqid_to_pqid = {i: None for i in range(transpiled_circuit.num_qubits)}
 
         if hasattr(transpiled_circuit, "layout") and transpiled_circuit.layout is not None:
             layout = transpiled_circuit.layout.final_layout
@@ -1547,17 +1697,7 @@ class CompilerUtils:
             local_lqid_to_pqid = {i: i for i in range(num_qubits)}
             raise ValueError("Layout is None")
 
-        for global_q in partition_qubits:
-            # 获取每个global逻辑比特对应的子线路本地逻辑比特索引
-            local_idx = global_to_local_lqid[global_q]
-            # 更新logical_phy_map，把物理比特索引填上
-            phy_idx = local_lqid_to_pqid.get(local_idx)
-            if phy_idx is None and 0 <= local_idx < transpiled_circuit.num_qubits:
-                # 回退：如果layout未给出该位，保守使用本地索引自身。
-                phy_idx = local_idx
-            logical_phy_map[global_q] = (logical_phy_map[global_q][0], phy_idx)
-
-        return logical_phy_map
+        return local_lqid_to_pqid
 
     @staticmethod
     def get_initial_layout(
@@ -1565,25 +1705,41 @@ class CompilerUtils:
         partition_qubits: list[int],
         global_to_local_lqid: dict[int, int],
         logical_phy_map: dict[int, tuple[int, int | None]],
+        fixed_local_layout: Optional[dict[int, int]] = None,
+        physical_qubit_count: Optional[int] = None,
     ) -> dict:
         """
         构建QuantumCircuit Qubit Register到物理比特的初始布局。
         规则：
         1) 对应global_lqid已知preferred物理位的local_lqid，固定到该物理位；
-        2) 其余local_lqid按顺序分配剩余物理位。
+        2) fixed_local_layout中的local_lqid固定到指定物理位（用于通信槽）；
+        3) 其余local_lqid按顺序分配剩余物理位。
         """
         initial_layout: dict[Any, int] = {}
+        fixed_local_layout = fixed_local_layout or {}
+        physical_qubit_count = physical_qubit_count or circuit.num_qubits
 
         anchored_local_to_phy: dict[int, int] = {}
+        fixed_phys = set(fixed_local_layout.values())
         preferred_phys = {
             phy
             for q in partition_qubits
             for phy in [logical_phy_map[q][1]]
             if phy is not None and phy >= 0
         }
-        max_phy = max(preferred_phys) if len(preferred_phys) > 0 else -1
-        pool_upper = max(circuit.num_qubits - 1, max_phy)
-        unused_phy_ids: set[int] = set(range(pool_upper + 1))
+        out_of_range_fixed = [
+            (local_lqid, phy_id)
+            for local_lqid, phy_id in fixed_local_layout.items()
+            if not (0 <= local_lqid < circuit.num_qubits and 0 <= phy_id < physical_qubit_count)
+        ]
+        if out_of_range_fixed:
+            raise RuntimeError(
+                f"[LAYOUT] fixed_local_layout越界: {out_of_range_fixed}, "
+                f"circuit_qubits={circuit.num_qubits}, physical_qubits={physical_qubit_count}"
+            )
+
+        unused_phy_ids: set[int] = set(range(physical_qubit_count))
+        unused_phy_ids -= fixed_phys
 
         # 先固定有preferred物理位的local_lqid。
         for q in partition_qubits:
@@ -1598,7 +1754,11 @@ class CompilerUtils:
                 continue
             if preferred_phy < 0:
                 raise RuntimeError(f"[LAYOUT] 非法preferred_phy: q={q}, phy={preferred_phy}")
-
+            if preferred_phy >= physical_qubit_count:
+                raise RuntimeError(
+                    f"[LAYOUT] preferred_phy越界: q={q}, phy={preferred_phy}, "
+                    f"physical_qubits={physical_qubit_count}"
+                )
             if local_lqid in anchored_local_to_phy and anchored_local_to_phy[local_lqid] != preferred_phy:
                 raise RuntimeError(
                     f"[LAYOUT] 同一local_lqid出现冲突锚点: local_lqid={local_lqid}, "
@@ -1617,6 +1777,23 @@ class CompilerUtils:
                 )
 
             initial_layout[circuit.qubits[local_lqid]] = phy_id
+            used_anchored_phys[phy_id] = local_lqid
+            unused_phy_ids.discard(phy_id)
+
+        # 固定通信槽等非resident local slot。
+        for local_lqid, phy_id in sorted(fixed_local_layout.items()):
+            qobj = circuit.qubits[local_lqid]
+            if qobj in initial_layout and initial_layout[qobj] != phy_id:
+                raise RuntimeError(
+                    f"[LAYOUT] fixed local slot与已有layout冲突: local_lqid={local_lqid}, "
+                    f"existing_phy={initial_layout[qobj]}, fixed_phy={phy_id}"
+                )
+            if phy_id in used_anchored_phys and used_anchored_phys[phy_id] != local_lqid:
+                raise RuntimeError(
+                    f"[LAYOUT] fixed physical slot与resident锚点冲突: phy={phy_id}, "
+                    f"resident_local={used_anchored_phys[phy_id]}, fixed_local={local_lqid}"
+                )
+            initial_layout[qobj] = phy_id
             used_anchored_phys[phy_id] = local_lqid
             unused_phy_ids.discard(phy_id)
 

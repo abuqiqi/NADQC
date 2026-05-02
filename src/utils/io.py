@@ -45,7 +45,7 @@ def get_args():
                         help='Date of the backend properties (comma-separated strings in YYYY-MM-DD format, e.g., "2025-11-09" or "2025-11-09,2025-11-10")')
     
     parser.add_argument('--network', '-net', type=str, required=False, default='all_to_all',
-                        help='Name of the network (e.g. all_to_all, chain, mesh_grid, self_defined)')
+                        help='Name of the network (e.g. all_to_all, chain, star, mesh_grid, self_defined)')
     parser.add_argument('--gate_set', '-gset', type=str, required=False, default='cu1,u3',
                         help='Comma-separated list of basis gates (string)')
 

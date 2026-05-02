@@ -8,6 +8,8 @@ from qiskit.circuit.library import (
     Permutation,
     IQP,
     TwoLocal,
+    ZZFeatureMap,
+    QAOAAnsatz,
     MCMT,
     XGate, HGate, ZGate, RZGate
 )
@@ -17,7 +19,7 @@ import numpy as np
 from math import pi
 import os
 import sys
-from qiskit.quantum_info import Pauli
+from qiskit.quantum_info import Pauli, SparsePauliOp
 from QASMBench.interface.qiskit import QASMBenchmark
 from qiskit.converters import circuit_to_dag
 
@@ -34,7 +36,9 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
     circ = None
     optimization_level = 3
     if name == "QV":
-        circ = QuantumVolume(num_qubits, seed=26).decompose()
+        circ = QuantumVolume(num_qubits, 50, seed=42).decompose()
+    elif name == "BV":
+        circ = BV(num_qubits).decompose()
     elif name == "QFT":
         circ = QFT(num_qubits).decompose()
     elif name == "CuccaroAdder":
@@ -47,6 +51,9 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
     elif name == "Random":
         circ = random_circuit(num_qubits, 50, max_operands=4, seed=42)
     # elif name == "QPE":
+    elif name == "QAOA":
+        circ = QAOA(num_qubits)
+        # circ = QiskitQAOA(num_qubits)
 
     elif "Fraction" in name: # CP_p_d
         parts = name.split("_")
@@ -54,12 +61,12 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         p = float(parts[1])
         depth = num_qubits if len(parts) == 2 else int(parts[2])
         circ = CPFraction(num_qubits, depth, p)
-    elif name == "QAOA":
-        circ = QAOA(num_qubits)
     elif name == "QFTAdder":
         circ = QFTAdder(num_qubits)
     elif name == "Grover":
         circ = Grover(num_qubits).decompose()
+    elif name == "GraphState":
+        circ = GraphState(num_qubits).decompose()
     elif name == "Pauli":
         circ = PauliGadget(num_qubits).decompose()
     elif name == "Toffoli":
@@ -70,10 +77,12 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         circ = myIQP(num_qubits).decompose()
     elif name == "VQC_AA":
         circ = VQC_AA(num_qubits).decompose()
+    elif name == "VQC":
+        circ = VQC(num_qubits).decompose()
     elif name == "VQE" or name.startswith("VQE_"):
         circ = build_vqe_benchmark(name, num_qubits).decompose()
-    elif name == "BV":
-        circ = BV(num_qubits).decompose()
+    elif name == "QKNN" or name.startswith("QKNN_"):
+        circ = build_qknn_benchmark(name, num_qubits).decompose()
     elif name == "test":
         circ = QuantumCircuit(4)
         circ.h(range(4))
@@ -105,7 +114,7 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         qpus = [qpu_capacity] * num_qpus
 
     # 将线路转换到basis gates
-    trans_circ = transpile(circ, basis_gates=basis_gates, optimization_level=optimization_level)
+    trans_circ = transpile(circ, basis_gates=basis_gates, optimization_level=optimization_level, seed_transpiler=42)
     # MAX_ALLOWED_DEPTH = 1000
     # if trans_circ.depth() > MAX_ALLOWED_DEPTH:
     #     print(f"[INFO] Circuit depth ({circ.depth()}) exceeds threshold ({MAX_ALLOWED_DEPTH}). Truncating...")
@@ -293,10 +302,50 @@ def MyDraperQFTAdder(num_qubits):
 #         circ_list = self.bm.get(circ_list)
 #         return circ_list
 
-def PauliGadget(num_qubits):
+# def PauliGadget(num_qubits, reps=2, max_pauli_weight=10):
+#     if num_qubits < 1:
+#         raise ValueError("num_qubits must be >= 1")
+#     if reps < 1:
+#         raise ValueError("reps must be >= 1")
+#     if max_pauli_weight < 1:
+#         raise ValueError("max_pauli_weight must be >= 1")
+
+#     rng = np.random.default_rng(26)
+#     circuit = QuantumCircuit(num_qubits)
+#     pauli_weight = min(max_pauli_weight, num_qubits)
+
+#     if pauli_weight == 1:
+#         for _ in range(reps):
+#             pauli_string = rng.choice(['X', 'Y', 'Z'])
+#             alpha_t = rng.uniform(0, 2 * np.pi)
+#             pauli_op = Pauli(pauli_string)
+#             evolution_gate = PauliEvolutionGate(pauli_op, time=alpha_t)
+#             circuit.append(evolution_gate, [0])
+#         return circuit
+
+#     for layer in range(reps):
+#         # 生成 bounded k-local Pauli gadget，在全宽随机 Pauli 和 2-local 之间折中线路规模。
+#         stride = max(1, pauli_weight // 2)
+#         start = (layer * stride) % num_qubits
+#         for offset in range(0, num_qubits, stride):
+#             qubits = [
+#                 (start + offset + delta) % num_qubits
+#                 for delta in range(pauli_weight)
+#             ]
+#             s_t = ['I'] * num_qubits
+#             for qubit in qubits:
+#                 s_t[qubit] = rng.choice(['X', 'Y', 'Z'])
+#             alpha_t = rng.uniform(0, 2 * np.pi)
+#             pauli_string = ''.join(s_t)
+#             pauli_op = Pauli(pauli_string)
+#             evolution_gate = PauliEvolutionGate(pauli_op, time=alpha_t)
+#             circuit.append(evolution_gate, range(num_qubits))
+#     return circuit
+
+def PauliGadget(num_qubits, reps = 20):
     np.random.seed(26)
     circuit = QuantumCircuit(num_qubits)
-    for t in range(num_qubits):
+    for t in range(reps):
         # 选择随机字符串 s^t ∈ {I, X, Y, Z}^n
         s_t = np.random.choice(['I', 'X', 'Y', 'Z'], size=num_qubits)
         # print(s_t)
@@ -408,14 +457,85 @@ def QAOA(num_qubits):
             qc.cx(j, i)
             qc.rz(random.uniform(0, 2 * pi), i)
             qc.cx(j, i)
-            # qc.rzz(random.uniform(0, 2 * pi), j, i)
 
     # Mixer Hamiltonian
-    # for i in range(num_qubits):
-    #     qc.rx(random.uniform(0, 2 * pi), i)
+    for i in range(num_qubits):
+        qc.rx(random.uniform(0, 2 * pi), i)
+    # qc.h(range(num_qubits))
+    # qc.rz(random.uniform(0, 2 * pi), range(num_qubits))
+    # qc.h(range(num_qubits))
+    return qc
+
+def QiskitQAOA(num_qubits: int, reps: int = 1, seed: int = 26):
+    """
+    使用 Qiskit QAOAAnsatz 构造一个确定性的 QAOA benchmark 电路。
+    cost Hamiltonian 采用全连接 ZZ，相比线性链更接近原始 QAOA() 的结构。
+    """
+    if num_qubits < 1:
+        raise ValueError("num_qubits must be >= 1")
+    if reps < 1:
+        raise ValueError("reps must be >= 1")
+
+    terms = []
+    if num_qubits == 1:
+        terms.append(("Z", 1.0))
+    else:
+        for i in range(num_qubits):
+            for j in range(i + 1, num_qubits):
+                label = ["I"] * num_qubits
+                label[num_qubits - 1 - i] = "Z"
+                label[num_qubits - 1 - j] = "Z"
+                terms.append(("".join(label), 1.0))
+
+    cost_operator = SparsePauliOp.from_list(terms)
+    ansatz = QAOAAnsatz(
+        cost_operator=cost_operator,
+        reps=reps,
+        flatten=True,
+        name="QAOA",
+    )
+
+    return ansatz
+
+    rng = np.random.default_rng(seed)
+    parameter_values = {
+        parameter: float(rng.uniform(0, 2 * np.pi))
+        for parameter in ansatz.parameters
+    }
+    return ansatz.assign_parameters(parameter_values)
+
+def GraphState(num_qubits):
+    """
+    构造一个近似方形二维网格上的 graph state。
+    先对所有量子比特施加 H，再对网格中的右邻/下邻施加 CZ。
+    当 num_qubits 不是完全平方数时，最后一行自动部分填充。
+    """
+    if num_qubits < 1:
+        raise ValueError("GraphState 至少需要 1 个量子比特")
+
+    qc = QuantumCircuit(num_qubits)
     qc.h(range(num_qubits))
-    qc.rz(random.uniform(0, 2 * pi), range(num_qubits))
-    qc.h(range(num_qubits))
+
+    n_cols = int(np.ceil(np.sqrt(num_qubits)))
+    n_rows = int(np.ceil(num_qubits / n_cols))
+
+    def _idx(row: int, col: int) -> int:
+        return row * n_cols + col
+
+    for row in range(n_rows):
+        for col in range(n_cols):
+            q = _idx(row, col)
+            if q >= num_qubits:
+                continue
+
+            right = _idx(row, col + 1)
+            if col + 1 < n_cols and right < num_qubits:
+                qc.cz(q, right)
+
+            down = _idx(row + 1, col)
+            if row + 1 < n_rows and down < num_qubits:
+                qc.cz(q, down)
+
     return qc
 
 def Toffoli(num_qubits):
@@ -549,6 +669,17 @@ def VQC_AA(num_qubits):
                 qc.crz(angle_crz, i, j)  # 应用 CRZ 门
     return qc
 
+def VQC(num_qubits):
+    qc = QuantumCircuit(num_qubits)
+    for i in range(num_qubits):
+        for j in range(num_qubits):
+            if i == j:
+                continue
+            # qc.barrier()  # 加入 barrier 隔离量子门
+            angle = np.random.rand() * 2 * pi  # 随机生成 0 到 2π 的角度
+            qc.rzz(angle, i, j)
+    return qc
+
 def build_vqe_benchmark(name: str, num_qubits: int):
     """
     构造一个基于 Qiskit QuantumCircuit 接口的 VQE benchmark 电路。
@@ -626,6 +757,71 @@ def VQE(num_qubits: int, reps: int = 2, entanglement: str = "linear", seed: int 
     }
     return ansatz.assign_parameters(parameter_values)
 
+def build_qknn_benchmark(name: str, num_qubits: int):
+    """
+    构造一个 fidelity-based QKNN benchmark 电路。
+
+    支持以下名称格式：
+    - QKNN: 使用默认配置 reps=2
+    - QKNN_<reps>: 例如 QKNN_4
+    """
+    parts = name.split("_")
+    reps = 2
+
+    if len(parts) >= 2 and parts[1] != "":
+        reps = int(parts[1])
+
+    return QKNN(num_qubits=num_qubits, reps=reps)
+
+def QKNN(num_qubits: int, reps: int = 2, seed: int = 26) -> QuantumCircuit:
+    """
+    Generate a fidelity-based Quantum KNN (QKNN) benchmark circuit.
+
+    The circuit compares a training sample and a test sample by applying
+    U_phi(x_train) followed by U_phi(x_test)^dagger. The probability of
+    measuring the all-zero state estimates the kernel similarity:
+
+        K(x_train, x_test) = |<phi(x_test)|phi(x_train)>|^2
+
+    Parameters
+    ----------
+    num_qubits : int
+        Number of qubits in the generated QKNN circuit.
+    reps : int
+        Number of repetitions in the ZZFeatureMap.
+    seed : int
+        Random seed for generating deterministic feature vectors.
+
+    Returns
+    -------
+    QuantumCircuit
+        A QKNN benchmark circuit with exactly num_qubits qubits.
+    """
+    if num_qubits <= 0:
+        raise ValueError("num_qubits must be a positive integer.")
+    if reps <= 0:
+        raise ValueError("reps must be a positive integer.")
+
+    rng = np.random.default_rng(seed)
+
+    x_train = rng.uniform(0, 2 * np.pi, size=num_qubits)
+    x_test = rng.uniform(0, 2 * np.pi, size=num_qubits)
+
+    feature_map = ZZFeatureMap(
+        feature_dimension=num_qubits,
+        reps=reps,
+        entanglement="linear",
+    )
+
+    train_circuit = feature_map.assign_parameters(x_train)
+    test_circuit_inv = feature_map.assign_parameters(x_test).inverse()
+
+    qc = QuantumCircuit(num_qubits, name="QKNN")
+    qc.compose(train_circuit, qubits=range(num_qubits), inplace=True)
+    qc.compose(test_circuit_inv, qubits=range(num_qubits), inplace=True)
+
+    return qc
+
 def BV(num_qubits, secret_bitstring=None):
     """
     为给定的秘密比特串构建Bernstein-Vazirani算法电路。
@@ -634,7 +830,7 @@ def BV(num_qubits, secret_bitstring=None):
         num_qubits (int): 电路中总量子比特数（包括辅助比特）
         secret_bitstring (str, optional): 由'0'和'1'组成的秘密字符串。
                                          长度应为 num_qubits - 1。
-                                         如果为None，则随机生成。
+                                         如果为None，则生成101010...。
         
     返回:
         QuantumCircuit: 完整的BV算法量子电路。
@@ -642,10 +838,11 @@ def BV(num_qubits, secret_bitstring=None):
     # 数据比特的数量 = 总量子比特数 - 1（辅助比特）
     n = num_qubits - 1
     
-    # 如果secret_bitstring是None，随机生成一个
+    # 如果secret_bitstring是None，生成101010...模式
     if secret_bitstring is None:
-        secret_bitstring = ''.join(np.random.choice(['0', '1'], size=n))
-        # print(f"随机生成的秘密比特串: {secret_bitstring}")
+        # ''.join(np.random.choice(['0', '1'], size=n))
+        # secret_bitstring = ("10" * ((n + 1) // 2))[:n]
+        secret_bitstring = "1" * n
     
     # 如果secret_bitstring太长，截取前n位
     if len(secret_bitstring) > n:

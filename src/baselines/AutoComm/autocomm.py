@@ -42,6 +42,22 @@ def _convert_gate_block_to_qiskit_gates(gate_block):
     return converted
 
 
+def _strip_protocol_artifact_single_qubit_paulis(gate_block):
+    """
+    Drop AutoComm-introduced single-qubit X/Z artifact gates from CommOp payloads.
+
+    This keeps CAT/teleportation block evaluation closer to the abstract communication
+    primitive cost model, instead of charging protocol-rewriting details only on one side.
+    """
+    filtered = []
+    for g in gate_block:
+        gtype = str(gate_type(g)).upper()
+        if len(gate_qubits(g)) == 1 and gtype in {"X", "Z"}:
+            continue
+        filtered.append(g)
+    return filtered
+
+
 def _collect_gate_block_qubits(gate_block, source_qubit=None):
     ordered = []
     if source_qubit is not None:
@@ -245,11 +261,14 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                 epr_cnt += 1
                 comm_costs[0] += 1
                 # _validate_comm_gate_block_endpoints(gb[1], source, source_node, target_node, qubit_node_mapping)
+                # Keep AutoComm rewrite X/Z gates in the communication block body.
+                # filtered_gate_block = _strip_protocol_artifact_single_qubit_paulis(gb[1])
+                filtered_gate_block = gb[1]
                 involved_qubits = _collect_gate_block_qubits(
-                    gb[1],
+                    filtered_gate_block,
                     source_qubit=source,
                 )
-                gate_list = _convert_gate_block_to_qiskit_gates(gb[1])
+                gate_list = _convert_gate_block_to_qiskit_gates(filtered_gate_block)
                 op_list.append(
                     CommOp(
                         comm_type="cat",
@@ -340,11 +359,14 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                     epr_cnt += 2
                     comm_costs[1] += 2
                     # _validate_comm_gate_block_endpoints(gb[1], source, source_node, target_node, qubit_node_mapping)
+                    # Keep AutoComm rewrite X/Z gates in the communication block body.
+                    # filtered_gate_block = _strip_protocol_artifact_single_qubit_paulis(gb[1])
+                    filtered_gate_block = gb[1]
                     involved_qubits = _collect_gate_block_qubits(
-                        gb[1],
+                        filtered_gate_block,
                         source_qubit=source,
                     )
-                    gate_list = _convert_gate_block_to_qiskit_gates(gb[1])
+                    gate_list = _convert_gate_block_to_qiskit_gates(filtered_gate_block)
                     op_list.append(
                         CommOp(
                             comm_type="rtp", # round-trip teleportation
@@ -409,11 +431,14 @@ def comm_schedule(assigned_gate_block_list, qubit_node_mapping, latency_metric=N
                         #     target_node,
                         #     qubit_node_mapping,
                         # )
+                        # Keep AutoComm rewrite X/Z gates in the communication block body.
+                        # filtered_gate_block = _strip_protocol_artifact_single_qubit_paulis(gb[1 + tnidx])
+                        filtered_gate_block = gb[1 + tnidx]
                         involved_qubits = _collect_gate_block_qubits(
-                            gb[1 + tnidx],
+                            filtered_gate_block,
                             source_qubit=source,
                         )
-                        gate_list = _convert_gate_block_to_qiskit_gates(gb[1+tnidx])
+                        gate_list = _convert_gate_block_to_qiskit_gates(filtered_gate_block)
                         op_list.append(
                             CommOp(
                                 comm_type="tp",

@@ -301,6 +301,11 @@ class NAVIHybrid(Compiler):
                 selected_mapper_id = "direct"
         else:
             selected_mapper_id = str(ctx.config.get("multi_record_mapper", "boundeddp_neighbor")).lower()
+            if (
+                selected_mapper_id == "boundeddp_neighbor"
+                and len(selected_records.records) == 1
+            ):
+                selected_mapper_id = "single_record_greedy"
         return self._map_records_with_mapper(
             ctx,
             selected_records,
@@ -725,11 +730,11 @@ class NAVIHybrid(Compiler):
         blocks = ctx.subc_ranges
         K = len(blocks)
 
-        beam_width = int(ctx.config.get("hybrid_beam_width", 3))
+        beam_width = int(ctx.config.get("hybrid_beam_width", 1))
         # 最多合并多少个block
-        max_merge_span = int(ctx.config.get("hybrid_max_merge_span", 12))
+        max_merge_span = int(ctx.config.get("hybrid_max_merge_span", 10))
         # 在每个pos，最多尝试几次_try_generate_telegate
-        merge_probe_budget = int(ctx.config.get("hybrid_merge_probe_budget", 12))
+        merge_probe_budget = int(ctx.config.get("hybrid_merge_probe_budget", 10))
         # 最多探查几个pos
         pos_probe_budget = int(ctx.config.get("hybrid_pos_probe_budget", K))
         # 仅当候选显著超出 beam_width 时才做前向剪枝，减少重复排序开销。
@@ -767,12 +772,59 @@ class NAVIHybrid(Compiler):
 
         # states[pos] = [(projected_epairs, projected_cat_ents, hint_hits, [records...]), ...]
         states: dict[int, list[tuple[float, int, int, list[MappingRecord]]]] = {0: [(0.0, 0, 0, [])]}
+        # 整段 [0, K-1] 直接 telegate这一条完整候选
+        full_span_telegate_candidate: Optional[tuple[tuple[float, float], MappingRecordList]] = None
         # [disabled] ptable telegate hint 先验逻辑暂时停用。
         # ptable_hints = getattr(ctx, "ptable_telegate_hints", {})
 
         def _state_key(item: tuple[float, int, int, list[MappingRecord]]) -> tuple[float, int, int]:
             projected_epairs, projected_cat_ents, hint_hits, _ = item
             return (projected_epairs, -projected_cat_ents, -hint_hits)
+
+        def _records_eval_key(item: tuple[tuple[float, float], Any]) -> tuple[float, float]:
+            return item[0]
+
+        def _reevaluate_records(records: list[MappingRecord]) -> tuple[MappingRecordList, tuple[float, float]]:
+            reevaluated = MappingRecordList(records=copy.deepcopy(records))
+            logical_phy_map: dict[int, tuple[int, int | None]] = {}
+            comm_phy_map: dict[int, list[int | None]] = {}
+
+            for t, record in enumerate(reevaluated.records):
+                if t == 0:
+                    logical_phy_map = CompilerUtils.init_logical_phy_map(record.partition)
+                    comm_phy_map = {}
+                else:
+                    logical_phy_map = copy.deepcopy(reevaluated.records[t - 1].logical_phy_map)
+                    comm_phy_map = copy.deepcopy(getattr(reevaluated.records[t - 1], "comm_phy_map", {}) or {})
+
+                record.costs = ExecCosts()
+                record.logical_phy_map = copy.deepcopy(logical_phy_map)
+                record.comm_phy_map = copy.deepcopy(comm_phy_map)
+
+                if record.extra_info is not None and "ops" in record.extra_info:
+                    subcircuit = record.extra_info["ops"]
+                else:
+                    subcircuit = CompilerUtils.get_subcircuit_by_level(
+                        num_qubits=ctx.circuit.num_qubits,
+                        circuit=ctx.circuit,
+                        circuit_layers=ctx.circuit_layers,
+                        layer_start=record.layer_start,
+                        layer_end=record.layer_end,
+                    )
+
+                if t != 0:
+                    prev_record = reevaluated.records[t - 1]
+                    CompilerUtils.evaluate_teledata(prev_record, record, ctx.network)
+
+                CompilerUtils.evaluate_local_and_telegate_with_cat(
+                    record,
+                    subcircuit,
+                    ctx.network,
+                )
+
+            reevaluated.summarize_total_costs()
+            total_costs = reevaluated.total_costs
+            return reevaluated, (float(total_costs.total_fidelity_loss), float(total_costs.epairs))
 
         def _partition_sig(partition: list[list[int]]) -> tuple[tuple[int, ...], ...]:
             return tuple(tuple(sorted(part)) for part in partition)
@@ -851,6 +903,9 @@ class NAVIHybrid(Compiler):
                     )
 
                     for end in sampled_ends:
+                        if end == pos:
+                            continue
+
                         end_layer = original_records[end].layer_end
                         # print(f"[DEBUG] ===== {start_layer} - {end_layer} =====")
 
@@ -884,7 +939,15 @@ class NAVIHybrid(Compiler):
                         hint_hit = 0
                         merged_hint_hits = base_hint_hits + hint_hit
 
-                        states.setdefault(end + 1, []).append((merged_epairs, merged_cat_ents, merged_hint_hits, base_records + [tg_record]))
+                        candidate_records = base_records + [tg_record]
+                        states.setdefault(end + 1, []).append((merged_epairs, merged_cat_ents, merged_hint_hits, candidate_records))
+
+                        if pos == 0 and end == K - 1:
+                            full_span_result, full_span_eval_key = _reevaluate_records([tg_record])
+                            full_span_telegate_candidate = (
+                                full_span_eval_key,
+                                full_span_result,
+                            )
 
             # 修剪不好的records路径，控制状态爆炸
             for prune_pos in range(pos + 1, min(K, pos + max_merge_span) + 1):
@@ -907,15 +970,17 @@ class NAVIHybrid(Compiler):
             raise RuntimeError("[ERROR] beam search failed to produce any hybrid plan.")
 
         best_projected_epairs, best_projected_cat_ents, best_hint_hits, best_records = min(final_candidates, key=_state_key)
+        result, best_eval_key = _reevaluate_records(best_records)
 
-        result = MappingRecordList()
-        result.records = best_records
-        result.summarize_total_costs()
+        if full_span_telegate_candidate is not None and full_span_telegate_candidate[0] < best_eval_key:
+            best_eval_key, best_full_span_telegate_result = full_span_telegate_candidate
+            result = copy.deepcopy(best_full_span_telegate_result)
 
         ctx.telegate_optimized = True
         end_time = time.time()
         log(
-            f"[construct_hybrid_records_beam] best_key=(epairs={best_projected_epairs}, cat_ents={best_projected_cat_ents}, hint_hits={best_hint_hits}), "
+            f"[construct_hybrid_records_beam] best_projected_key=(epairs={best_projected_epairs}, cat_ents={best_projected_cat_ents}, hint_hits={best_hint_hits}), "
+            f"best_eval_key=(loss={best_eval_key[0]}, epairs={best_eval_key[1]}), "
             f"best_epairs={result.total_costs.epairs}, best_cat_ents={result.total_costs.cat_ents}, "
             f"Time: {end_time - start_time} seconds"
         )

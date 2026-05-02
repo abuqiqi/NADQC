@@ -19,6 +19,8 @@ class Network:
         self.swap_fidelity, self.swap_fidelity_loss = self._compute_swap_fidelity()
         self.backends = backend_list
         self.comm_slot_reserve = int(network_config.get('comm_slot_reserve', 0) or 0)
+        self.debug_layout_tracking = bool(network_config.get('debug_layout_tracking', False))
+        self.layout_trace_records = None
         # 后端实际容量（用于transpile/通信临时槽）
         self.backend_sizes_full = [backend.num_qubits for backend in self.backends]
         # 核心计算容量（用于partition阶段），由 full - reserve 得到
@@ -73,6 +75,11 @@ class Network:
             network_coupling = {
                 (i, i + 1): random.uniform(self.fidelity_range[0], self.fidelity_range[1])
                 for i in range(self.num_backends - 1)
+            }
+        elif self.net_type == 'star':
+            network_coupling = {
+                (0, i): random.uniform(self.fidelity_range[0], self.fidelity_range[1])
+                for i in range(1, self.num_backends)
             }
         elif self.net_type == 'mesh_grid':
             n_rows, n_cols = self.size
@@ -216,7 +223,7 @@ class Network:
         
         return move_fidelity, move_fidelity_loss, Hops, optimal_paths
 
-    # === 新增：计算量子比特交换的保真度和损失 ===
+    # === 计算量子比特交换的保真度和损失 ===
     def _compute_swap_fidelity(self) -> tuple:
         """
         计算任意两个节点之间交换量子比特的总保真度和保真度损失
@@ -251,10 +258,10 @@ class Network:
                     v = path[idx + 1]
                     swap_edges.append((u, v))
                 # 第二阶段：从 path[k-2] 回到 path[0]
-                for idx in range(k-2, -1, -1):
-                    u = path[idx]
-                    v = path[idx + 1]
-                    swap_edges.append((u, v))
+                # for idx in range(k-2, -1, -1):
+                #     u = path[idx]
+                #     v = path[idx + 1]
+                #     swap_edges.append((u, v))
                 # 计算总保真度（所有 SWAP 边保真度的乘积）和总保真度损失
                 total_fid = 1.0
                 total_fid_loss = 0.0

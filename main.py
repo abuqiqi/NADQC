@@ -1,10 +1,11 @@
 import sys
 import time
 import datetime
+import traceback
 from pprint import pprint
 import numpy as np
 
-from src.utils import get_args, get_config, select_circuit, write_compiler_results_to_csv, Backend, Network
+from src.utils import log, get_args, get_config, select_circuit, write_compiler_results_to_csv, Backend, Network
 from src.compiler import Compiler, CompilerFactory
 
 def _build_compile_config(global_config: dict, compiler: Compiler, circuit_name: str) -> dict:
@@ -90,11 +91,16 @@ def _run_shared_prefix_navi_variants(
 
     print("[INFO] Reusing NAVI Hybrid shared prefix through Step 5 for hybrid-family compilers")
     base_compiler = variant_plan[0][0]
-    shared_ctx, shared_prefix_time = base_compiler.build_shared_prefix_context(
-        trans_circ,
-        network,
-        variant_plan[0][1],
-    )
+    try:
+        shared_ctx, shared_prefix_time = base_compiler.build_shared_prefix_context(
+            trans_circ,
+            network,
+            variant_plan[0][1],
+        )
+    except Exception as exc:
+        print(f"[ERROR] Failed to build shared NAVI Hybrid prefix context: {exc}")
+        traceback.print_exc(file=sys.stdout)
+        return handled_compiler_ids
 
     teledata_records = None
     teledata_records_time = 0.0
@@ -103,73 +109,81 @@ def _run_shared_prefix_navi_variants(
     direct_noise_aware_records = None
     direct_noise_aware_records_time = 0.0
 
-    for compiler, compile_config, mode in variant_plan:
-        if mode == "teledata_direct" and teledata_records is None:
-            td_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
-            records_start_time = time.time()
-            teledata_records = compiler._step_construct_teledata_only_records(td_ctx)
-            teledata_records_time = time.time() - records_start_time
-        elif mode in {"beam_direct", "beam_neighbor"} and beam_records is None:
-            beam_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
-            beam_records, beam_records_time = compiler._construct_records_from_ctx(
-                beam_ctx,
-                use_direct_noise_aware=False,
-            )
-        elif mode == "direct_noise_aware" and direct_noise_aware_records is None:
-            dna_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
-            direct_noise_aware_records, direct_noise_aware_records_time = compiler._construct_records_from_ctx(
-                dna_ctx,
-                use_direct_noise_aware=True,
-            )
+    try:
+        for compiler, compile_config, mode in variant_plan:
+            if mode == "teledata_direct" and teledata_records is None:
+                td_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
+                records_start_time = time.time()
+                teledata_records = compiler._step_construct_teledata_only_records(td_ctx)
+                teledata_records_time = time.time() - records_start_time
+            elif mode in {"beam_direct", "beam_neighbor"} and beam_records is None:
+                beam_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
+                beam_records, beam_records_time = compiler._construct_records_from_ctx(
+                    beam_ctx,
+                    use_direct_noise_aware=False,
+                )
+            elif mode == "direct_noise_aware" and direct_noise_aware_records is None:
+                dna_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
+                direct_noise_aware_records, direct_noise_aware_records_time = compiler._construct_records_from_ctx(
+                    dna_ctx,
+                    use_direct_noise_aware=True,
+                )
+    except Exception as exc:
+        print(f"[ERROR] Failed while preparing shared NAVI Hybrid records: {exc}")
+        traceback.print_exc(file=sys.stdout)
+        return handled_compiler_ids
 
     for compiler, compile_config, mode in variant_plan:
         print(f"Compiler: [{compiler.name}]")
         print(compile_config)
         print(compile_config, file=sys.stdout)
-        if mode == "teledata_direct":
-            td_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
-            result = compiler._map_records_with_mapper(
-                td_ctx,
-                teledata_records,
-                mapper_id="direct",
-                shared_prefix_time=shared_prefix_time,
-                records_time=teledata_records_time,
-            )
-        elif mode == "beam_direct":
-            beam_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
-            result = compiler._map_records_with_mapper(
-                beam_ctx,
-                beam_records,
-                mapper_id="direct",
-                shared_prefix_time=shared_prefix_time,
-                records_time=beam_records_time,
-            )
-        elif mode == "beam_neighbor":
-            beam_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
-            result = compiler._map_records_with_mapper(
-                beam_ctx,
-                beam_records,
-                mapper_id=str(compile_config.get("multi_record_mapper", "boundeddp_neighbor")).lower(),
-                shared_prefix_time=shared_prefix_time,
-                records_time=beam_records_time,
-            )
-        else:
-            dna_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
-            selected_mapper_id = "single_record_greedy" if len(direct_noise_aware_records.records) == 1 else "direct"
-            result = compiler._map_records_with_mapper(
-                dna_ctx,
-                direct_noise_aware_records,
-                mapper_id=selected_mapper_id,
-                shared_prefix_time=shared_prefix_time,
-                records_time=direct_noise_aware_records_time,
-            )
-        pprint(result.total_costs)
-        _print_flush_stats(compiler.name, result)
-        result_info[compiler.name] = {
-            "F_eff": np.exp(result.total_costs.total_fidelity_log_sum / task_info["#Depth"]),
-            **result.total_costs.to_dict()
-        }
-        handled_compiler_ids.add(compiler.compiler_id)
+        try:
+            if mode == "teledata_direct":
+                td_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
+                result = compiler._map_records_with_mapper(
+                    td_ctx,
+                    teledata_records,
+                    mapper_id="direct",
+                    shared_prefix_time=shared_prefix_time,
+                    records_time=teledata_records_time,
+                )
+            elif mode == "beam_direct":
+                beam_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
+                result = compiler._map_records_with_mapper(
+                    beam_ctx,
+                    beam_records,
+                    mapper_id="direct",
+                    shared_prefix_time=shared_prefix_time,
+                    records_time=beam_records_time,
+                )
+            elif mode == "beam_neighbor":
+                beam_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
+                result = compiler._map_records_with_mapper(
+                    beam_ctx,
+                    beam_records,
+                    mapper_id=str(compile_config.get("multi_record_mapper", "boundeddp_neighbor")).lower(),
+                    shared_prefix_time=shared_prefix_time,
+                    records_time=beam_records_time,
+                )
+            else:
+                dna_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
+                selected_mapper_id = "single_record_greedy" if len(direct_noise_aware_records.records) == 1 else "direct"
+                result = compiler._map_records_with_mapper(
+                    dna_ctx,
+                    direct_noise_aware_records,
+                    mapper_id=selected_mapper_id,
+                    shared_prefix_time=shared_prefix_time,
+                    records_time=direct_noise_aware_records_time,
+                )
+            pprint(result.total_costs)
+            result_info[compiler.name] = {
+                "F_eff": np.exp(result.total_costs.total_fidelity_log_sum / task_info["#Depth"]),
+                **result.total_costs.to_dict()
+            }
+            handled_compiler_ids.add(compiler.compiler_id)
+        except Exception as exc:
+            print(f"[ERROR] Compiler [{compiler.name}] failed: {exc}")
+            traceback.print_exc(file=sys.stdout)
 
     return handled_compiler_ids
 
@@ -227,14 +241,15 @@ def main(args):
 
     # 调用不同的compiler
     result_info = {}
+    output_path = f"{global_config.get('output_folder')}260501-scalability.csv"
 
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
-    # compiler_ids = ["fgproee"] # , "staticoee", "wbcp", "navi"
-    # compiler_ids = ["wbcp"]
     # compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi", "navihybrid"] # , "navinew"
     # compiler_ids = ["autocomm", "navihybrid"] # "navi", 
     compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navihybridtd", "navihybriddirectmapper", "navihybrid"] # , "navihybriddirect"
-    # compiler_ids = ["staticoee", "navihybrid"]
+    # compiler_ids = ["fgproee", "navihybrid"]
+    # compiler_ids = ["wbcp"]
+    # compiler_ids = ["staticoee", "autocomm", "navihybrid"]
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
     for compiler_id in compiler_ids:
@@ -257,22 +272,26 @@ def main(args):
             continue
         print(f"Compiler: [{compiler.name}]")
         compile_config = _build_compile_config(global_config, compiler, circuit_name)
-        print(compile_config)
-        print(compile_config, file=sys.stdout)
-        result = compiler.compile(trans_circ, network, compile_config)
-        pprint(result.total_costs)
-        _print_flush_stats(compiler.name, result)
-        result_info[compiler.name] = {
-            "F_eff": np.exp(result.total_costs.total_fidelity_log_sum / task_info["#Depth"]),
-            **result.total_costs.to_dict()
-        }
+        log(f"{compile_config}")
+        try:
+            result = compiler.compile(trans_circ, network, compile_config)
+            pprint(result.total_costs)
+            result_info[compiler.name] = {
+                "F_eff": np.exp(result.total_costs.total_fidelity_log_sum / task_info["#Depth"]),
+                **result.total_costs.to_dict()
+            }
+        except Exception as exc:
+            print(f"[ERROR] Compiler [{compiler.name}] failed: {exc}")
+            traceback.print_exc(file=sys.stdout)
 
-    # Write results to CSV
-    write_compiler_results_to_csv(
-        {**task_info, **network.info()},
-        _ordered_result_info(result_info),
-        f"{global_config.get('output_folder')}compiler_results.csv"
-    )
+    if result_info:
+        write_compiler_results_to_csv(
+            {**task_info, **network.info()},
+            _ordered_result_info(result_info),
+            output_path,
+        )
+    else:
+        print("[WARN] No compiler succeeded; skipping CSV write.")
 
     return
 

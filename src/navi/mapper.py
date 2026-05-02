@@ -61,6 +61,7 @@ class Mapper(ABC):
         k = len(mapping_record_list.records)  # 时间片数量
 
         logical_phy_map = {}
+        comm_phy_map = {}
 
         for t in range(k):
             # print(f"\n\n\n[DEBUG] {t} / {k}")
@@ -69,12 +70,15 @@ class Mapper(ABC):
 
             if t == 0:
                 logical_phy_map = CompilerUtils.init_logical_phy_map(record.partition)
+                comm_phy_map = {}
             else:
                 # 沿用上一个record的logical_phy_map作为初始状态
                 logical_phy_map = mapping_record_list.records[t-1].logical_phy_map
+                comm_phy_map = copy.deepcopy(getattr(mapping_record_list.records[t - 1], "comm_phy_map", {}) or {})
 
             record.costs = ExecCosts()  # 初始化成本对象
             record.logical_phy_map = logical_phy_map.copy() # 初始化当前时间片的logical_phy_map
+            record.comm_phy_map = copy.deepcopy(comm_phy_map)
 
             # print(f"[DEBUG] After new init: \n{record}")
             # print(f"[DEBUG] partition: {record.partition}")

@@ -160,17 +160,21 @@ def pattern_merged_circ(g_list, pattern_func_list=[crz_merge]):
     return g_list
 
 def remove_repeated_gates(gate_list):
+    self_inverse_gate_types = {"X", "Z", "H", "CX", "CZ"}
     n_gate = len(gate_list)
     gate_del_flag = [0 for i in range(n_gate)]
     new_gate_list = []
     for gidx0, g0 in enumerate(gate_list):
         if gate_del_flag[gidx0] == 0:
-            for gidx1 in range(gidx0+1, n_gate):
-                g1 = gate_list[gidx1]
-                if is_equal_gate(g0, g1):
-                    gate_del_flag[gidx0] = 1
-                    gate_del_flag[gidx1] = 1
-                    break
+            if gate_type(g0) in self_inverse_gate_types:
+                for gidx1 in range(gidx0+1, n_gate):
+                    g1 = gate_list[gidx1]
+                    if gate_type(g1) not in self_inverse_gate_types:
+                        continue
+                    if is_equal_gate(g0, g1):
+                        gate_del_flag[gidx0] = 1
+                        gate_del_flag[gidx1] = 1
+                        break
             if gate_del_flag[gidx0] == 0:
                 new_gate_list.append(g0)
     return new_gate_list

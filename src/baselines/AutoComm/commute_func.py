@@ -15,6 +15,7 @@ def commute_func_right(lblk, rblk): # right to left
             new_check_point = []
             new_rg = rg
             for cur_lg in reversed(cur_check_point):
+                is_commute = False
                 lgtype = gate_type(cur_lg)
                 lgqb = gate_qubits(cur_lg)
                 rgqb = gate_qubits(rg)

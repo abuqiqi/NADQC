@@ -115,7 +115,7 @@ class QAutoComm(Compiler):
                 network,
             )
         else:
-            costs, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
+            costs, _, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
                 record,
                 op_list,
                 network,

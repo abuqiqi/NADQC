@@ -36,7 +36,7 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
     circ = None
     optimization_level = 3
     if name == "QV":
-        circ = QuantumVolume(num_qubits, 50, seed=42).decompose()
+        circ = QuantumVolume(num_qubits, 20, seed=42).decompose()
     elif name == "BV":
         circ = BV(num_qubits).decompose()
     elif name == "QFT":
@@ -49,7 +49,7 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         optimization_level = 0
         circ = Permutation(num_qubits, seed=21)
     elif name == "Random":
-        circ = random_circuit(num_qubits, 50, max_operands=4, seed=42)
+        circ = random_circuit(num_qubits, 20, max_operands=4, seed=42)
     # elif name == "QPE":
     elif name == "QAOA":
         circ = QAOA(num_qubits)
@@ -83,6 +83,8 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         circ = build_vqe_benchmark(name, num_qubits).decompose()
     elif name == "QKNN" or name.startswith("QKNN_"):
         circ = build_qknn_benchmark(name, num_qubits).decompose()
+    elif name == "SwapTest" or name.startswith("SwapTest_"):
+        circ = build_swap_test_benchmark(name, num_qubits).decompose()
     elif name == "test":
         circ = QuantumCircuit(4)
         circ.h(range(4))
@@ -581,7 +583,9 @@ def MCMTcircuit(num_qubits, t=10):
                 num_ctrl = t // 2
                 num_target = t - num_ctrl
                 mcmt_gate = MCMT(base_gate, num_ctrl, num_target)
-                qc.append(mcmt_gate, range(i, i + t))
+                qargs = list(range(i, i + t))
+                random.shuffle(qargs)
+                qc.append(mcmt_gate, qargs)
 
     return qc
 
@@ -677,7 +681,8 @@ def VQC(num_qubits):
                 continue
             # qc.barrier()  # 加入 barrier 隔离量子门
             angle = np.random.rand() * 2 * pi  # 随机生成 0 到 2π 的角度
-            qc.rzz(angle, i, j)
+            # qc.rzz(angle, i, j)
+            qc.crz(angle, i, j)  # 应用 CRZ 门
     return qc
 
 def build_vqe_benchmark(name: str, num_qubits: int):
@@ -773,6 +778,74 @@ def build_qknn_benchmark(name: str, num_qubits: int):
 
     return QKNN(num_qubits=num_qubits, reps=reps)
 
+def build_swap_test_benchmark(name: str, num_qubits: int):
+    """
+    构造一个 swap-test benchmark 电路。
+
+    支持以下名称格式：
+    - SwapTest: 使用默认配置 prep_depth=1
+    - SwapTest_<prep_depth>: 例如 SwapTest_3
+    """
+    parts = name.split("_")
+    prep_depth = 1
+
+    if len(parts) >= 2 and parts[1] != "":
+        prep_depth = int(parts[1])
+
+    return SwapTest(num_qubits=num_qubits, prep_depth=prep_depth)
+
+def SwapTest(num_qubits: int, prep_depth: int = 1, seed: int = 26) -> QuantumCircuit:
+    """
+    Generate a deterministic swap-test benchmark circuit.
+
+    Layout:
+        qubit 0                    : ancilla
+        qubits 1..register_size    : first state register |psi>
+        remaining register_size    : second state register |phi>
+
+    The circuit prepares two same-width registers, applies the standard
+    H - controlled-SWAPs - H swap-test pattern, and leaves the ancilla
+    unmeasured so the circuit stays compatible with the compiler benchmarks.
+    """
+    if num_qubits < 3:
+        raise ValueError("SwapTest requires at least 3 qubits.")
+    if prep_depth < 1:
+        raise ValueError("prep_depth must be a positive integer.")
+
+    actual_qubits = num_qubits
+    if actual_qubits % 2 == 0:
+        actual_qubits -= 1
+        print(
+            f"警告: SwapTest 需要 2n+1 个量子比特，已自动将 {num_qubits} 调整为 {actual_qubits}"
+        )
+
+    register_size = (actual_qubits - 1) // 2
+    rng = np.random.default_rng(seed)
+
+    qc = QuantumCircuit(actual_qubits, name=f"SwapTest_{prep_depth}")
+    psi_qubits = list(range(1, 1 + register_size))
+    phi_qubits = list(range(1 + register_size, actual_qubits))
+
+    for _ in range(prep_depth):
+        for q in psi_qubits:
+            qc.ry(float(rng.uniform(0, 2 * np.pi)), q)
+            qc.rz(float(rng.uniform(0, 2 * np.pi)), q)
+        for q in phi_qubits:
+            qc.ry(float(rng.uniform(0, 2 * np.pi)), q)
+            qc.rz(float(rng.uniform(0, 2 * np.pi)), q)
+
+        for left, right in zip(psi_qubits[:-1], psi_qubits[1:]):
+            qc.cx(left, right)
+        for left, right in zip(phi_qubits[:-1], phi_qubits[1:]):
+            qc.cx(left, right)
+
+    qc.h(0)
+    for psi_qubit, phi_qubit in zip(psi_qubits, phi_qubits):
+        qc.cswap(0, psi_qubit, phi_qubit)
+    qc.h(0)
+
+    return qc
+
 def QKNN(num_qubits: int, reps: int = 2, seed: int = 26) -> QuantumCircuit:
     """
     Generate a fidelity-based Quantum KNN (QKNN) benchmark circuit.
@@ -840,9 +913,9 @@ def BV(num_qubits, secret_bitstring=None):
     
     # 如果secret_bitstring是None，生成101010...模式
     if secret_bitstring is None:
-        # ''.join(np.random.choice(['0', '1'], size=n))
+        secret_bitstring = ''.join(np.random.choice(['0', '1'], size=n))
         # secret_bitstring = ("10" * ((n + 1) // 2))[:n]
-        secret_bitstring = "1" * n
+        # secret_bitstring = "1" * n
     
     # 如果secret_bitstring太长，截取前n位
     if len(secret_bitstring) > n:

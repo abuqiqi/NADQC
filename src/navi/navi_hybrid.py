@@ -781,9 +781,6 @@ class NAVIHybrid(Compiler):
             projected_epairs, projected_cat_ents, hint_hits, _ = item
             return (projected_epairs, -projected_cat_ents, -hint_hits)
 
-        def _records_eval_key(item: tuple[tuple[float, float], Any]) -> tuple[float, float]:
-            return item[0]
-
         def _reevaluate_records(records: list[MappingRecord]) -> tuple[MappingRecordList, tuple[float, float]]:
             reevaluated = MappingRecordList(records=copy.deepcopy(records))
             logical_phy_map: dict[int, tuple[int, int | None]] = {}
@@ -814,7 +811,11 @@ class NAVIHybrid(Compiler):
 
                 if t != 0:
                     prev_record = reevaluated.records[t - 1]
-                    CompilerUtils.evaluate_teledata(prev_record, record, ctx.network)
+                    _, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_teledata_with_local(
+                        prev_record,
+                        record,
+                        ctx.network,
+                    )
 
                 CompilerUtils.evaluate_local_and_telegate_with_cat(
                     record,

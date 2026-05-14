@@ -241,14 +241,14 @@ def main(args):
 
     # 调用不同的compiler
     result_info = {}
-    output_path = f"{global_config.get('output_folder')}260501-scalability.csv"
+    output_path = f"{global_config.get('output_folder')}260512-network-4x50.csv"
 
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     # compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi", "navihybrid"] # , "navinew"
     # compiler_ids = ["autocomm", "navihybrid"] # "navi", 
-    compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navihybridtd", "navihybriddirectmapper", "navihybrid"] # , "navihybriddirect"
+    # compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navihybridtd", "navihybriddirectmapper", "navihybrid"] # , "navihybriddirect"
     # compiler_ids = ["fgproee", "navihybrid"]
-    # compiler_ids = ["wbcp"]
+    compiler_ids = ["wbcp", "autocomm", "navihybrid"] # 
     # compiler_ids = ["staticoee", "autocomm", "navihybrid"]
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []
@@ -299,7 +299,7 @@ if __name__ == "__main__":
     # 获取全局配置
     args = get_args()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
+    filename = "0" # f"{args.circuit_name}_{args.qubit_count}_{args.core_count}_{timestamp}"# 
     original_stdout = sys.stdout
     with open(f'outputs/{filename}.txt', 'w', buffering=1) as f:
         sys.stdout = f

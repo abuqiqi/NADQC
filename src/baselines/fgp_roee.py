@@ -130,7 +130,7 @@ class FGPrOEE(Compiler):
                 # TODO: CHECK
                 # self.num_swaps.append(self.calculate_nonlocal_communications(mapping_record_list.records[-2].partition, 
                 #                                                              mapping_record_list.records[-1].partition))
-                _ = CompilerUtils.evaluate_teledata(
+                _ = CompilerUtils.evaluate_teledata_with_local(
                     mapping_record_list.records[-1],
                     record,
                     network

@@ -19,7 +19,10 @@ class Network:
         self.swap_fidelity, self.swap_fidelity_loss = self._compute_swap_fidelity()
         self.backends = backend_list
         self.comm_slot_reserve = int(network_config.get('comm_slot_reserve', 0) or 0)
+        self.flush_each_comm_gate = bool(network_config.get('flush_each_comm_gate', False))
+        self.sequential_initial_layout = bool(network_config.get('sequential_initial_layout', False))
         self.debug_layout_tracking = bool(network_config.get('debug_layout_tracking', False))
+        self.skip_comm_payload_local_routing = bool(network_config.get('skip_comm_payload_local_routing', False))
         self.layout_trace_records = None
         # 后端实际容量（用于transpile/通信临时槽）
         self.backend_sizes_full = [backend.num_qubits for backend in self.backends]

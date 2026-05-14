@@ -133,7 +133,7 @@ class WBCP(Compiler):
 
             # 如果采用当前的record，评估当前划分的costs
             # 先评估teledata并更新logical_phy_map
-            _ = CompilerUtils.evaluate_teledata(previous_record, current_record, network)
+            _ = CompilerUtils.evaluate_teledata_with_local(previous_record, current_record, network)
             # 再评估local和telegate
             _ = CompilerUtils.evaluate_local_and_telegate_with_cat(current_record, sub_qc, network)
 

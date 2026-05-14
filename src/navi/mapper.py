@@ -106,15 +106,15 @@ class Mapper(ABC):
             # 计算teledata损失
             if t != 0:
                 prev_record = mapping_record_list.records[t - 1]
-                _ = CompilerUtils.evaluate_teledata(
+                _, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_teledata_with_local(
                     prev_record,
                     record,
-                    network
+                    network,
                 )
                 # print(f"[DEBUG] record (teledata): \n{record}")
                 # print(f"[DEBUG] after teledata: {record.logical_phy_map}")
 
-            tg_costs, curr_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+            tg_costs, curr_map, comm_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                 record,
                 subcircuit,
                 network,
@@ -451,7 +451,7 @@ class SingleRecordExhaustiveMapper(Mapper):
             trial_record.extra_info["ops"] = trial_subcircuit
             trial_record.extra_info["perm"] = list(perm)
 
-            costs, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
+            costs, _, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
                 trial_record, # logical_phy_map会在record中更新
                 trial_subcircuit,
                 network,
@@ -557,7 +557,7 @@ class SingleRecordGreedyMapper(Mapper):
         trial_record.extra_info["ops"] = trial_subcircuit
         trial_record.extra_info["perm"] = list(greedy_perm)
         
-        costs, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
+        costs, _, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
             trial_record,
             trial_subcircuit,
             network,
@@ -625,6 +625,7 @@ class GreedyMapper(Mapper):
             # min_num_comms = float('inf')
             min_fidelity_loss = float('inf')
             best_logical_phy_map = {}
+            best_comm_phy_map = {}
 
             # perm所有可能的排列
             for perm in all_perms:
@@ -643,26 +644,34 @@ class GreedyMapper(Mapper):
                 # 如果是第一段线路，logical_phy_map直接根据partition构造；否则沿用上一个时间片的logical_phy_map并根据新的partition调整
                 if t == 0:
                     logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
+                    comm_phy_map = {}
                     # print(f"[DEBUG] initial logical_phy_map: {logical_phy_map}")
                 else:
                     # 沿用上一个record的logical_phy_map作为初始状态
-                    logical_phy_map = mapping_record_list.records[t-1].logical_phy_map.copy()
+                    prev_record = mapping_record_list.records[t-1]
+                    logical_phy_map = prev_record.logical_phy_map.copy()
+                    comm_phy_map = copy.deepcopy(getattr(prev_record, "comm_phy_map", {}) or {})
                     # print(f"[DEBUG] initial logical_phy_map: {logical_phy_map}")
                 
                     # 评估当前线路的teledata开销并更新logical_phy_map
-                    costs, logical_phy_map = CompilerUtils.evaluate_teledata(
-                        mapping_record_list.records[t-1].partition,
+                    costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_teledata_with_local(
+                        prev_record.partition,
                         partition,
                         network,
-                        logical_phy_map
+                        logical_phy_map,
+                        comm_phy_map,
                     )
 
                 # 评估当前排列的local_and_telegate_cost
-                telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                    partition,
+                trial_record = MappingRecord(
+                    partition=partition,
+                    logical_phy_map=copy.deepcopy(logical_phy_map),
+                    comm_phy_map=copy.deepcopy(comm_phy_map),
+                )
+                telegate_costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                    trial_record,
                     subcircuit,
                     network,
-                    logical_phy_map,
                     optimization_level=0,
                 )
                 costs += telegate_costs
@@ -680,6 +689,7 @@ class GreedyMapper(Mapper):
                     best_perm = perm
                     min_costs = costs
                     best_logical_phy_map = logical_phy_map.copy()
+                    best_comm_phy_map = copy.deepcopy(comm_phy_map)
 
             # 调整curr_record成最佳排列
             assert best_perm is not None and min_costs is not None, "未找到最佳排列，可能存在问题"
@@ -689,6 +699,7 @@ class GreedyMapper(Mapper):
             curr_record.partition = copy.deepcopy(best_partition)
             curr_record.costs = replace(min_costs)
             curr_record.logical_phy_map = best_logical_phy_map.copy()
+            curr_record.comm_phy_map = copy.deepcopy(best_comm_phy_map)
 
             # print(f"\n[DEBUG] Best permutation for time slice {t}: {best_perm}\npartition: {best_partition}\ncosts: {min_costs}\nlogical_phy_map: {best_logical_phy_map}")
 
@@ -754,13 +765,19 @@ class DPMapper(Mapper):
         for perm in all_perms:
             partition = [original_partition[i] for i in perm]
             logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
-            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                partition, subcircuit, network, logical_phy_map=logical_phy_map, optimization_level=0)
+            trial_record = MappingRecord(
+                partition=partition,
+                logical_phy_map=copy.deepcopy(logical_phy_map),
+                comm_phy_map={},
+            )
+            costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                trial_record, subcircuit, network, optimization_level=0)
 
             prev_bests.append(MappingRecord(
                 partition = partition,
                 costs = costs,
-                logical_phy_map = logical_phy_map
+                logical_phy_map = logical_phy_map,
+                comm_phy_map = copy.deepcopy(comm_phy_map)
             ))
             # print(f"[DEBUG] t=0, perm: {perm}, partition: {partition}, costs: {costs}, logical_phy_map: {logical_phy_map})
 
@@ -795,21 +812,27 @@ class DPMapper(Mapper):
                     # 衡量前序节点和当前节点的costs
                     # 获取logical_phy_map
                     logical_phy_map = prev_record.logical_phy_map.copy()
+                    comm_phy_map = copy.deepcopy(getattr(prev_record, "comm_phy_map", {}) or {})
 
                     # 计算teledata costs
-                    curr_costs, logical_phy_map = CompilerUtils.evaluate_teledata(
+                    curr_costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_teledata_with_local(
                         prev_record.partition,
                         partition,
                         network,
-                        logical_phy_map
+                        logical_phy_map,
+                        comm_phy_map,
                     )
 
                     # 计算telegate costs
-                    telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                        partition,
+                    trial_record = MappingRecord(
+                        partition=partition,
+                        logical_phy_map=copy.deepcopy(logical_phy_map),
+                        comm_phy_map=copy.deepcopy(comm_phy_map),
+                    )
+                    telegate_costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                        trial_record,
                         subcircuit,
                         network,
-                        logical_phy_map = logical_phy_map,
                         optimization_level = 0
                     )
 
@@ -823,7 +846,8 @@ class DPMapper(Mapper):
                         best_record = MappingRecord(
                             partition = partition, # 记录最后一个partition
                             costs = curr_total_costs, # 记录全路径的costs
-                            logical_phy_map = logical_phy_map # 记录最后一个logical_phy_map
+                            logical_phy_map = logical_phy_map, # 记录最后一个logical_phy_map
+                            comm_phy_map = copy.deepcopy(comm_phy_map),
                         )
                         best_prev = prev_idx
 
@@ -1032,10 +1056,11 @@ class NeighborhoodBoundedDPMapper(Mapper):
             seg_end: int,
             prev_partition: Optional[list[list[int]]],
             logical_phy_map: dict[Any, Any],
+            comm_phy_map: Optional[dict[int, list[int | None]]],
             network: Network,
             circuit: QuantumCircuit,
             circuit_layers: list[Any],
-        ) -> tuple[ExecCosts, dict[Any, Any], list[list[int]]]:
+        ) -> tuple[ExecCosts, dict[Any, Any], dict[int, list[int | None]], list[list[int]]]:
             """
             在固定perm下顺序评估一个组内所有子段：
             - 组间/组内切换的 teledata
@@ -1045,6 +1070,7 @@ class NeighborhoodBoundedDPMapper(Mapper):
             group_costs = ExecCosts()
             curr_prev_partition = prev_partition
             curr_map = copy.deepcopy(logical_phy_map)
+            curr_comm_phy_map = copy.deepcopy(comm_phy_map or {})
 
             for seg_idx in range(seg_start, seg_end):
                 seg_record = mapping_record_list.records[seg_idx]
@@ -1054,8 +1080,12 @@ class NeighborhoodBoundedDPMapper(Mapper):
                     seg_cat_controls = seg_record.extra_info.get("cat_controls")
 
                 if curr_prev_partition is not None:
-                    td_costs, curr_map = CompilerUtils.evaluate_teledata(
-                        curr_prev_partition, partition, network, curr_map
+                    td_costs, curr_map, curr_comm_phy_map = CompilerUtils.evaluate_teledata_with_local(
+                        curr_prev_partition,
+                        partition,
+                        network,
+                        curr_map,
+                        curr_comm_phy_map,
                     )
                     group_costs += td_costs
 
@@ -1072,18 +1102,22 @@ class NeighborhoodBoundedDPMapper(Mapper):
                         layer_start=seg_record.layer_start,
                         layer_end=seg_record.layer_end,
                     )
-                tg_costs, curr_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                    partition,
+                trial_record = MappingRecord(
+                    partition=partition,
+                    logical_phy_map=copy.deepcopy(curr_map),
+                    comm_phy_map=copy.deepcopy(curr_comm_phy_map),
+                )
+                tg_costs, curr_map, curr_comm_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                    trial_record,
                     subcircuit,
                     network,
-                    logical_phy_map=curr_map,
                     optimization_level=0,
                 )
                 group_costs += tg_costs
                 curr_prev_partition = partition
 
             assert curr_prev_partition is not None
-            return group_costs, curr_map, curr_prev_partition
+            return group_costs, curr_map, curr_comm_phy_map, curr_prev_partition
 
         # --------------------------
         # 滚动DP数组（仅保留上一层）
@@ -1117,12 +1151,14 @@ class NeighborhoodBoundedDPMapper(Mapper):
             perm = all_perms[state_idx]
             init_partition = _apply_perm(mapping_record_list.records[group0_start].partition, perm)
             logical_phy_map = CompilerUtils.init_logical_phy_map(init_partition)
-            costs, logical_phy_map, last_partition = _evaluate_group_with_perm(
+            comm_phy_map: dict[int, list[int | None]] = {}
+            costs, logical_phy_map, comm_phy_map, last_partition = _evaluate_group_with_perm(
                 perm=perm,
                 seg_start=group0_start,
                 seg_end=group0_end,
                 prev_partition=None,
                 logical_phy_map=logical_phy_map,
+                comm_phy_map=comm_phy_map,
                 network=network,
                 circuit=circuit,
                 circuit_layers=circuit_layers,
@@ -1130,7 +1166,8 @@ class NeighborhoodBoundedDPMapper(Mapper):
             t0_full.append(MappingRecord(
                 partition=last_partition,
                 costs=costs,
-                logical_phy_map=logical_phy_map
+                logical_phy_map=logical_phy_map,
+                comm_phy_map=comm_phy_map,
             ))
 
         # --------------------------
@@ -1174,13 +1211,15 @@ class NeighborhoodBoundedDPMapper(Mapper):
                     prev_record = prev_bests[prev_kept_idx]
                     curr_total_costs = copy.deepcopy(prev_record.costs)
                     logical_phy_map = copy.deepcopy(prev_record.logical_phy_map)
+                    comm_phy_map = copy.deepcopy(getattr(prev_record, "comm_phy_map", {}) or {})
 
-                    group_costs, logical_phy_map, last_partition = _evaluate_group_with_perm(
+                    group_costs, logical_phy_map, comm_phy_map, last_partition = _evaluate_group_with_perm(
                         perm=curr_perm,
                         seg_start=group_start,
                         seg_end=group_end,
                         prev_partition=prev_record.partition,
                         logical_phy_map=logical_phy_map,
+                        comm_phy_map=comm_phy_map,
                         network=network,
                         circuit=circuit,
                         circuit_layers=circuit_layers,
@@ -1194,7 +1233,8 @@ class NeighborhoodBoundedDPMapper(Mapper):
                         best_record = MappingRecord(
                             partition=last_partition,
                             costs=curr_total_costs,
-                            logical_phy_map=logical_phy_map
+                            logical_phy_map=logical_phy_map,
+                            comm_phy_map=comm_phy_map,
                         )
                         best_prev_kept_idx = prev_kept_idx
 
@@ -1359,15 +1399,20 @@ class BoundedDPMapper(Mapper):
         for perm in all_perms:
             partition = [original_partition[i] for i in perm]
             logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
-            costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                partition, subcircuit, network,
-                logical_phy_map=logical_phy_map,
+            trial_record = MappingRecord(
+                partition=partition,
+                logical_phy_map=copy.deepcopy(logical_phy_map),
+                comm_phy_map={},
+            )
+            costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                trial_record, subcircuit, network,
                 optimization_level=0
             )
             t0_full.append(MappingRecord(
                 partition=partition,
                 costs=costs,
-                logical_phy_map=logical_phy_map
+                logical_phy_map=logical_phy_map,
+                comm_phy_map=copy.deepcopy(comm_phy_map)
             ))
 
         # --------------------------
@@ -1416,14 +1461,23 @@ class BoundedDPMapper(Mapper):
                     prev_record = prev_bests[prev_kept_idx]
                     curr_total_costs = copy.deepcopy(prev_record.costs)
                     logical_phy_map = copy.deepcopy(prev_record.logical_phy_map)
+                    comm_phy_map = copy.deepcopy(getattr(prev_record, "comm_phy_map", {}) or {})
 
                     # 计算切换开销 + 执行开销
-                    teledata_costs, logical_phy_map = CompilerUtils.evaluate_teledata(
-                        prev_record.partition, partition, network, logical_phy_map
+                    teledata_costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_teledata_with_local(
+                        prev_record.partition,
+                        partition,
+                        network,
+                        logical_phy_map,
+                        comm_phy_map,
                     )
-                    telegate_costs, logical_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                        partition, subcircuit, network,
-                        logical_phy_map=logical_phy_map,
+                    trial_record = MappingRecord(
+                        partition=partition,
+                        logical_phy_map=copy.deepcopy(logical_phy_map),
+                        comm_phy_map=copy.deepcopy(comm_phy_map),
+                    )
+                    telegate_costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
+                        trial_record, subcircuit, network,
                         optimization_level=0
                     )
 
@@ -1437,7 +1491,8 @@ class BoundedDPMapper(Mapper):
                         best_record = MappingRecord(
                             partition=partition,
                             costs=curr_total_costs,
-                            logical_phy_map=logical_phy_map
+                            logical_phy_map=logical_phy_map,
+                            comm_phy_map=copy.deepcopy(comm_phy_map),
                         )
                         best_prev_kept_idx = prev_kept_idx
 

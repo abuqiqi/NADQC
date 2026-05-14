@@ -500,15 +500,16 @@ class PytketDQCPartitioner(TelegatePartitioner):
             partition[target].append(i)
 
         # TODO: 计算cat-ent的telegate代价
-        costs, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(partition, circuit, network)
-        
-        return MappingRecord(
+        record = MappingRecord(
             layer_start=layer_start,
             layer_end=layer_end,
             partition=partition,
             mapping_type="telegate",
-            costs=costs
+            logical_phy_map=CompilerUtils.init_logical_phy_map(partition),
         )
+        costs, _, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(record, circuit, network)
+        
+        return record
 
 
 class TelegatePartitionerFactory:
@@ -568,4 +569,3 @@ class TelegatePartitionerFactory:
         :return: 可用分配器类型列表
         """
         return list(cls._registry.keys())
-

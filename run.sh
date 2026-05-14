@@ -21,17 +21,13 @@
 # python main.py -cname QV -nq 40 -core 4 -cap 10
 # python main.py -cname QV -nq 50 -core 5 -cap 10
 
-# ##########
-# 2,3,4,5x20
-# ##########
-
-cnames=(BV) # Permutation DraperQFTAdder QFT QAOA QV
-nets=(all_to_all)
+cnames=(BV Permutation QFT DraperQFTAdder CuccaroAdder MCMT QAOA IQP QV Random Pauli VQC SwapTest) #
+nets=(all_to_all mesh_grid star chain) #
 configs=(
-  "100 2 50"
-  "150 3 50"
+  # "100 2 50"
+  # "150 3 50"
   "200 4 50"
-  "250 5 50"
+  # "250 5 50"
 )
 
 for cname in "${cnames[@]}"; do

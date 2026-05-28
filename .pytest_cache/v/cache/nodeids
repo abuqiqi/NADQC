@@ -1,1 +1,24 @@
-[]
+[
+  "src/tests/test_evaluator_commop_endpoints.py::test_commop_runtime_endpoint_validation_accepts_current_state",
+  "src/tests/test_evaluator_commop_endpoints.py::test_commop_runtime_endpoint_validation_rejects_stale_dst_qpu",
+  "src/tests/test_evaluator_commop_endpoints.py::test_commop_runtime_endpoint_validation_rejects_stale_src_qpu",
+  "src/tests/test_evaluator_commop_endpoints.py::test_empty_tp_return_endpoint_validation_accepts_home_destination",
+  "src/tests/test_evaluator_commop_endpoints.py::test_empty_tp_return_endpoint_validation_rejects_non_home_destination",
+  "src/tests/test_navi_layer_mapping.py::test_navi_compiler_original_layer_ranges_restore_single_qubit_gaps",
+  "src/tests/test_navi_layer_mapping.py::test_navi_hybrid_original_layer_ranges_restore_single_qubit_gaps",
+  "test_mapping_evaluator.py::test_add_and_flush_payload_ops_updates_wire_physical_map",
+  "test_mapping_evaluator.py::test_bidirectional_partition_transition_requires_two_comm_wires_per_qpu",
+  "test_mapping_evaluator.py::test_bidirectional_partition_transition_with_two_comm_wires_per_qpu",
+  "test_mapping_evaluator.py::test_build_initial_layout_always_fills_unknown_wire_slots",
+  "test_mapping_evaluator.py::test_cat_commop_uses_entangled_copy_without_moving_source",
+  "test_mapping_evaluator.py::test_deferred_fixed_initial_layout_supplies_transpile_initial_layout",
+  "test_mapping_evaluator.py::test_deferred_free_initial_layout_omits_transpile_initial_layout",
+  "test_mapping_evaluator.py::test_deferred_partition_transition_keeps_pending_buffer_until_final_flush",
+  "test_mapping_evaluator.py::test_deferred_uses_physical_sized_buffers_and_delays_transpile",
+  "test_mapping_evaluator.py::test_evaluate_keeps_runtime_state_continuous_between_records",
+  "test_mapping_evaluator.py::test_partition_order_change_does_not_force_local_reindex",
+  "test_mapping_evaluator.py::test_partition_transition_handles_changed_local_wire_counts",
+  "test_mapping_evaluator.py::test_runtime_location_uses_only_local_wire",
+  "test_mapping_evaluator.py::test_synthetic_telegate_replays_cross_qpu_gate_as_cat_block",
+  "test_mapping_evaluator.py::test_tp_payload_moves_source_resident_to_destination_comm_wire"
+]

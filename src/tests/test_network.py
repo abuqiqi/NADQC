@@ -1,43 +1,35 @@
 import datetime
-from pprint import pprint
 
-# 简单的测试函数，返回 (是否通过, 错误信息)
+from src.utils import Backend, Network, get_config
+
 def test_network_initialization():
     """测试 Network 类初始化"""
-    try:
-        from utils import get_config, Backend, Network
+    config = get_config()
+    backend_config = {
+        'backend_name': 'ibm_torino_sampled_10q',
+        'date': datetime.datetime(2025, 11, 9),
+    }
+    backend = Backend(config, backend_config)
+    backend.print()
 
-        config = get_config()
-        backend_name = "ibm_torino"
-        date = datetime.datetime(2025, 12, 9)
+    # 测试配置
+    network_config = {
+        'type': 'mesh_grid',
+        'size': (2, 3),
+        'fidelity_range': (0.92, 0.97)
+    }
+    backend_config = [backend for _ in range(6)]
 
-        # 加载噪声数据
-        backend = Backend()
-        backend.load_properties(config, backend_name, date)
-        backend.print()
+    # 创建网络
+    net = Network(network_config, backend_config)
 
-        # 测试配置
-        network_config = {
-            'type': 'mesh_grid',
-            'size': (2, 3),
-            'fidelity_range': (0.92, 0.97)
-        }
-        backend_config = [backend for _ in range(6)]
+    # 检查基本属性
+    assert net.num_backends == 6, f"Expected 6 backends, got {net.num_backends}"
+    assert len(net.network_coupling) > 0, "No coupling edges found"
 
-        # 创建网络
-        net = Network(network_config, backend_config)
-
-        # 检查基本属性
-        assert net.num_backends == 6, f"Expected 6 backends, got {net.num_backends}"
-        assert len(net.network_coupling) > 0, "No coupling edges found"
-        
-        # 可视化网络
-        print(f"Hop weight: {net.hop_weight}")
-        net.draw_network_graph()
-
-        return True, "Network initialization passed"
-    except Exception as e:
-        return False, f"Network initialization failed: {str(e)}"
+    # 可视化网络
+    print(f"Hop weight: {net.hop_weight}")
+    net.draw_network_graph()
 
 # def test_optimal_path():
 #     """测试最优路径计算"""
@@ -71,4 +63,3 @@ def test_network_initialization():
 #         return True, "Optimal path test passed"
 #     except Exception as e:
 #         return False, f"Optimal path test failed: {str(e)}"
-

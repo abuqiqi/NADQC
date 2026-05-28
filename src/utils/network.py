@@ -23,6 +23,9 @@ class Network:
         self.sequential_initial_layout = bool(network_config.get('sequential_initial_layout', False))
         self.debug_layout_tracking = bool(network_config.get('debug_layout_tracking', False))
         self.skip_comm_payload_local_routing = bool(network_config.get('skip_comm_payload_local_routing', False))
+        self.local_eval_mode = str(network_config.get('local_eval_mode', 'immediate') or 'immediate')
+        self.deferred_route_local_gates = bool(network_config.get('deferred_route_local_gates', True))
+        self.deferred_initial_layout = str(network_config.get('deferred_initial_layout', 'fixed') or 'fixed')
         self.layout_trace_records = None
         # 后端实际容量（用于transpile/通信临时槽）
         self.backend_sizes_full = [backend.num_qubits for backend in self.backends]

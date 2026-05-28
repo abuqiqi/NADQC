@@ -13,6 +13,7 @@ import os
 import sys
 
 from qiskit import QuantumCircuit, transpile
+from qiskit.converters import circuit_to_dag
 from qiskit.circuit import Gate
 
 from ..utils import Network, log
@@ -33,20 +34,20 @@ class ExecCosts:
     execution_time: float = 0.0
 
     local_gate_num: int = 0    # transpile 后本地物理量子门总个数
+    local_pre_transpile_gate_num: int = 0  # transpile 前进入本地子线路的量子门总数（不含barrier/delay）
+    local_transpile_added_gate_num: int = 0  # transpile 后相对输入额外增加的本地门数
+    local_payload_gate_num: int = 0  # payload/body buffer transpile 后本地物理门数
+    local_comm_protocol_gate_num: int = 0  # CAT/CommOp协议 buffer transpile 后本地物理门数
+    local_teledata_gate_num: int = 0  # teledata/compaction/landing buffer transpile 后本地物理门数
+    local_uncategorized_gate_num: int = 0  # 旧评估路径或无法归因的本地物理门数
     payload_gate_num: int = 0  # transpile 前进入本地执行流程的 payload/body 门数
     flush_calls: int = 0       # _flush_local_subcircuits 调用次数（含空flush）
     nonempty_flushes: int = 0  # 实际触发了至少一个非空子线路结算的flush次数
     local_transpile_calls: int = 0  # 本地子线路 transpile 总次数（按QPU逐个累计）
     comm_block_events: int = 0  # CommOp 事件数量
-    comm_block_local_gate_num: int = 0  # CommOp gate_list 中的本地执行门数（未含routing）
-    comm_block_local_fidelity_loss: float = 0.0  # CommOp gate_list 对应本地执行损失
-    comm_block_local_fidelity_log_sum: float = 0.0  # CommOp gate_list 对应本地执行log保真度和
     comm_block_remote_fidelity_loss: float = 0.0  # CommOp 对应远程链路损失
     comm_block_remote_fidelity_log_sum: float = 0.0  # CommOp 对应远程链路log保真度和
     telegate_exec_events: int = 0  # 普通跨QPU门按synthetic CommOp(cat)执行的事件数
-    telegate_exec_local_gate_num: int = 0  # telegate目标端本地执行门数（未含routing）
-    telegate_exec_local_fidelity_loss: float = 0.0  # telegate目标端本地执行损失
-    telegate_exec_local_fidelity_log_sum: float = 0.0  # telegate目标端本地执行log保真度和
     telegate_exec_remote_fidelity_loss: float = 0.0  # telegate对应远程链路损失
     telegate_exec_remote_fidelity_log_sum: float = 0.0  # telegate对应远程链路log保真度和
 
@@ -65,6 +66,19 @@ class ExecCosts:
     @property
     def total_fidelity(self) -> float:
         return self.remote_fidelity * self.local_fidelity
+
+    @property
+    def local_gate_breakdown_num(self) -> int:
+        return (
+            self.local_payload_gate_num
+            + self.local_comm_protocol_gate_num
+            + self.local_teledata_gate_num
+            + self.local_uncategorized_gate_num
+        )
+
+    @property
+    def local_gate_breakdown_gap(self) -> int:
+        return self.local_gate_num - self.local_gate_breakdown_num
 
     @property
     def remote_geometric_mean_fidelity(self) -> float:
@@ -99,21 +113,21 @@ class ExecCosts:
             f"local_fidelity={self.local_fidelity}, "
             f"time={self.execution_time:.2f}), "
             f"local_gate_num={self.local_gate_num}, "
+            f"local_pre_transpile_gate_num={self.local_pre_transpile_gate_num}, "
+            f"local_transpile_added_gate_num={self.local_transpile_added_gate_num}, "
+            f"local_payload_gate_num={self.local_payload_gate_num}, "
+            f"local_comm_protocol_gate_num={self.local_comm_protocol_gate_num}, "
+            f"local_teledata_gate_num={self.local_teledata_gate_num}, "
+            f"local_uncategorized_gate_num={self.local_uncategorized_gate_num}, "
             f"payload_gate_num={self.payload_gate_num}"
             # Debug fields kept for temporary diagnostics; hide from default pprint/terminal output.
             # f", flush_calls={self.flush_calls}"
             # f", nonempty_flushes={self.nonempty_flushes}"
             # f", local_transpile_calls={self.local_transpile_calls}"
             # f", comm_block_events={self.comm_block_events}"
-            # f", comm_block_local_gate_num={self.comm_block_local_gate_num}"
-            # f", comm_block_local_fidelity_loss={self.comm_block_local_fidelity_loss}"
-            # f", comm_block_local_fidelity_log_sum={self.comm_block_local_fidelity_log_sum}"
             # f", comm_block_remote_fidelity_loss={self.comm_block_remote_fidelity_loss}"
             # f", comm_block_remote_fidelity_log_sum={self.comm_block_remote_fidelity_log_sum}"
             # f", telegate_exec_events={self.telegate_exec_events}"
-            # f", telegate_exec_local_gate_num={self.telegate_exec_local_gate_num}"
-            # f", telegate_exec_local_fidelity_loss={self.telegate_exec_local_fidelity_loss}"
-            # f", telegate_exec_local_fidelity_log_sum={self.telegate_exec_local_fidelity_log_sum}"
             # f", telegate_exec_remote_fidelity_loss={self.telegate_exec_remote_fidelity_loss}"
             # f", telegate_exec_remote_fidelity_log_sum={self.telegate_exec_remote_fidelity_log_sum}"
         )
@@ -137,20 +151,20 @@ class ExecCosts:
         self.remote_fidelity *= other.remote_fidelity
         self.local_fidelity *= other.local_fidelity
         self.local_gate_num += other.local_gate_num
+        self.local_pre_transpile_gate_num += other.local_pre_transpile_gate_num
+        self.local_transpile_added_gate_num += other.local_transpile_added_gate_num
+        self.local_payload_gate_num += other.local_payload_gate_num
+        self.local_comm_protocol_gate_num += other.local_comm_protocol_gate_num
+        self.local_teledata_gate_num += other.local_teledata_gate_num
+        self.local_uncategorized_gate_num += other.local_uncategorized_gate_num
         self.payload_gate_num += other.payload_gate_num
         self.flush_calls += other.flush_calls
         self.nonempty_flushes += other.nonempty_flushes
         self.local_transpile_calls += other.local_transpile_calls
         self.comm_block_events += other.comm_block_events
-        self.comm_block_local_gate_num += other.comm_block_local_gate_num
-        self.comm_block_local_fidelity_loss += other.comm_block_local_fidelity_loss
-        self.comm_block_local_fidelity_log_sum += other.comm_block_local_fidelity_log_sum
         self.comm_block_remote_fidelity_loss += other.comm_block_remote_fidelity_loss
         self.comm_block_remote_fidelity_log_sum += other.comm_block_remote_fidelity_log_sum
         self.telegate_exec_events += other.telegate_exec_events
-        self.telegate_exec_local_gate_num += other.telegate_exec_local_gate_num
-        self.telegate_exec_local_fidelity_loss += other.telegate_exec_local_fidelity_loss
-        self.telegate_exec_local_fidelity_log_sum += other.telegate_exec_local_fidelity_log_sum
         self.telegate_exec_remote_fidelity_loss += other.telegate_exec_remote_fidelity_loss
         self.telegate_exec_remote_fidelity_log_sum += other.telegate_exec_remote_fidelity_log_sum
         return self
@@ -163,6 +177,8 @@ class ExecCosts:
             "total_fidelity_loss": self.total_fidelity_loss,
             "rgeo_mean_fid": self.remote_geometric_mean_fidelity,
             "total_fidelity": self.total_fidelity,
+            "local_gate_breakdown_num": self.local_gate_breakdown_num,
+            "local_gate_breakdown_gap": self.local_gate_breakdown_gap,
         })
         sorted_keys = [
             "total_fidelity_loss",
@@ -182,21 +198,23 @@ class ExecCosts:
             "local_fidelity",
             "remote_fidelity",
             "local_gate_num",
+            "local_pre_transpile_gate_num",
+            "local_transpile_added_gate_num",
+            "local_payload_gate_num",
+            "local_comm_protocol_gate_num",
+            "local_teledata_gate_num",
+            "local_uncategorized_gate_num",
+            "local_gate_breakdown_num",
+            "local_gate_breakdown_gap",
             "payload_gate_num",
             # Debug fields kept for temporary diagnostics; hide from default CSV/JSON summaries.
             # "flush_calls",
             # "nonempty_flushes",
             # "local_transpile_calls",
             # "comm_block_events",
-            # "comm_block_local_gate_num",
-            # "comm_block_local_fidelity_loss",
-            # "comm_block_local_fidelity_log_sum",
             # "comm_block_remote_fidelity_loss",
             # "comm_block_remote_fidelity_log_sum",
             # "telegate_exec_events",
-            # "telegate_exec_local_gate_num",
-            # "telegate_exec_local_fidelity_loss",
-            # "telegate_exec_local_fidelity_log_sum",
             # "telegate_exec_remote_fidelity_loss",
             # "telegate_exec_remote_fidelity_log_sum",
         ]
@@ -426,6 +444,52 @@ class MappingRecordList:
 
 
 class CompilerUtils:
+
+    @staticmethod
+    def build_circuit_layers(circuit: QuantumCircuit) -> list[list[Any]]:
+        """
+        Build circuit layers as lists of DAG op nodes.
+        """
+        dag = circuit_to_dag(circuit)
+        layers = list(dag.layers())
+        circuit_layers: list[list[Any]] = []
+        for layer in layers:
+            circuit_layers.append(list(layer["graph"].op_nodes()))
+        return circuit_layers
+
+    @staticmethod
+    def resolve_evaluation_policy(policy_name: Optional[str] = None):
+        from .evaluator import EvaluationPolicy
+
+        name = str(policy_name or "full_realistic").lower()
+        if name in {"local_all_to_all", "local"}:
+            return EvaluationPolicy.local_all_to_all()
+        if name in {"comm_to_all", "comm"}:
+            return EvaluationPolicy.comm_to_all()
+        return EvaluationPolicy.full_realistic()
+
+    @staticmethod
+    def evaluate_with_mapping_evaluator(
+        mapping_record_list: MappingRecordList,
+        circuit: QuantumCircuit,
+        circuit_layers: list[Any],
+        network: Network,
+        policy_name: Optional[str] = None,
+    ) -> MappingRecordList:
+        from .evaluator import MappingEvaluator
+
+        evaluator = MappingEvaluator()
+        policy = CompilerUtils.resolve_evaluation_policy(policy_name)
+        local_eval_mode = str(getattr(network, "local_eval_mode", "immediate") or "immediate").lower()
+        if local_eval_mode not in {"immediate", "deferred"}:
+            raise ValueError(f"unknown local_eval_mode: {local_eval_mode}")
+        policy = dataclasses.replace(
+            policy,
+            local_eval_mode=local_eval_mode,
+            deferred_route_local_gates=bool(getattr(network, "deferred_route_local_gates", True)),
+            deferred_initial_layout=str(getattr(network, "deferred_initial_layout", "fixed") or "fixed").lower(),
+        )
+        return evaluator.evaluate(mapping_record_list, circuit, circuit_layers, network, policy)
 
     @staticmethod
     def _check_logical_map_partition_consistency(
@@ -1173,6 +1237,7 @@ class CompilerUtils:
                     assert qubits[0] is not None, f"Qubit index is None for instruction: {instruction}"
                     gate_error = CompilerUtils._get_sampled_backend_gate_error(backend, gate_name, qubits)
                     costs.local_gate_num += 1
+                    costs.local_uncategorized_gate_num += 1
                     costs.local_fidelity_loss += gate_error
                     costs.local_fidelity *= (1 - gate_error)
                     costs.local_fidelity_log_sum += np.log(1 - gate_error)
@@ -2092,6 +2157,7 @@ class CompilerUtils:
                 continue
             gate_error = CompilerUtils._get_sampled_backend_gate_error(backend, gate_name, qubits)
             costs.local_gate_num += 1
+            costs.local_uncategorized_gate_num += 1
             costs.local_fidelity_loss += gate_error
             costs.local_fidelity *= (1 - gate_error)
             costs.local_fidelity_log_sum += np.log(1 - gate_error)

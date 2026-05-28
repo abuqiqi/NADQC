@@ -263,10 +263,18 @@ class NAVIHybrid(Compiler):
             config=ctx.config,
         )
 
+        policy_name = ctx.config.get("evaluator_policy")
+        final_result = CompilerUtils.evaluate_with_mapping_evaluator(
+            final_result,
+            ctx.circuit,
+            ctx.circuit_layers,
+            ctx.network,
+            policy_name=policy_name,
+        )
+
         exec_time = shared_prefix_time + records_time + (time.time() - mapper_start_time)
         log(f"[INFO] {self.name} execution time: {exec_time} sec")
 
-        final_result.summarize_total_costs()
         post_mapper_costs = final_result.total_costs
         post_mapper_telegate = sum(1 for rec in final_result.records if rec.mapping_type in {"telegate", "cat"})
         post_mapper_cat_records = sum(1 for rec in final_result.records if rec.costs.cat_ents > 0)
@@ -1280,12 +1288,20 @@ class NAVIHybrid(Compiler):
             int: 原始电路中的层号。
         """
         left, right = layer_range
-        ori_left, ori_right = ctx.map_to_circuit_layer[left], ctx.map_to_circuit_layer[right]
+        if left < 0 or right < left or right >= len(ctx.multiq_layers):
+            raise ValueError(
+                f"invalid multiq layer range: {layer_range}, "
+                f"multiq_layers={len(ctx.multiq_layers)}"
+            )
 
-        if left == 0 and ctx.map_to_circuit_layer[0] != 0: # 检查起点是否对应原始电路的起点
+        if left == 0:
             ori_left = 0
-        
-        if right == len(ctx.multiq_layers) - 1 and ctx.map_to_circuit_layer[right] != len(ctx.circuit_layers) - 1: # 检查终点是否对应原始电路的终点
+        else:
+            ori_left = ctx.map_to_circuit_layer[left - 1] + 1
+
+        if right == len(ctx.multiq_layers) - 1:
             ori_right = len(ctx.circuit_layers) - 1
+        else:
+            ori_right = ctx.map_to_circuit_layer[right]
 
         return (ori_left, ori_right)

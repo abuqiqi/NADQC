@@ -133,7 +133,19 @@ class QAutoComm(Compiler):
 
         mapping_record_list = MappingRecordList()
         mapping_record_list.add_record(record)
-        mapping_record_list.summarize_total_costs()
+
+        if comm_only_costs:
+            mapping_record_list.summarize_total_costs()
+        else:
+            circuit_layers = CompilerUtils.build_circuit_layers(circuit)
+            policy_name = cfg.get("evaluator_policy")
+            mapping_record_list = CompilerUtils.evaluate_with_mapping_evaluator(
+                mapping_record_list,
+                circuit,
+                circuit_layers,
+                network,
+                policy_name=policy_name,
+            )
 
         exec_time = time.time() - start_time
         mapping_record_list.update_total_costs(execution_time=exec_time)

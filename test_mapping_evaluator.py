@@ -1,18 +1,25 @@
 import math
 
+import pytest
 from qiskit import QuantumCircuit
 from qiskit.circuit import Gate
 
 from src.compiler import MappingRecord, MappingRecordList
 from src.compiler.compiler_utils import CommOp
-from src.compiler.evaluator import EvaluationPolicy, EvaluationState, MappingEvaluator, RuntimeLocation
+from src.compiler.evaluator import (
+    EvaluationPolicy,
+    LocalGateKind,
+    MappingEvaluator,
+    RuntimeLocation,
+    WireOwner,
+)
 
 
 class _Backend:
     num_qubits = 16
 
-    def __init__(self):
-        self.coupling_map = None
+    def __init__(self, coupling_map=None):
+        self.coupling_map = coupling_map
         self.basis_gates = ["x", "h", "cx", "swap"]
         self.gate_dict = {
             "x0": {"gate_error_value": 0.1},
@@ -25,8 +32,8 @@ class _Backend:
 
 
 class _Network:
-    def __init__(self, num_backends=2, comm_slot_reserve=0):
-        self.backends = [_Backend() for _ in range(num_backends)]
+    def __init__(self, num_backends=2, comm_slot_reserve=0, coupling_map=None):
+        self.backends = [_Backend(coupling_map=coupling_map) for _ in range(num_backends)]
         self.num_backends = num_backends
         self.comm_slot_reserve = comm_slot_reserve
         self.backend_sizes = [16 for _ in range(num_backends)]
@@ -44,59 +51,266 @@ class _Network:
         ]
 
 
-def test_unrouted_gate_cost_uses_exact_physical_calibration():
-    state = EvaluationState(
-        logical_pos={
-            0: RuntimeLocation(qpu_id=0, local_slot=0, physical_slot=5),
-            1: RuntimeLocation(qpu_id=0, local_slot=1, physical_slot=7),
-        },
-        comm_phy_map={0: []},
-        routed_buffers=[QuantumCircuit(2)],
-    )
+def _phy(state, q):
+    loc = state.logical_pos[q]
+    return state.wire_phy_map[loc.qpu_id][loc.local_wire]
 
-    MappingEvaluator()._accumulate_unrouted_gate_cost(
+
+def test_runtime_location_uses_only_local_wire():
+    loc = RuntimeLocation(qpu_id=2, local_wire=3)
+
+    assert loc.qpu_id == 2
+    assert loc.local_wire == 3
+    assert loc.is_comm(comp_wire_count=2)
+    assert loc.comm_offset(comp_wire_count=2) == 1
+
+
+def test_add_and_flush_payload_ops_updates_wire_physical_map():
+    evaluator = MappingEvaluator()
+    network = _Network()
+    partition = [[0], []]
+    state = evaluator._initialize_state_from_partition(partition, network)
+
+    evaluator.add_local_ops(
+        state,
+        partition,
+        network,
+        EvaluationPolicy.full_realistic(),
+        qpu_id=0,
+        ops=[(Gate("x", 1, []), [0])],
+        kind=LocalGateKind.PAYLOAD,
+    )
+    evaluator.flush_local_ops(state, partition, network, EvaluationPolicy.full_realistic())
+
+    assert state.costs.local_transpile_calls == 1
+    assert state.costs.local_gate_num == 1
+    assert state.costs.local_pre_transpile_gate_num == 1
+    assert state.costs.local_transpile_added_gate_num == 0
+    assert state.routed_buffers[0].size() == 0
+    assert _phy(state, 0) == 0
+
+
+def test_deferred_uses_physical_sized_buffers_and_delays_transpile():
+    evaluator = MappingEvaluator()
+    network = _Network()
+    partition = [[0], []]
+    policy = EvaluationPolicy(
+        name="deferred_test",
+        route_payload_gates=False,
+        route_comm_gates=False,
+        local_eval_mode="deferred",
+        deferred_route_local_gates=False,
+    )
+    state = evaluator._initialize_state_from_partition(partition, network, policy)
+
+    assert state.routed_buffers[0].num_qubits == network.backends[0].num_qubits
+    assert state.routed_buffers[1].num_qubits == network.backends[1].num_qubits
+
+    evaluator.add_local_ops(
+        state,
+        partition,
+        network,
+        policy,
+        qpu_id=0,
+        ops=[(Gate("x", 1, []), [0])],
+        kind=LocalGateKind.PAYLOAD,
+    )
+    evaluator.flush_local_ops(state, partition, network, policy)
+
+    assert state.costs.local_transpile_calls == 0
+    assert state.costs.local_gate_num == 0
+    assert state.routed_buffers[0].size() > 0
+
+    evaluator.flush_local_ops(state, partition, network, policy, final=True)
+
+    assert state.costs.local_transpile_calls == 1
+    assert state.costs.local_gate_num == 1
+    assert state.costs.local_pre_transpile_gate_num == 1
+    assert state.costs.local_transpile_added_gate_num == 0
+    assert state.costs.local_uncategorized_gate_num == 1
+    assert state.costs.local_gate_breakdown_gap == 0
+    assert state.costs.payload_gate_num == 1
+    assert state.routed_buffers[0].num_qubits == network.backends[0].num_qubits
+
+
+def test_build_initial_layout_always_fills_unknown_wire_slots():
+    evaluator = MappingEvaluator()
+    network = _Network()
+    partition = [[0, 1], []]
+    state = evaluator._initialize_state_from_partition(partition, network)
+    circuit = QuantumCircuit(2)
+
+    layout = evaluator._build_initial_layout(
         state,
         qpu_id=0,
-        gate=Gate("cx", 2, []),
-        local_slots=[0, 1],
-        network=_Network(),
+        circuit=circuit,
+        backend=network.backends[0],
+        policy=EvaluationPolicy.full_realistic(),
     )
 
-    assert state.costs.local_gate_num == 1
-    assert math.isclose(state.costs.local_fidelity_loss, 0.2)
-    assert math.isclose(state.costs.local_fidelity, 0.8)
+    assert layout[circuit.qubits[0]] == 0
+    assert layout[circuit.qubits[1]] == 1
 
 
-def test_unrouted_gate_cost_falls_back_to_average_when_physical_unknown():
-    state = EvaluationState(
-        logical_pos={
-            0: RuntimeLocation(qpu_id=0, local_slot=1, physical_slot=None),
-            1: RuntimeLocation(qpu_id=0, local_slot=2, physical_slot=None),
-        },
-        comm_phy_map={0: []},
-        routed_buffers=[QuantumCircuit(3)],
+def test_deferred_free_initial_layout_omits_transpile_initial_layout():
+    evaluator = MappingEvaluator()
+    network = _Network()
+    partition = [[0], []]
+    state = evaluator._initialize_state_from_partition(
+        partition,
+        network,
+        EvaluationPolicy(
+            name="deferred_free",
+            local_eval_mode="deferred",
+            deferred_initial_layout="free",
+        ),
     )
+    circuit = QuantumCircuit(network.backends[0].num_qubits)
 
-    MappingEvaluator()._accumulate_unrouted_gate_cost(
+    layout = evaluator._get_transpile_initial_layout(
         state,
         qpu_id=0,
-        gate=Gate("cx", 2, []),
-        local_slots=[1, 2],
-        network=_Network(),
+        circuit=circuit,
+        backend=network.backends[0],
+        policy=EvaluationPolicy(
+            name="deferred_free",
+            local_eval_mode="deferred",
+            deferred_initial_layout="free",
+        ),
     )
 
-    assert state.costs.local_gate_num == 1
-    assert math.isclose(state.costs.local_fidelity_loss, 0.4)
-    assert math.isclose(state.costs.local_fidelity, 0.6)
+    assert layout is None
 
 
-def test_evaluate_keeps_state_continuous_between_records():
+def test_deferred_fixed_initial_layout_supplies_transpile_initial_layout():
+    evaluator = MappingEvaluator()
+    network = _Network()
+    partition = [[0], []]
+    state = evaluator._initialize_state_from_partition(
+        partition,
+        network,
+        EvaluationPolicy(
+            name="deferred_fixed",
+            local_eval_mode="deferred",
+            deferred_initial_layout="fixed",
+        ),
+    )
+    circuit = QuantumCircuit(network.backends[0].num_qubits)
+
+    layout = evaluator._get_transpile_initial_layout(
+        state,
+        qpu_id=0,
+        circuit=circuit,
+        backend=network.backends[0],
+        policy=EvaluationPolicy(
+            name="deferred_fixed",
+            local_eval_mode="deferred",
+            deferred_initial_layout="fixed",
+        ),
+    )
+
+    assert layout is not None
+    assert layout[circuit.qubits[0]] == 0
+
+
+def test_cat_commop_uses_entangled_copy_without_moving_source():
+    evaluator = MappingEvaluator()
+    network = _Network(comm_slot_reserve=1)
+    partition = [[0], [1]]
+    state = evaluator._initialize_state_from_partition(partition, network)
+
+    payload_gate = Gate("cx", 2, [])
+    setattr(payload_gate, "_global_lqids", [0, 1])
+    comm_op = CommOp(
+        comm_type="cat",
+        source_qubit=0,
+        src_qpu=0,
+        dst_qpu=1,
+        involved_qubits=[0, 1],
+        gate_list=[payload_gate],
+    )
+
+    evaluator._process_commop(
+        partition,
+        comm_op,
+        network,
+        EvaluationPolicy.local_all_to_all(),
+        state,
+    )
+
+    assert state.logical_pos[0] == RuntimeLocation(qpu_id=0, local_wire=0)
+    assert state.costs.comm_block_events == 1
+    assert state.costs.cat_ents == 1
+    assert state.costs.payload_gate_num == 1
+    assert state.costs.local_gate_num == 3
+    assert math.isclose(state.costs.comm_block_remote_fidelity_loss, 0.25)
+    assert state.wire_owners[0][1] is None
+    assert state.wire_owners[1][1] is None
+
+
+def test_tp_payload_moves_source_resident_to_destination_comm_wire():
+    evaluator = MappingEvaluator()
+    network = _Network(comm_slot_reserve=1)
+    partition = [[0], [1]]
+    state = evaluator._initialize_state_from_partition(partition, network)
+
+    payload_gate = Gate("cx", 2, [])
+    setattr(payload_gate, "_global_lqids", [0, 1])
+    comm_op = CommOp(
+        comm_type="tp",
+        source_qubit=0,
+        src_qpu=0,
+        dst_qpu=1,
+        involved_qubits=[0, 1],
+        gate_list=[payload_gate],
+    )
+
+    evaluator._process_commop(
+        partition,
+        comm_op,
+        network,
+        EvaluationPolicy.local_all_to_all(),
+        state,
+    )
+
+    assert state.logical_pos[0] == RuntimeLocation(qpu_id=1, local_wire=1)
+    assert state.wire_owners[0][0] is None
+    assert state.wire_owners[1][1] == WireOwner(kind="resident", logical_qid=0, label="tp-dst-comm")
+    assert state.costs.epairs == 1
+    assert state.costs.payload_gate_num == 1
+
+
+def test_synthetic_telegate_replays_cross_qpu_gate_as_cat_block():
+    evaluator = MappingEvaluator()
+    network = _Network(comm_slot_reserve=1)
+    partition = [[0], [1]]
+    state = evaluator._initialize_state_from_partition(partition, network)
+
+    evaluator._process_synthetic_telegate(
+        partition,
+        Gate("cx", 2, []),
+        [0, 1],
+        network,
+        EvaluationPolicy.local_all_to_all(),
+        state,
+    )
+
+    assert state.costs.epairs == 1
+    assert state.costs.cat_ents == 1
+    assert state.costs.comm_block_events == 0
+    assert state.costs.telegate_exec_events == 1
+    assert state.costs.payload_gate_num == 1
+    assert state.costs.local_gate_num == 3
+
+
+def test_evaluate_keeps_runtime_state_continuous_between_records():
     class ContinuousStateEvaluator(MappingEvaluator):
         def _get_record_subcircuit(self, record, circuit, circuit_layers):
             return QuantumCircuit(1)
 
-        def _evaluate_teledata(self, target_partition, network, policy, state):
-            state.logical_pos[0].physical_slot = 9
+        def _evaluate_partition_transition(self, prev_partition, target_partition, network, policy, state):
+            loc = state.logical_pos[0]
+            state.wire_phy_map[loc.qpu_id][loc.local_wire] = 9
             state.costs.epairs += 1
             return state
 
@@ -117,7 +331,6 @@ def test_evaluate_keeps_state_continuous_between_records():
     )
 
     assert result.records[0].costs.local_gate_num == 1
-    assert result.records[0].costs.epairs == 0
     assert result.records[1].costs.local_gate_num == 1
     assert result.records[1].costs.epairs == 1
     assert result.records[1].logical_phy_map[0] == (0, 9)
@@ -125,295 +338,121 @@ def test_evaluate_keeps_state_continuous_between_records():
     assert result.total_costs.epairs == 1
 
 
-def test_flush_local_buffers_charges_routed_gates_and_resets_buffer():
+def test_partition_transition_handles_changed_local_wire_counts():
     evaluator = MappingEvaluator()
-    network = _Network()
-    partition = [[0], []]
-    state = evaluator._initialize_state_from_partition(partition, network)
+    network = _Network(num_backends=2, comm_slot_reserve=1)
+    state = evaluator._initialize_state_from_partition([[0, 1], [2, 3]], network)
 
-    evaluator._append_routed_gate(
-        state,
-        qpu_id=0,
-        gate=Gate("x", 1, []),
-        local_slots=[0],
-    )
-
-    evaluator._flush_local_buffers(
-        state,
-        partition,
-        network,
-        EvaluationPolicy.full_realistic(),
-    )
-
-    assert state.costs.local_transpile_calls == 1
-    assert state.costs.local_gate_num == 1
-    assert math.isclose(state.costs.local_fidelity_loss, 0.1)
-    assert state.logical_pos[0].physical_slot == 0
-    assert state.routed_buffers[0].size() == 0
-
-
-def test_build_initial_layout_can_fill_unknown_physical_slots():
-    evaluator = MappingEvaluator()
-    network = _Network()
-    partition = [[0, 1], []]
-    state = evaluator._initialize_state_from_partition(partition, network)
-    subcircuit = QuantumCircuit(2)
-
-    partial_layout = evaluator._build_initial_layout_for_qpu(
-        state,
-        qpu_id=0,
-        subcircuit=subcircuit,
-        partition=partition,
+    evaluator._evaluate_partition_transition(
+        prev_partition=[[0, 1], [2, 3]],
+        target_partition=[[0], [1, 2, 3]],
         network=network,
-        policy=EvaluationPolicy.full_realistic(),
-    )
-    assert partial_layout == {}
-
-    filled_layout = evaluator._build_initial_layout_for_qpu(
-        state,
-        qpu_id=0,
-        subcircuit=subcircuit,
-        partition=partition,
-        network=network,
-        policy=EvaluationPolicy(
-            name="filled",
-            fill_initial_layout=True,
-        ),
-    )
-    assert filled_layout[subcircuit.qubits[0]] == 0
-    assert filled_layout[subcircuit.qubits[1]] == 1
-
-
-def test_evaluate_teledata_minimal_move_cost_and_reindexing():
-    evaluator = MappingEvaluator()
-    network = _Network()
-    curr_record = MappingRecord(partition=[[1], [0]])
-    state = evaluator._initialize_state_from_partition([[0, 1], []], network)
-    state.logical_pos[0].physical_slot = 5
-    state.logical_pos[1].physical_slot = 6
-
-    evaluator._evaluate_teledata(
-        curr_record.partition,
-        network,
-        EvaluationPolicy.full_realistic(),
-        state,
+        policy=EvaluationPolicy.local_all_to_all(),
+        state=state,
     )
 
+    assert state.logical_pos[0] == RuntimeLocation(qpu_id=0, local_wire=0)
+    assert {state.logical_pos[q].qpu_id for q in [1, 2, 3]} == {1}
+    assert {state.logical_pos[q].local_wire for q in [1, 2, 3]} == {0, 1, 2}
+    assert len(state.wire_phy_map[0]) == 2
+    assert len(state.wire_phy_map[1]) == 4
+    assert state.wire_owners[0][0] == WireOwner(kind="resident", logical_qid=0)
+    assert {
+        state.wire_owners[1][wire].logical_qid
+        for wire in range(3)
+        if state.wire_owners[1][wire] is not None
+    } == {1, 2, 3}
     assert state.costs.epairs == 1
-    assert state.costs.remote_hops == 1
-    assert math.isclose(state.costs.remote_fidelity_loss, 0.25)
-    assert state.logical_pos[0].qpu_id == 1
-    assert state.logical_pos[0].local_slot == 0
-    assert state.logical_pos[0].physical_slot is None
-    assert state.logical_pos[1].qpu_id == 0
-    assert state.logical_pos[1].local_slot == 0
-    assert state.logical_pos[1].physical_slot == 6
 
 
-def test_evaluate_teledata_uses_one_way_moves_for_reciprocal_exchange():
+def test_deferred_partition_transition_keeps_pending_buffer_until_final_flush():
     evaluator = MappingEvaluator()
-    network = _Network()
-    state = evaluator._initialize_state_from_partition([[0], [1]], network)
-    state.logical_pos[0].physical_slot = 5
-    state.logical_pos[1].physical_slot = 6
+    network = _Network(num_backends=2, comm_slot_reserve=2)
+    policy = EvaluationPolicy(
+        name="deferred_test",
+        route_payload_gates=False,
+        route_comm_gates=False,
+        local_eval_mode="deferred",
+        deferred_route_local_gates=False,
+    )
+    state = evaluator._initialize_state_from_partition([[0], [1]], network, policy)
 
-    evaluator._evaluate_teledata(
-        [[1], [0]],
-        network,
-        EvaluationPolicy.full_realistic(),
-        state,
+    evaluator._evaluate_partition_transition(
+        prev_partition=[[0], [1]],
+        target_partition=[[1], [0]],
+        network=network,
+        policy=policy,
+        state=state,
     )
 
+    assert state.logical_pos[0].qpu_id == 1
+    assert state.logical_pos[1].qpu_id == 0
     assert state.costs.epairs == 2
-    assert state.costs.remote_hops == 2
-    assert state.costs.remote_swaps == 0
-    assert math.isclose(state.costs.remote_fidelity_loss, 0.5)
-    assert state.logical_pos[0].qpu_id == 1
-    assert state.logical_pos[0].physical_slot == 6
-    assert state.logical_pos[1].qpu_id == 0
-    assert state.logical_pos[1].physical_slot == 5
+    assert state.costs.local_transpile_calls == 0
+    assert any(buffer.size() > 0 for buffer in state.routed_buffers)
 
+    evaluator.flush_local_ops(state, [[1], [0]], network, policy, final=True)
 
-def test_evaluate_teledata_rotates_physical_slots_for_long_cycle():
-    evaluator = MappingEvaluator()
-    network = _Network(num_backends=3)
-    state = evaluator._initialize_state_from_partition([[0], [1], [2]], network)
-    state.logical_pos[0].physical_slot = 5
-    state.logical_pos[1].physical_slot = 6
-    state.logical_pos[2].physical_slot = 7
-
-    evaluator._evaluate_teledata(
-        [[2], [0], [1]],
-        network,
-        EvaluationPolicy.full_realistic(),
-        state,
-    )
-
-    assert state.costs.epairs == 3
-    assert state.costs.remote_hops == 3
-    assert state.costs.remote_swaps == 0
-    assert math.isclose(state.costs.remote_fidelity_loss, 0.75)
-    assert state.logical_pos[0].qpu_id == 1
-    assert state.logical_pos[0].physical_slot == 6
-    assert state.logical_pos[1].qpu_id == 2
-    assert state.logical_pos[1].physical_slot == 7
-    assert state.logical_pos[2].qpu_id == 0
-    assert state.logical_pos[2].physical_slot == 5
-
-
-def test_commop_cat_routes_comm_primitives_when_enabled():
-    evaluator = MappingEvaluator()
-    network = _Network(comm_slot_reserve=1)
-    record = MappingRecord(partition=[[0], [1]])
-    state = evaluator._initialize_state_from_partition(record.partition, network)
-
-    payload_gate = Gate("cx", 2, [])
-    setattr(payload_gate, "_global_lqids", [0, 1])
-    comm_op = CommOp(
-        comm_type="cat",
-        source_qubit=0,
-        src_qpu=0,
-        dst_qpu=1,
-        involved_qubits=[0, 1],
-        gate_list=[payload_gate],
-    )
-
-    evaluator._process_commop(
-        record.partition,
-        comm_op,
-        network,
-        EvaluationPolicy(
-            name="route_comm_only",
-            route_payload_gates=False,
-            route_comm_gates=True,
-        ),
-        state,
-    )
-
-    assert state.costs.epairs == 1
-    assert state.costs.cat_ents == 1
-    assert state.costs.comm_block_events == 1
-    assert state.costs.payload_gate_num == 1
     assert state.costs.local_transpile_calls == 2
-    assert state.costs.local_gate_num == 3
-    assert math.isclose(state.costs.remote_fidelity_loss, 0.25)
-    assert math.isclose(state.costs.comm_block_remote_fidelity_loss, 0.25)
+    assert state.costs.local_gate_num > 0
+    assert state.costs.local_pre_transpile_gate_num > 0
+    assert state.costs.local_transpile_added_gate_num == (
+        state.costs.local_gate_num - state.costs.local_pre_transpile_gate_num
+    )
+    assert state.costs.local_uncategorized_gate_num == state.costs.local_gate_num
+    assert state.costs.local_gate_breakdown_gap == 0
 
 
-def test_commop_packed_local_gate_uses_its_runtime_qpu():
+def test_bidirectional_partition_transition_requires_two_comm_wires_per_qpu():
     evaluator = MappingEvaluator()
-    network = _Network(comm_slot_reserve=1)
-    record = MappingRecord(partition=[[0, 2], [1]])
-    state = evaluator._initialize_state_from_partition(record.partition, network)
+    network = _Network(num_backends=2, comm_slot_reserve=1)
+    state = evaluator._initialize_state_from_partition([[0], [1]], network)
 
-    payload_gate = Gate("cx", 2, [])
-    setattr(payload_gate, "_global_lqids", [0, 1])
-    packed_local_gate = Gate("x", 1, [])
-    setattr(packed_local_gate, "_global_lqids", [2])
-    comm_op = CommOp(
-        comm_type="cat",
-        source_qubit=0,
-        src_qpu=0,
-        dst_qpu=1,
-        involved_qubits=[0, 1],
-        gate_list=[payload_gate, packed_local_gate],
-    )
-
-    evaluator._process_commop(
-        record.partition,
-        comm_op,
-        network,
-        EvaluationPolicy.local_all_to_all(),
-        state,
-    )
-
-    assert state.costs.epairs == 1
-    assert state.costs.cat_ents == 1
-    assert state.costs.payload_gate_num == 2
-    assert state.costs.local_gate_num == 4
+    with pytest.raises(RuntimeError, match="insufficient communication wires"):
+        evaluator._evaluate_partition_transition(
+            prev_partition=[[0], [1]],
+            target_partition=[[1], [0]],
+            network=network,
+            policy=EvaluationPolicy.local_all_to_all(),
+            state=state,
+        )
 
 
-def test_commop_tp_keeps_source_runtime_location():
+def test_bidirectional_partition_transition_with_two_comm_wires_per_qpu():
     evaluator = MappingEvaluator()
-    network = _Network(comm_slot_reserve=1)
-    record = MappingRecord(partition=[[0], [1]])
-    state = evaluator._initialize_state_from_partition(record.partition, network)
-    original_qpu = state.logical_pos[0].qpu_id
-    original_local_slot = state.logical_pos[0].local_slot
+    network = _Network(num_backends=2, comm_slot_reserve=2)
+    state = evaluator._initialize_state_from_partition([[0], [1]], network)
 
-    payload_gate = Gate("cx", 2, [])
-    setattr(payload_gate, "_global_lqids", [0, 1])
-    comm_op = CommOp(
-        comm_type="tp",
-        source_qubit=0,
-        src_qpu=0,
-        dst_qpu=1,
-        involved_qubits=[0, 1],
-        gate_list=[payload_gate],
+    evaluator._evaluate_partition_transition(
+        prev_partition=[[0], [1]],
+        target_partition=[[1], [0]],
+        network=network,
+        policy=EvaluationPolicy.local_all_to_all(),
+        state=state,
     )
 
-    evaluator._process_commop(
-        record.partition,
-        comm_op,
-        network,
-        EvaluationPolicy.local_all_to_all(),
-        state,
-    )
-
-    assert state.logical_pos[0].qpu_id == original_qpu
-    assert state.logical_pos[0].local_slot == original_local_slot
-    assert state.logical_pos[0].physical_slot is None
+    assert state.logical_pos[0].qpu_id == 1
+    assert state.logical_pos[1].qpu_id == 0
+    assert state.costs.epairs == 2
 
 
-def test_empty_tp_return_block_lands_on_source_home_slot():
+def test_partition_order_change_does_not_force_local_reindex():
     evaluator = MappingEvaluator()
-    network = _Network(comm_slot_reserve=1)
-    record = MappingRecord(partition=[[0], [1]])
-    state = evaluator._initialize_state_from_partition(record.partition, network)
+    network = _Network(num_backends=1, comm_slot_reserve=1)
+    state = evaluator._initialize_state_from_partition([[0, 1, 2]], network)
 
-    comm_op = CommOp(
-        comm_type="tp",
-        source_qubit=0,
-        src_qpu=1,
-        dst_qpu=0,
-        involved_qubits=[0],
-        gate_list=[],
+    evaluator._evaluate_partition_transition(
+        prev_partition=[[0, 1, 2]],
+        target_partition=[[2, 0, 1]],
+        network=network,
+        policy=EvaluationPolicy.local_all_to_all(),
+        state=state,
     )
 
-    evaluator._process_commop(
-        record.partition,
-        comm_op,
-        network,
-        EvaluationPolicy.local_all_to_all(),
-        state,
-    )
-
-    assert state.costs.epairs == 1
-    assert state.costs.payload_gate_num == 0
-    assert state.costs.local_gate_num == 3
-    assert state.logical_pos[0].qpu_id == 0
-    assert state.logical_pos[0].local_slot == 0
-
-
-def test_synthetic_telegate_replays_cross_qpu_gate_as_cat_block():
-    evaluator = MappingEvaluator()
-    network = _Network(comm_slot_reserve=1)
-    record = MappingRecord(partition=[[0], [1]])
-    state = evaluator._initialize_state_from_partition(record.partition, network)
-
-    evaluator._process_synthetic_telegate(
-        record,
-        Gate("cx", 2, []),
-        [0, 1],
-        network,
-        EvaluationPolicy.local_all_to_all(),
-        state,
-    )
-
-    assert state.costs.epairs == 1
-    assert state.costs.cat_ents == 1
-    assert state.costs.comm_block_events == 0
-    assert state.costs.telegate_exec_events == 1
-    assert state.costs.payload_gate_num == 1
-    assert state.costs.local_gate_num == 3
-    assert math.isclose(state.costs.telegate_exec_remote_fidelity_loss, 0.25)
+    assert state.logical_pos == {
+        0: RuntimeLocation(qpu_id=0, local_wire=0),
+        1: RuntimeLocation(qpu_id=0, local_wire=1),
+        2: RuntimeLocation(qpu_id=0, local_wire=2),
+    }
+    assert state.costs.local_gate_num == 0
+    assert state.costs.epairs == 0

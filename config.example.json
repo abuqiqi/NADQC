@@ -8,6 +8,9 @@
 
     "compile_config": {},
     "compiler_config": {
+        "wbcp": {
+            "ilp_output": false
+        },
         "navihybrid": {
             "hybrid_beam_width": 4,
             "hybrid_max_merge_span": 12,
@@ -28,6 +31,9 @@
         "fidelity_range": [0.90, 0.95],
         "flush_each_comm_gate": false,
         "sequential_initial_layout": false,
-        "skip_comm_payload_local_routing": false
+        "skip_comm_payload_local_routing": false,
+        "local_eval_mode": "immediate",
+        "deferred_route_local_gates": true,
+        "deferred_initial_layout": "fixed"
     }
 }

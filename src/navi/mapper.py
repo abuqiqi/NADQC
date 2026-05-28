@@ -944,7 +944,7 @@ class NeighborhoodBoundedDPMapper(Mapper):
             return mapping_record_list
 
         mapper_cfg = config or {}
-        beam_width = int(mapper_cfg.get("beam_width", 3))
+        beam_width = int(mapper_cfg.get("beam_width", 1))
 
         # 根据网络类型自适应设置mapping预算：
         # - all-to-all（或等效max_hop=1）默认较小预算

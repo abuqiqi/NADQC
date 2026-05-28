@@ -209,11 +209,11 @@ def main(args):
         backend_list.append(backend)
         # pprint(backend.gate_dict)
 
-    fidelity_range = [0.90, 0.93]
-    if args.core_count == 2:
-        fidelity_range = [0.90, 0.90]
-
-    network_config['fidelity_range'] = fidelity_range
+    if 'fidelity_range' not in network_config:
+        fidelity_range = [0.90, 0.93]
+        if args.core_count == 2:
+            fidelity_range = [0.90, 0.90]
+        network_config['fidelity_range'] = fidelity_range
 
     print(f"[INFO] Reserved comm slots per QPU (network_config): {comm_slot_reserve}")
     print(f"[INFO] Core sampled QPU capacities: {args.core_capacity}")
@@ -241,7 +241,7 @@ def main(args):
 
     # 调用不同的compiler
     result_info = {}
-    output_path = f"{global_config.get('output_folder')}260512-network-4x50.csv"
+    output_path = f"{global_config.get('output_folder')}260526-network-4x50.csv"
 
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     # compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi", "navihybrid"] # , "navinew"

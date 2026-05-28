@@ -51,9 +51,16 @@ class FGPrOEE(Compiler):
         circuit_layers = self._circuit_to_layers(circuit)
         mapping_record_list = mapper.map(mapping_record_list, circuit, circuit_layers, network)
 
+        circuit_layers = CompilerUtils.build_circuit_layers(circuit)
+        policy_name = config.get("evaluator_policy") if config else None
+        mapping_record_list = CompilerUtils.evaluate_with_mapping_evaluator(
+            mapping_record_list,
+            circuit,
+            circuit_layers,
+            network,
+            policy_name=policy_name,
+        )
         end_time = time.time()
-
-        mapping_record_list.summarize_total_costs()
         mapping_record_list.update_total_costs(execution_time = end_time - start_time)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         mapping_record_list.save_records(f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")

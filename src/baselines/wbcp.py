@@ -40,11 +40,20 @@ class WBCP(Compiler):
         iteration_count = config.get("iteration", 50) if config else 50
         circuit_name = config.get("circuit_name", "circ") if config else "circ"
 
-        mapping_record_list = self._k_way_WBCP(circuit, network, iteration_count)
+        ilp_output = config.get("ilp_output", False) if config else False
 
+        mapping_record_list = self._k_way_WBCP(circuit, network, iteration_count, ilp_output)
+
+        circuit_layers = CompilerUtils.build_circuit_layers(circuit)
+        policy_name = config.get("evaluator_policy") if config else None
+        mapping_record_list = CompilerUtils.evaluate_with_mapping_evaluator(
+            mapping_record_list,
+            circuit,
+            circuit_layers,
+            network,
+            policy_name=policy_name,
+        )
         end_time = time.time()
-
-        mapping_record_list.summarize_total_costs()
         mapping_record_list.update_total_costs(execution_time = end_time - start_time)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         mapping_record_list.save_records(f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
@@ -54,7 +63,8 @@ class WBCP(Compiler):
     def _k_way_WBCP(self, 
                     circuit: QuantumCircuit, 
                     network: Network,
-                    iteration_count: int) -> MappingRecordList:
+                    iteration_count: int,
+                    ilp_output: bool = False) -> MappingRecordList:
         """
         The main function for WBCP compilation
         """
@@ -81,7 +91,7 @@ class WBCP(Compiler):
         partition = OEE.partition(partition, qig, network, iteration_count)
 
         # 完成逻辑QPU到物理QPU的映射
-        partition = self._map_logical_to_physical(partition, qig, network)
+        partition = self._map_logical_to_physical(partition, qig, network, ilp_output)
         logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
 
         record = MappingRecord(
@@ -120,7 +130,7 @@ class WBCP(Compiler):
             current_partition = OEE.partition(current_partition, weighted_qig, network, iteration_count)
 
             # 先确定partition，再确定logical到物理的映射
-            current_partition = self._map_logical_to_physical(current_partition, qig, network)
+            current_partition = self._map_logical_to_physical(current_partition, qig, network, ilp_output)
 
             # 构建当前划分对应的mapping record
             current_record = MappingRecord(
@@ -366,7 +376,8 @@ class WBCP(Compiler):
     def _map_logical_to_physical(self, 
                                  partition: list[list[int]],
                                  qig: nx.Graph,
-                                 network: Network) -> list[list[int]]:
+                                 network: Network,
+                                 ilp_output: bool = False) -> list[list[int]]:
         """
         Map logical QPUs in the partition to physical QPUs in the network.
         Uses a simplified MILP formulation to minimize total weighted communication cost.
@@ -440,7 +451,7 @@ class WBCP(Compiler):
 
         # ---------- 构建MILP模型 (简化版) ----------
         model = gp.Model("logical_to_physical_mapping")
-        model.setParam('OutputFlag', 1)
+        model.setParam('OutputFlag', 1 if ilp_output else 0)
         # 设定一个时间限制，防止卡死
         model.setParam('TimeLimit', 60) 
 
@@ -502,13 +513,14 @@ class WBCP(Compiler):
 
             return new_partition
 
-        # 求解失败，打印 IIS (Irreducible Inconsistent Subsystem) 帮助调试
-        print("Warning: Physical mapping optimization failed. Computing IIS...")
-        try:
-            model.computeIIS()
-            model.write("model_iis.ilp")
-            print("IIS written to model_iis.ilp")
-        except:
-            pass
+        # 求解失败时可选输出 IIS (Irreducible Inconsistent Subsystem) 帮助调试
+        print("Warning: Physical mapping optimization failed.")
+        if ilp_output:
+            try:
+                model.computeIIS()
+                model.write("model_iis.ilp")
+                print("IIS written to model_iis.ilp")
+            except:
+                pass
             
         return partition

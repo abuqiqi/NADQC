@@ -27,6 +27,9 @@ class EvaluationPolicy:
     # initial layout to Qiskit so replay is deterministic.
     fill_initial_layout: bool = False
     optimization_level: int = 3
+    local_eval_mode: Literal["immediate", "deferred"] = "immediate"
+    deferred_route_local_gates: bool = True
+    deferred_initial_layout: Literal["fixed", "free"] = "fixed"
 
     @staticmethod
     def local_all_to_all() -> "EvaluationPolicy":
@@ -128,15 +131,16 @@ class MappingEvaluator:
         network: Network,
         policy: EvaluationPolicy,
     ) -> MappingRecordList:
+        self._validate_policy(policy)
         state: EvaluationState | None = None
 
         for t, record in enumerate(mapping_record_list.records):
             if t == 0:
-                state = self._initialize_state_from_partition(record.partition, network)
+                state = self._initialize_state_from_partition(record.partition, network, policy)
             assert state is not None
 
             if t == 0:
-                self._start_record_replay(state, record.partition, network)
+                self._start_record_replay(state, record.partition, network, policy)
             else:
                 state.costs = ExecCosts()
                 self._evaluate_partition_transition(
@@ -153,6 +157,11 @@ class MappingEvaluator:
             self._require_all_residents_in_comp_space(state, record.partition, "record-end")
             self._commit_state_to_record(record, state, record.partition)
 
+        if self._is_deferred(policy) and state is not None and mapping_record_list.records:
+            last_record = mapping_record_list.records[-1]
+            self.flush_local_ops(state, last_record.partition, network, policy, final=True)
+            self._commit_state_to_record(last_record, state, last_record.partition)
+
         mapping_record_list.summarize_total_costs()
         return mapping_record_list
 
@@ -161,10 +170,11 @@ class MappingEvaluator:
         state: EvaluationState,
         partition: list[list[int]],
         network: Network,
+        policy: EvaluationPolicy,
     ) -> None:
         self._validate_partition_capacity(partition, network)
         state.costs = ExecCosts()
-        self._prepare_local_buffers(state, partition, network)
+        self._prepare_local_buffers(state, partition, network, policy)
         self._validate_physical_state(state, partition, network, "record-start")
 
     def _prepare_local_buffers(
@@ -172,8 +182,11 @@ class MappingEvaluator:
         state: EvaluationState,
         partition: list[list[int]],
         network: Network,
+        policy: EvaluationPolicy | None = None,
     ) -> None:
-        state.routed_buffers = self._new_routed_buffers(partition, network)
+        if self._is_deferred(policy) and state.routed_buffers:
+            return
+        state.routed_buffers = self._new_routed_buffers(partition, network, policy)
         state.active_buffer_use_coupling_map = [None for _ in range(network.num_backends)]
         state.active_buffer_kind = [None for _ in range(network.num_backends)]
 
@@ -181,11 +194,12 @@ class MappingEvaluator:
         self,
         partition: list[list[int]],
         network: Network,
+        policy: EvaluationPolicy | None = None,
     ) -> EvaluationState:
         self._validate_partition_capacity(partition, network)
         reserve = int(getattr(network, "comm_slot_reserve", 0) or 0)
         state = EvaluationState(
-            routed_buffers=self._new_routed_buffers(partition, network),
+            routed_buffers=self._new_routed_buffers(partition, network, policy),
             active_buffer_use_coupling_map=[None for _ in range(network.num_backends)],
             active_buffer_kind=[None for _ in range(network.num_backends)],
         )
@@ -220,7 +234,23 @@ class MappingEvaluator:
                     f"partition={len(group)}, reserve={reserve}, required={required_wires}, backend_qubits={backend_qubits}"
                 )
 
-    def _new_routed_buffers(self, partition: list[list[int]], network: Network) -> list[QuantumCircuit]:
+    def _is_deferred(self, policy: EvaluationPolicy | None) -> bool:
+        return bool(policy is not None and policy.local_eval_mode == "deferred")
+
+    def _validate_policy(self, policy: EvaluationPolicy) -> None:
+        if policy.local_eval_mode not in {"immediate", "deferred"}:
+            raise ValueError(f"unknown local_eval_mode: {policy.local_eval_mode}")
+        if policy.deferred_initial_layout not in {"fixed", "free"}:
+            raise ValueError(f"unknown deferred_initial_layout: {policy.deferred_initial_layout}")
+
+    def _new_routed_buffers(
+        self,
+        partition: list[list[int]],
+        network: Network,
+        policy: EvaluationPolicy | None = None,
+    ) -> list[QuantumCircuit]:
+        if self._is_deferred(policy):
+            return [QuantumCircuit(int(backend.num_qubits)) for backend in network.backends]
         reserve = int(getattr(network, "comm_slot_reserve", 0) or 0)
         return [QuantumCircuit(len(group) + reserve) for group in partition]
 
@@ -339,6 +369,8 @@ class MappingEvaluator:
         state.wire_owners[qpu_id][local_wire] = None
 
     def _should_use_coupling_map(self, kind: LocalGateKind, policy: EvaluationPolicy) -> bool:
+        if self._is_deferred(policy):
+            return bool(policy.deferred_route_local_gates)
         if kind == LocalGateKind.PAYLOAD:
             return bool(policy.route_payload_gates)
         if kind == LocalGateKind.COMM_PRIMITIVE:
@@ -363,13 +395,20 @@ class MappingEvaluator:
         use_coupling_map = self._should_use_coupling_map(kind, policy)
         current_mode = state.active_buffer_use_coupling_map[qpu_id]
         current_kind = state.active_buffer_kind[qpu_id]
-        if current_mode is None and current_kind is None:
-            state.active_buffer_use_coupling_map[qpu_id] = use_coupling_map
-            state.active_buffer_kind[qpu_id] = kind
-        elif current_mode != use_coupling_map or current_kind != kind:
-            self.flush_local_ops(state, partition, network, policy, qpu_ids=[qpu_id])
-            state.active_buffer_use_coupling_map[qpu_id] = use_coupling_map
-            state.active_buffer_kind[qpu_id] = kind
+        if self._is_deferred(policy):
+            if current_mode is None:
+                state.active_buffer_use_coupling_map[qpu_id] = use_coupling_map
+            elif current_mode != use_coupling_map:
+                raise RuntimeError("[EVALUATOR] deferred local routing mode changed within one QPU buffer")
+            state.active_buffer_kind[qpu_id] = None
+        else:
+            if current_mode is None and current_kind is None:
+                state.active_buffer_use_coupling_map[qpu_id] = use_coupling_map
+                state.active_buffer_kind[qpu_id] = kind
+            elif current_mode != use_coupling_map or current_kind != kind:
+                self.flush_local_ops(state, partition, network, policy, qpu_ids=[qpu_id])
+                state.active_buffer_use_coupling_map[qpu_id] = use_coupling_map
+                state.active_buffer_kind[qpu_id] = kind
 
         buffer = state.routed_buffers[qpu_id]
         for gate, wires in ops:
@@ -389,9 +428,14 @@ class MappingEvaluator:
         network: Network,
         policy: EvaluationPolicy,
         qpu_ids: Sequence[int] | None = None,
+        final: bool = False,
     ) -> EvaluationState:
         targets = range(network.num_backends) if qpu_ids is None else [int(q) for q in qpu_ids]
         state.costs.flush_calls += 1
+        if self._is_deferred(policy) and not final:
+            self._append_deferred_barriers(state, targets)
+            return state
+
         flushed_any = False
         for qpu_id in targets:
             buffer = state.routed_buffers[qpu_id]
@@ -402,26 +446,39 @@ class MappingEvaluator:
 
             flushed_any = True
             backend = network.backends[qpu_id]
-            initial_layout = self._build_initial_layout(state, qpu_id, buffer, backend, policy)
             use_coupling_map = bool(state.active_buffer_use_coupling_map[qpu_id])
             buffer_kind = state.active_buffer_kind[qpu_id]
+            if self._is_deferred(policy):
+                use_coupling_map = bool(policy.deferred_route_local_gates)
+                buffer_kind = None
+            initial_layout = self._get_transpile_initial_layout(state, qpu_id, buffer, backend, policy)
+            pre_transpile_gate_count = self._count_quantum_ops(buffer)
             transpile_kwargs: dict[str, Any] = {
                 "basis_gates": backend.basis_gates,
-                "initial_layout": initial_layout if initial_layout else None,
                 "optimization_level": int(policy.optimization_level),
                 "seed_transpiler": 42,
             }
+            if initial_layout is not None:
+                transpile_kwargs["initial_layout"] = initial_layout
             if use_coupling_map:
                 transpile_kwargs["coupling_map"] = backend.coupling_map
             transpiled_circuit = transpile(buffer, **transpile_kwargs)
             state.costs.local_transpile_calls += 1
-            self._accumulate_local_circuit_costs(state, backend, transpiled_circuit, buffer_kind)
-            state.wire_phy_map[qpu_id] = self._extract_final_wire_layout(
-                transpiled_circuit,
-                len(state.wire_phy_map[qpu_id]),
+            state.costs.local_pre_transpile_gate_num += pre_transpile_gate_count
+            post_transpile_gate_count = self._accumulate_local_circuit_costs(
+                state,
                 backend,
+                transpiled_circuit,
+                buffer_kind,
             )
-            state.routed_buffers[qpu_id] = QuantumCircuit(len(partition[qpu_id]) + int(getattr(network, "comm_slot_reserve", 0) or 0))
+            state.costs.local_transpile_added_gate_num += post_transpile_gate_count - pre_transpile_gate_count
+            if not self._is_deferred(policy):
+                state.wire_phy_map[qpu_id] = self._extract_final_wire_layout(
+                    transpiled_circuit,
+                    len(state.wire_phy_map[qpu_id]),
+                    backend,
+                )
+            state.routed_buffers[qpu_id] = self._new_routed_buffers(partition, network, policy)[qpu_id]
             state.active_buffer_use_coupling_map[qpu_id] = None
             state.active_buffer_kind[qpu_id] = None
 
@@ -429,6 +486,35 @@ class MappingEvaluator:
             state.costs.nonempty_flushes += 1
         self._validate_physical_state(state, partition, network, "post-flush")
         return state
+
+    def _append_deferred_barriers(self, state: EvaluationState, qpu_ids: Sequence[int]) -> None:
+        for qpu_id in qpu_ids:
+            buffer = state.routed_buffers[int(qpu_id)]
+            if buffer.size() == 0:
+                continue
+            buffer.barrier(*buffer.qubits)
+
+    def _get_transpile_initial_layout(
+        self,
+        state: EvaluationState,
+        qpu_id: int,
+        circuit: QuantumCircuit,
+        backend: Any,
+        policy: EvaluationPolicy,
+    ) -> dict[Any, int] | None:
+        if self._is_deferred(policy) and policy.deferred_initial_layout == "free":
+            return None
+        initial_layout = self._build_initial_layout(state, qpu_id, circuit, backend, policy)
+        return initial_layout if initial_layout else None
+
+    def _count_quantum_ops(self, circuit: QuantumCircuit) -> int:
+        count = 0
+        for instruction in circuit:
+            gate_name = instruction.operation.name
+            if gate_name in {"barrier", "delay"} or len(instruction.qubits) == 0:
+                continue
+            count += 1
+        return count
 
     def _build_initial_layout(
         self,
@@ -525,13 +611,15 @@ class MappingEvaluator:
         backend: Any,
         transpiled_circuit: QuantumCircuit,
         kind: LocalGateKind | None,
-    ) -> None:
+    ) -> int:
+        counted = 0
         for instruction in transpiled_circuit:
             gate_name = instruction.operation.name
             if gate_name in {"barrier", "delay"} or len(instruction.qubits) == 0:
                 continue
             physical_slots = [transpiled_circuit.qubits.index(qubit) for qubit in instruction.qubits]
             gate_error = CompilerUtils._get_sampled_backend_gate_error(backend, gate_name, physical_slots)
+            counted += 1
             state.costs.local_gate_num += 1
             if kind == LocalGateKind.PAYLOAD:
                 state.costs.local_payload_gate_num += 1
@@ -539,9 +627,12 @@ class MappingEvaluator:
                 state.costs.local_teledata_gate_num += 1
             elif kind in {LocalGateKind.COMM_PRIMITIVE, LocalGateKind.ENTANGLEMENT_SWAP}:
                 state.costs.local_comm_protocol_gate_num += 1
+            else:
+                state.costs.local_uncategorized_gate_num += 1
             state.costs.local_fidelity_loss += gate_error
             state.costs.local_fidelity *= 1 - gate_error
             state.costs.local_fidelity_log_sum += float(np.log(1 - gate_error))
+        return counted
 
     def _evaluate_record_body(
         self,
@@ -1013,7 +1104,7 @@ class MappingEvaluator:
         self._validate_partition_capacity(target_partition, network)
         transition_partition = self._build_transition_partition(prev_partition, target_partition)
         self._resize_state_to_transition_partition(state, prev_partition, transition_partition, network)
-        self._prepare_local_buffers(state, transition_partition, network)
+        self._prepare_local_buffers(state, transition_partition, network, policy)
         self._validate_physical_state(state, transition_partition, network, "transition-start")
 
         target_qpus = self._partition_qpus(target_partition)
@@ -1069,7 +1160,7 @@ class MappingEvaluator:
             policy,
         )
         self._repair_local_compaction(state, transition_partition, target_partition, network, policy)
-        self._compact_state_to_target_partition(state, transition_partition, target_partition, network)
+        self._compact_state_to_target_partition(state, transition_partition, target_partition, network, policy)
         self._require_logical_positions_match_partition_membership(state, target_partition, "post-teledata")
         self._validate_physical_state(state, target_partition, network, "post-teledata")
         return state
@@ -1520,9 +1611,11 @@ class MappingEvaluator:
         transition_partition: list[list[int]],
         target_partition: list[list[int]],
         network: Network,
+        policy: EvaluationPolicy | None = None,
     ) -> None:
+        deferred_mode = self._is_deferred(policy)
         for qpu_id, buffer in enumerate(state.routed_buffers):
-            if buffer.size() != 0:
+            if not deferred_mode and buffer.size() != 0:
                 raise RuntimeError(
                     f"[EVALUATOR] cannot compact state with pending local ops: "
                     f"qpu={qpu_id}, buffer_size={buffer.size()}"
@@ -1566,7 +1659,8 @@ class MappingEvaluator:
             state.wire_phy_map[qpu_id] = new_phy
             state.wire_owners[qpu_id] = new_owners
 
-        self._prepare_local_buffers(state, target_partition, network)
+        if not deferred_mode:
+            self._prepare_local_buffers(state, target_partition, network)
 
     def _require_all_residents_in_comp_space(
         self,

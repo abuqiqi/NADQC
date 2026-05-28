@@ -106,8 +106,15 @@ class NAVINew(Compiler):
             config=ctx.config,
         )
 
+        policy_name = ctx.config.get("evaluator_policy")
+        final_result = CompilerUtils.evaluate_with_mapping_evaluator(
+            final_result,
+            ctx.circuit,
+            ctx.circuit_layers,
+            ctx.network,
+            policy_name=policy_name,
+        )
         exec_time = time.time() - start_time
-        final_result.summarize_total_costs()
         final_result.update_total_costs(execution_time=exec_time)
 
         print(f"[INFO] {self.name} skeleton pipeline time: {time.time() - start_time} sec", file=sys.stderr)

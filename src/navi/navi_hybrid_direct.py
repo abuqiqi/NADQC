@@ -11,8 +11,7 @@ from ..compiler import CompilerUtils, ExecCosts, MappingRecord, MappingRecordLis
 from ..compiler.compiler_utils import CommOp
 from ..utils import Network
 from ..utils import log
-from .navi_compiler import CompilationContext
-from .navi_hybrid import HybridSearchState, NAVIHybrid
+from .navi_hybrid import CompilationContext, HybridSearchState, NAVIHybrid
 
 
 class NAVIHybridDirectNoiseAware(NAVIHybrid):

@@ -134,15 +134,18 @@ class QAutoComm(Compiler):
         mapping_record_list = MappingRecordList()
         mapping_record_list.add_record(record)
 
+        save_records = bool(cfg.get("save_records", True))
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") if save_records else None
+        if save_records:
+            base_path = f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}"
+            mapping_record_list.save_records(f"{base_path}_raw.json", dump_type="raw")
+
         if comm_only_costs:
             mapping_record_list.summarize_total_costs()
         else:
-            circuit_layers = CompilerUtils.build_circuit_layers(circuit)
             policy_name = cfg.get("evaluator_policy")
-            mapping_record_list = CompilerUtils.evaluate_with_mapping_evaluator(
+            mapping_record_list = CompilerUtils.evaluate_raw_mapping_records(
                 mapping_record_list,
-                circuit,
-                circuit_layers,
                 network,
                 policy_name=policy_name,
             )
@@ -150,9 +153,9 @@ class QAutoComm(Compiler):
         exec_time = time.time() - start_time
         mapping_record_list.update_total_costs(execution_time=exec_time)
 
-        if bool(cfg.get("save_records", True)):
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            mapping_record_list.save_records(f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
+        if save_records:
+            base_path = f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}"
+            mapping_record_list.save_records(f"{base_path}_evaluated.json", dump_type="evaluated")
         return mapping_record_list
 
     def _to_autocomm_gate_list(self, circuit: QuantumCircuit) -> list[list[Any]]:

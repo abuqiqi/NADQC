@@ -15,17 +15,6 @@ def _build_compile_config(global_config: dict, compiler: Compiler, circuit_name:
         **global_config.get("compiler_config", {}).get(compiler.compiler_id, {}),
     }
 
-
-def _print_flush_stats(compiler_name: str, result) -> None:
-    total_costs = result.total_costs
-    print(
-        f"[FLUSH] [{compiler_name}] "
-        f"flush_calls={total_costs.flush_calls}, "
-        f"nonempty_flushes={total_costs.nonempty_flushes}, "
-        f"local_transpile_calls={total_costs.local_transpile_calls}"
-    )
-
-
 def _ordered_result_info(result_info: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
     preferred_order = [
         "Static OEE",
@@ -137,6 +126,7 @@ def _run_shared_prefix_navi_variants(
         print(f"Compiler: [{compiler.name}]")
         print(compile_config)
         print(compile_config, file=sys.stdout)
+        handled_compiler_ids.add(compiler.compiler_id)
         try:
             if mode == "teledata_direct":
                 td_ctx = compiler._prepare_ctx_from_shared_prefix(shared_ctx, compile_config)
@@ -180,7 +170,6 @@ def _run_shared_prefix_navi_variants(
                 "F_eff": np.exp(result.total_costs.total_fidelity_log_sum / task_info["#Depth"]),
                 **result.total_costs.to_dict()
             }
-            handled_compiler_ids.add(compiler.compiler_id)
         except Exception as exc:
             print(f"[ERROR] Compiler [{compiler.name}] failed: {exc}")
             traceback.print_exc(file=sys.stdout)
@@ -246,9 +235,9 @@ def main(args):
     compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     # compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi", "navihybrid"] # , "navinew"
     # compiler_ids = ["autocomm", "navihybrid"] # "navi", 
-    # compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navihybridtd", "navihybriddirectmapper", "navihybrid"] # , "navihybriddirect"
+    compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navihybridtd", "navihybriddirectmapper", "navihybrid"] # , "navihybriddirect"
     # compiler_ids = ["fgproee", "navihybrid"]
-    compiler_ids = ["wbcp", "autocomm", "navihybrid"] # 
+    # compiler_ids = ["wbcp", "autocomm", "navihybrid"] # 
     # compiler_ids = ["staticoee", "autocomm", "navihybrid"]
     print(f"Registered compiler IDs: {compiler_ids}")
     compilers: list[Compiler] = []

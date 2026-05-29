@@ -305,7 +305,7 @@ def test_synthetic_telegate_replays_cross_qpu_gate_as_cat_block():
 
 def test_evaluate_keeps_runtime_state_continuous_between_records():
     class ContinuousStateEvaluator(MappingEvaluator):
-        def _get_record_subcircuit(self, record, circuit, circuit_layers):
+        def _get_record_subcircuit(self, record):
             return QuantumCircuit(1)
 
         def _evaluate_partition_transition(self, prev_partition, target_partition, network, policy, state):
@@ -324,8 +324,6 @@ def test_evaluate_keeps_runtime_state_continuous_between_records():
 
     result = ContinuousStateEvaluator().evaluate(
         records,
-        circuit=QuantumCircuit(1),
-        circuit_layers=[],
         network=_Network(),
         policy=EvaluationPolicy.full_realistic(),
     )

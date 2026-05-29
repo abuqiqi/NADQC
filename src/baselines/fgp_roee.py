@@ -52,18 +52,20 @@ class FGPrOEE(Compiler):
         mapping_record_list = mapper.map(mapping_record_list, circuit, circuit_layers, network)
 
         circuit_layers = CompilerUtils.build_circuit_layers(circuit)
+        mapping_record_list.ensure_record_ops(circuit, circuit_layers)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_path = f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}"
+        mapping_record_list.save_records(f"{base_path}_raw.json", dump_type="raw")
+
         policy_name = config.get("evaluator_policy") if config else None
-        mapping_record_list = CompilerUtils.evaluate_with_mapping_evaluator(
+        mapping_record_list = CompilerUtils.evaluate_raw_mapping_records(
             mapping_record_list,
-            circuit,
-            circuit_layers,
             network,
             policy_name=policy_name,
         )
         end_time = time.time()
         mapping_record_list.update_total_costs(execution_time = end_time - start_time)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        mapping_record_list.save_records(f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}.json")
+        mapping_record_list.save_records(f"{base_path}_evaluated.json", dump_type="evaluated")
         
         # print(f"[DEBUG] num_swaps: {self.num_swaps}\nnum_gates: {self.num_gates}")
         # print(f"[DEBUG] Total swaps: {sum(self.num_swaps)}, Total gates: {sum(self.num_gates)}")

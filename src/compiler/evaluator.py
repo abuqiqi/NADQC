@@ -4,7 +4,7 @@ import copy
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Optional, Sequence
 
 import networkx as nx
 import numpy as np
@@ -126,8 +126,6 @@ class MappingEvaluator:
     def evaluate(
         self,
         mapping_record_list: MappingRecordList,
-        circuit: QuantumCircuit,
-        circuit_layers: list[Any],
         network: Network,
         policy: EvaluationPolicy,
     ) -> MappingRecordList:
@@ -150,7 +148,7 @@ class MappingEvaluator:
                     policy,
                     state,
                 )
-            subcircuit = self._get_record_subcircuit(record, circuit, circuit_layers)
+            subcircuit = self._get_record_subcircuit(record)
 
             self._evaluate_record_body(record, subcircuit, network, policy, state)
             self.flush_local_ops(state, record.partition, network, policy)
@@ -257,19 +255,11 @@ class MappingEvaluator:
     def _get_record_subcircuit(
         self,
         record: MappingRecord,
-        circuit: QuantumCircuit,
-        circuit_layers: list[Any],
     ) -> QuantumCircuit:
         if record.extra_info is not None and "ops" in record.extra_info:
             return record.extra_info["ops"]
-        if record.mapping_type == "cat":
-            raise ValueError("[EVALUATOR] cat-type record requires extra_info['ops'].")
-        return CompilerUtils.get_subcircuit_by_level(
-            num_qubits=circuit.num_qubits,
-            circuit=circuit,
-            circuit_layers=circuit_layers,
-            layer_start=record.layer_start,
-            layer_end=record.layer_end,
+        raise ValueError(
+            "[EVALUATOR] record requires extra_info['ops']; fallback to circuit slicing is disabled."
         )
 
     def resolve_free_or_explicit_wire(

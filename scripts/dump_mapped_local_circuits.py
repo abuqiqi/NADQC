@@ -232,11 +232,8 @@ def replay_json_with_trace(
     trace = LocalCircuitDumpTrace()
     trace.install()
     try:
-        circuit_layers = CompilerUtils.build_circuit_layers(circuit)
-        CompilerUtils.evaluate_with_mapping_evaluator(
+        CompilerUtils.evaluate_raw_mapping_records(
             record_list,
-            copy.deepcopy(circuit),
-            circuit_layers,
             network,
             policy_name=None,
         )

@@ -8,6 +8,18 @@ import os
 
 from .backend import Backend
 
+
+def _normalize_deferred_initial_layout(value) -> str:
+    raw = str(value or "fixed").strip().lower()
+    if raw in {"fixed", "free"}:
+        return raw
+    # Backward-compatible aliases from old boolean-like configs.
+    if raw in {"false", "0", "no", "off"}:
+        return "fixed"
+    if raw in {"true", "1", "yes", "on"}:
+        return "free"
+    return "fixed"
+
 class Network:
     def __init__(self, network_config: dict, backend_list: list[Backend], build_all_to_all_copy: bool = True):
         self.num_backends = len(backend_list)
@@ -25,7 +37,9 @@ class Network:
         self.skip_comm_payload_local_routing = bool(network_config.get('skip_comm_payload_local_routing', False))
         self.local_eval_mode = str(network_config.get('local_eval_mode', 'immediate') or 'immediate')
         self.deferred_route_local_gates = bool(network_config.get('deferred_route_local_gates', True))
-        self.deferred_initial_layout = str(network_config.get('deferred_initial_layout', 'fixed') or 'fixed')
+        self.deferred_initial_layout = _normalize_deferred_initial_layout(
+            network_config.get('deferred_initial_layout', 'fixed')
+        )
         self.layout_trace_records = None
         # 后端实际容量（用于transpile/通信临时槽）
         self.backend_sizes_full = [backend.num_qubits for backend in self.backends]

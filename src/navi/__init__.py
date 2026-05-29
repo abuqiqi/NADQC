@@ -1,7 +1,6 @@
 from .partitioner import PartitionerFactory
 from .partition_assigner import PartitionAssignerFactory
 from .mapper import MapperFactory
-from .navi_compiler import NAVI
 from .navi_hybrid import NAVIHybrid
 from .navi_hybrid_beam_direct import NAVIHybridBeamDirect
 from .navi_hybrid_direct import NAVIHybridDirectNoiseAware
@@ -13,7 +12,6 @@ __all__ = [
     "PartitionerFactory",
     "PartitionAssignerFactory",
     "MapperFactory",
-    "NAVI",
     "NAVIHybrid",
     "NAVIHybridBeamDirect",
     "NAVIHybridDirectNoiseAware",

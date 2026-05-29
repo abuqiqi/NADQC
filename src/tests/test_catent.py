@@ -3,8 +3,7 @@ import datetime
 from pathlib import Path
 
 from src.utils import get_config, Backend, Network, select_circuit
-from src.navi.navi_hybrid import NAVIHybrid
-from src.navi.navi_compiler import CompilationContext
+from src.navi.navi_hybrid import CompilationContext, NAVIHybrid
 from src.compiler.compiler_utils import CompilerUtils
 from src.baselines.autocomm import QAutoComm
 

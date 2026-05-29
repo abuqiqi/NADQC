@@ -354,22 +354,63 @@ class MappingRecordList:
             if not (r.layer_end < layer_start or r.layer_start > layer_end)
         ]
 
-    def save_records(self, filename: str):
+    def ensure_record_ops(self, circuit: QuantumCircuit, circuit_layers: list[list[Any]]) -> None:
+        """
+        Populate extra_info["ops"] for records that do not have it.
+        """
+        for record in self.records:
+            extra_info = record.extra_info
+            if extra_info is None:
+                extra_info = {}
+            if not isinstance(extra_info, dict):
+                raise TypeError(f"record.extra_info must be dict or None, got {type(extra_info)}")
+            if "ops" in extra_info:
+                continue
+            if record.layer_start < 0 or record.layer_end < 0:
+                raise ValueError(
+                    "record.layer_start/layer_end must be set to build ops when missing"
+                )
+            subcircuit = CompilerUtils.get_subcircuit_by_level(
+                num_qubits=circuit.num_qubits,
+                circuit=circuit,
+                circuit_layers=circuit_layers,
+                layer_start=record.layer_start,
+                layer_end=record.layer_end,
+            )
+            extra_info["ops"] = subcircuit
+            record.extra_info = extra_info
+        return
+
+    def save_records(self, filename: str, dump_type: str = "evaluated"):
         """
         将记录保存到文件，支持 JSON/CSV 格式
         Args:
             filename: 保存路径
+            dump_type: "raw" 或 "evaluated"，raw 不写 costs/logical_phy_map/comm_phy_map
         """
         if not self.records:
             print("⚠️ 无映射记录可保存")
             return
 
+        if dump_type not in {"raw", "evaluated"}:
+            raise ValueError(f"Unsupported dump_type: {dump_type}")
+
         # 统一序列化：将 dataclass 转为字典（兼容可选字段 extra_info）
         # 将total_costs转为字典
         total_costs_dict = self.total_costs.to_dict()
         # 将每条记录转为字典
-        records_dict = [record.to_dict() for record in self.records]
+        records_dict = []
+        for record in self.records:
+            record_dict = record.to_dict()
+            record_dict["extra_info"] = self._serialize_extra_info(record_dict.get("extra_info"))
+            records_dict.append(record_dict)
+        if dump_type == "raw":
+            for record_dict in records_dict:
+                record_dict.pop("costs", None)
+                record_dict.pop("logical_phy_map", None)
+                record_dict.pop("comm_phy_map", None)
         data_dict = {
+            "dump_type": dump_type,
             "total_costs": total_costs_dict,
             "num_records": self.num_records,
             "records": records_dict
@@ -442,6 +483,197 @@ class MappingRecordList:
         except TypeError:
             return False, None
 
+    @staticmethod
+    def _serialize_extra_info(extra_info: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        if extra_info is None:
+            return None
+        if not isinstance(extra_info, dict):
+            return extra_info
+        copied = copy.deepcopy(extra_info)
+        if "ops" in copied:
+            copied["ops"] = MappingRecordList._encode_quantum_circuit(copied["ops"])
+        return copied
+
+    @staticmethod
+    def _deserialize_extra_info(extra_info: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        if extra_info is None:
+            return None
+        if not isinstance(extra_info, dict):
+            return extra_info
+        copied = copy.deepcopy(extra_info)
+        if "ops" in copied:
+            copied["ops"] = MappingRecordList._decode_quantum_circuit(copied["ops"])
+        return copied
+
+    @staticmethod
+    def _encode_quantum_circuit(circuit: Any) -> Any:
+        if circuit is None:
+            return None
+        if isinstance(circuit, dict) and circuit.get("__type__") == "quantum_circuit":
+            return circuit
+        if not isinstance(circuit, QuantumCircuit):
+            return circuit
+
+        payload: dict[str, Any] = {
+            "__type__": "quantum_circuit",
+            "num_qubits": int(circuit.num_qubits),
+            "num_clbits": int(circuit.num_clbits),
+            "global_phase": MappingRecordList._serialize_param(getattr(circuit, "global_phase", 0.0)),
+            "data": [],
+        }
+        for instruction in circuit.data:
+            op = instruction.operation
+            qargs = [int(circuit.find_bit(q).index) for q in instruction.qubits]
+            cargs = [int(circuit.find_bit(c).index) for c in instruction.clbits]
+            payload["data"].append(
+                {
+                    "op": MappingRecordList._encode_op(op),
+                    "qargs": qargs,
+                    "cargs": cargs,
+                }
+            )
+        return payload
+
+    @staticmethod
+    def _decode_quantum_circuit(payload: Any) -> Any:
+        if payload is None:
+            return None
+        if isinstance(payload, QuantumCircuit):
+            return payload
+        if not isinstance(payload, dict) or payload.get("__type__") != "quantum_circuit":
+            return payload
+
+        num_qubits = int(payload.get("num_qubits", 0))
+        num_clbits = int(payload.get("num_clbits", 0))
+        circuit = QuantumCircuit(num_qubits, num_clbits)
+        circuit.global_phase = MappingRecordList._deserialize_param(payload.get("global_phase", 0.0))
+        for item in payload.get("data", []):
+            op = MappingRecordList._decode_op(item.get("op"))
+            qargs = [int(q) for q in item.get("qargs", [])]
+            cargs = [int(c) for c in item.get("cargs", [])]
+            if op is None:
+                continue
+            circuit.append(op, qargs, cargs)
+        return circuit
+
+    @staticmethod
+    def _encode_op(op: Any) -> Any:
+        if isinstance(op, CommOp):
+            return {
+                "__type__": "commop",
+                "comm_type": str(op.comm_type),
+                "source_qubit": int(op.source_qubit),
+                "src_qpu": int(op.src_qpu),
+                "dst_qpu": int(op.dst_qpu),
+                "involved_qubits": [int(q) for q in op.involved_qubits],
+                "gate_list": [MappingRecordList._encode_gate(g) for g in op.gate_list],
+            }
+
+        if isinstance(op, Gate):
+            return MappingRecordList._encode_gate(op)
+
+        return {
+            "__type__": "opaque",
+            "repr": str(op),
+        }
+
+    @staticmethod
+    def _decode_op(data: Any) -> Any:
+        if data is None:
+            return None
+        if isinstance(data, Gate):
+            return data
+        if not isinstance(data, dict):
+            return None
+
+        if data.get("__type__") == "commop":
+            gate_list = [
+                MappingRecordList._decode_gate(g)
+                for g in data.get("gate_list", [])
+                if g is not None
+            ]
+            return CommOp(
+                comm_type=str(data.get("comm_type", "cat")),
+                source_qubit=int(data.get("source_qubit", 0)),
+                src_qpu=int(data.get("src_qpu", 0)),
+                dst_qpu=int(data.get("dst_qpu", 0)),
+                involved_qubits=[int(q) for q in data.get("involved_qubits", [])],
+                gate_list=gate_list,
+            )
+
+        if data.get("__type__") == "gate":
+            return MappingRecordList._decode_gate(data)
+
+        return None
+
+    @staticmethod
+    def _encode_gate(op: Gate) -> dict[str, Any]:
+        payload = {
+            "__type__": "gate",
+            "name": str(op.name),
+            "num_qubits": int(op.num_qubits),
+            "params": [MappingRecordList._serialize_param(p) for p in list(op.params or [])],
+        }
+        label = getattr(op, "label", None)
+        if label is not None:
+            payload["label"] = str(label)
+        global_lqids = getattr(op, "_global_lqids", None)
+        if global_lqids is None:
+            global_lqids = getattr(op, "_autocomm_qids", None)
+        if global_lqids is not None:
+            payload["global_lqids"] = [int(q) for q in list(global_lqids)]
+        return payload
+
+    @staticmethod
+    def _decode_gate(data: Any) -> Optional[Gate]:
+        if data is None:
+            return None
+        if isinstance(data, Gate):
+            return data
+        if not isinstance(data, dict):
+            return None
+        name = str(data.get("name", ""))
+        num_qubits = int(data.get("num_qubits", 0))
+        params = [MappingRecordList._deserialize_param(p) for p in data.get("params", [])]
+        if num_qubits <= 0:
+            return None
+        gate = Gate(name, num_qubits, params)
+        label = data.get("label")
+        if label is not None:
+            gate.label = str(label)
+        global_lqids = data.get("global_lqids")
+        if global_lqids is not None:
+            setattr(gate, "_global_lqids", [int(q) for q in list(global_lqids)])
+        return gate
+
+    @staticmethod
+    def _serialize_param(value: Any) -> Any:
+        if isinstance(value, np.integer):
+            return int(value)
+        if isinstance(value, np.floating):
+            return float(value)
+        if isinstance(value, complex):
+            return {"__type__": "complex", "re": float(value.real), "im": float(value.imag)}
+        if isinstance(value, (list, tuple)):
+            return [MappingRecordList._serialize_param(v) for v in value]
+        if isinstance(value, dict):
+            return {k: MappingRecordList._serialize_param(v) for k, v in value.items()}
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        return {"__type__": "repr", "value": str(value)}
+
+    @staticmethod
+    def _deserialize_param(value: Any) -> Any:
+        if isinstance(value, dict) and value.get("__type__") == "complex":
+            return complex(value.get("re", 0.0), value.get("im", 0.0))
+        if isinstance(value, dict) and value.get("__type__") == "repr":
+            return value.get("value")
+        if isinstance(value, list):
+            return [MappingRecordList._deserialize_param(v) for v in value]
+        if isinstance(value, dict):
+            return {k: MappingRecordList._deserialize_param(v) for k, v in value.items()}
+        return value
+
 
 class CompilerUtils:
 
@@ -469,10 +701,8 @@ class CompilerUtils:
         return EvaluationPolicy.full_realistic()
 
     @staticmethod
-    def evaluate_with_mapping_evaluator(
+    def evaluate_raw_mapping_records(
         mapping_record_list: MappingRecordList,
-        circuit: QuantumCircuit,
-        circuit_layers: list[Any],
         network: Network,
         policy_name: Optional[str] = None,
     ) -> MappingRecordList:
@@ -489,7 +719,7 @@ class CompilerUtils:
             deferred_route_local_gates=bool(getattr(network, "deferred_route_local_gates", True)),
             deferred_initial_layout=str(getattr(network, "deferred_initial_layout", "fixed") or "fixed").lower(),
         )
-        return evaluator.evaluate(mapping_record_list, circuit, circuit_layers, network, policy)
+        return evaluator.evaluate(mapping_record_list, network, policy)
 
     @staticmethod
     def _check_logical_map_partition_consistency(

@@ -489,6 +489,7 @@ def load_record_list_from_json(path: Path) -> MappingRecordList:
     record_list = MappingRecordList()
     for item in data.get("records", []):
         extra_info = item.get("extra_info")
+        extra_info = MappingRecordList._deserialize_extra_info(extra_info)
         record = MappingRecord(
             layer_start=int(item.get("layer_start", -1)),
             layer_end=int(item.get("layer_end", -1)),
@@ -516,11 +517,8 @@ def replay_record_json(
     trace = LocalShapeTrace()
     trace.install()
     try:
-        circuit_layers = CompilerUtils.build_circuit_layers(circuit)
-        result = CompilerUtils.evaluate_with_mapping_evaluator(
+        result = CompilerUtils.evaluate_raw_mapping_records(
             record_list,
-            copy.deepcopy(circuit),
-            circuit_layers,
             network,
             policy_name=policy_name,
         )

@@ -15,10 +15,66 @@ from ..compiler import Compiler, CompilerUtils, ExecCosts, MappingRecord, Mappin
 from ..compiler.compiler_utils import CommOp
 from ..utils import Network, log
 from .partitioner import Partitioner, PartitionerFactory
-from .partition_assigner import PartitionAssignerFactory
-from .telegate_partitioner import TelegatePartitionerFactory
-from .mapper import MapperFactory
-from .navi_compiler import CompilationContext
+from .partition_assigner import PartitionAssigner, PartitionAssignerFactory
+from .telegate_partitioner import TelegatePartitioner, TelegatePartitionerFactory
+from .mapper import Mapper, MapperFactory
+
+
+@dataclass
+class CompilationContext:
+    """
+    存储编译过程中所有中间状态的数据容器
+    """
+    # --- 输入 (Input) ---
+    circuit: QuantumCircuit
+    network: Network
+    config: dict[str, Any]
+
+    # --- 预处理状态 (Preprocessing State) ---
+    dag: Any = None
+    circuit_layers: list[list[Any]] = field(default_factory=list) # Any <- DAGOpNode
+    multiq_layers: list[list[Any]] = field(default_factory=list)
+    map_to_circuit_layer: dict[int, int] = field(default_factory=dict)
+    gate_density: float = 0.0
+    twoq_gate_density: float = 0.0
+    min_depth: int = 0
+
+    # --- 分区表 (Partition Table - P) ---
+    P_table: list[list[list[Any]]] = field(default_factory=list)
+
+    # --- 切片表 (Slicing Tables - S, T) ---
+    S_table: list[list[int]] = field(default_factory=list)
+    T_table: list[list[int]] = field(default_factory=list)
+    subc_ranges: list[tuple[int, int]] = field(default_factory=list)
+
+    # --- 结果与计划 (Results & Plans) ---
+    partition_candidates: list[Any] = field(default_factory=list)
+    partition_plan: list[Any] = field(default_factory=list)
+    hybrid_records: MappingRecordList = field(default_factory=MappingRecordList)
+    final_records: MappingRecordList = field(default_factory=MappingRecordList)
+
+    # --- 统计信息 (Statistics) ---
+    swap_prefix_sums: list[int] = field(default_factory=list)
+    epair_prefix_sums: list[int] = field(default_factory=list)
+    telegate_cache_hits: int = 0
+    telegate_cache_relaxed_hits: int = 0
+    telegate_cache_misses: int = 0
+    telegate_cache: dict[Any, MappingRecordList] = field(default_factory=dict)
+    telegate_total_calls: int = 0
+    telegate_strict_seen_keys: set[Any] = field(default_factory=set)
+    telegate_range_seen_keys: set[Any] = field(default_factory=set)
+    ptable_telegate_hints: dict[tuple[int, int], dict[str, float]] = field(default_factory=dict)
+
+    # --- 运行时组件 (Runtime Components) ---
+    partitioner: Optional[Partitioner] = None
+    partition_assigner: Optional[PartitionAssigner] = None
+    telegate_partitioner: Optional[TelegatePartitioner] = None
+    mapper: Optional[Mapper] = None
+
+    # --- 编译阶段完成标志 ---
+    preprocessed: bool = False
+    partition_planned: bool = False
+    telegate_optimized: bool = False
 
 @dataclass
 class HybridSearchState:
@@ -263,11 +319,15 @@ class NAVIHybrid(Compiler):
             config=ctx.config,
         )
 
+        final_result.ensure_record_ops(ctx.circuit, ctx.circuit_layers)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        circuit_name = str(ctx.config.get("circuit_name", f"circuit_{ctx.circuit.num_qubits}"))
+        base_path = f"./outputs/{circuit_name}/{circuit_name}_{ctx.network.name}_{self.name}_{timestamp}"
+        final_result.save_records(f"{base_path}_raw.json", dump_type="raw")
+
         policy_name = ctx.config.get("evaluator_policy")
-        final_result = CompilerUtils.evaluate_with_mapping_evaluator(
+        final_result = CompilerUtils.evaluate_raw_mapping_records(
             final_result,
-            ctx.circuit,
-            ctx.circuit_layers,
             ctx.network,
             policy_name=policy_name,
         )
@@ -284,9 +344,7 @@ class NAVIHybrid(Compiler):
             f"cat_ents={post_mapper_costs.cat_ents}, epairs={post_mapper_costs.epairs}"
         )
         final_result.update_total_costs(execution_time=exec_time)
-        circuit_name = ctx.config.get("circuit_name", "circ")
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        final_result.save_records(f"./outputs/{circuit_name}/{circuit_name}_{ctx.network.name}_{self.name}_{timestamp}.json")
+        final_result.save_records(f"{base_path}_evaluated.json", dump_type="evaluated")
         return final_result
 
     def _finish_compile_from_ctx(

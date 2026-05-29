@@ -15,7 +15,7 @@ from .partitioner import Partitioner, PartitionerFactory
 from .partition_assigner import PartitionAssigner, PartitionAssignerFactory
 from .telegate_partitioner import TelegatePartitioner, TelegatePartitionerFactory
 from .mapper import Mapper, MapperFactory
-from .navi_compiler import CompilationContext
+from .navi_hybrid import CompilationContext
 
 
 @dataclass
@@ -107,10 +107,8 @@ class NAVINew(Compiler):
         )
 
         policy_name = ctx.config.get("evaluator_policy")
-        final_result = CompilerUtils.evaluate_with_mapping_evaluator(
+        final_result = CompilerUtils.evaluate_raw_mapping_records(
             final_result,
-            ctx.circuit,
-            ctx.circuit_layers,
             ctx.network,
             policy_name=policy_name,
         )

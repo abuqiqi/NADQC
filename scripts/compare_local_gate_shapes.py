@@ -393,12 +393,13 @@ def build_context(args: argparse.Namespace) -> tuple[dict[str, Any], QuantumCirc
         **global_config.get("network_config", {}),
         "type": args.network,
     }
+    common_config = global_config.setdefault("compiler_config", {}).setdefault("common", {})
     if args.local_eval_mode is not None:
-        network_config["local_eval_mode"] = args.local_eval_mode
+        common_config["local_eval_mode"] = args.local_eval_mode
     if args.deferred_initial_layout is not None:
-        network_config["deferred_initial_layout"] = args.deferred_initial_layout
+        common_config["deferred_initial_layout"] = args.deferred_initial_layout
     if args.deferred_route_local_gates is not None:
-        network_config["deferred_route_local_gates"] = args.deferred_route_local_gates
+        common_config["deferred_route_local_gates"] = args.deferred_route_local_gates
 
     core_capacity = normalize_repeated(parse_int_list(args.core_capacity), args.core_count)
     backend_names = normalize_repeated(parse_str_list(args.backend_name), args.core_count)
@@ -429,10 +430,12 @@ def build_context(args: argparse.Namespace) -> tuple[dict[str, Any], QuantumCirc
 
 
 def compile_config(global_config: dict[str, Any], compiler: Any, circuit_name: str) -> dict[str, Any]:
+    compiler_config = global_config.get("compiler_config", {})
     return {
         "circuit_name": circuit_name,
         **global_config.get("compile_config", {}),
-        **global_config.get("compiler_config", {}).get(compiler.compiler_id, {}),
+        **compiler_config.get("common", {}),
+        **compiler_config.get(compiler.compiler_id, {}),
     }
 
 
@@ -506,6 +509,7 @@ def replay_record_json(
     path: Path,
     circuit: QuantumCircuit,
     network: Network,
+    config: dict[str, Any],
     policy_name: str | None = None,
 ) -> dict[str, Any]:
     record_list = load_record_list_from_json(path)
@@ -521,6 +525,7 @@ def replay_record_json(
             record_list,
             network,
             policy_name=policy_name,
+            config=config,
         )
     finally:
         trace.uninstall()
@@ -555,7 +560,7 @@ def main() -> None:
     parser.add_argument("--backend-name", default="ibm_marrakesh")
     parser.add_argument("--date", default="2026-03-01")
     parser.add_argument("--network", default="all_to_all")
-    parser.add_argument("--compilers", default="wbcp,navihybrid")
+    parser.add_argument("--compilers", default="wbcp,navi")
     parser.add_argument(
         "--record-jsons",
         default="",
@@ -600,6 +605,7 @@ def main() -> None:
                 Path(path_text.strip()),
                 circuit,
                 network,
+                global_config.get("compiler_config", {}).get("common", {}),
                 policy_name=None,
             )
         )
@@ -607,8 +613,7 @@ def main() -> None:
     report = {
         "task_info": task_info,
         "network": network.info(),
-        "network_local_eval_mode": getattr(network, "local_eval_mode", None),
-        "network_deferred_initial_layout": getattr(network, "deferred_initial_layout", None),
+        "compiler_common_config": global_config.get("compiler_config", {}).get("common", {}),
         "compilers": reports,
     }
 

@@ -5,35 +5,24 @@
     "device_properties_folder": "your_device_properties_folder",
     "output_folder": "your_output_folder",
     "compiler_modules": ["src.baselines", "src.navi"],
-
-    "compile_config": {},
     "compiler_config": {
-        "wbcp": {
-            "ilp_output": false
+        "common": {
+            "debug_layout_tracking": false,
+            "flush_each_comm_gate": false,
+            "sequential_initial_layout": true,
+            "skip_comm_payload_local_routing": false,
+            "local_eval_mode": "deferred",
+            "deferred_route_local_gates": true,
+            "deferred_initial_layout": "fixed"
         },
-        "navihybrid": {
-            "hybrid_beam_width": 4,
-            "hybrid_max_merge_span": 12,
-            "hybrid_prune_trigger_ratio": 5,
-            "enable_cat_gate_reorder": true,
-            "debug_cat_gate_reorder": true,
-            "enable_ptable_telegate_hint": true,
-            "ptable_telegate_hint_max_span": 12,
-            "debug_ptable_telegate_hint": true,
-            "enable_cat_telegate": true,
-            "debug_cat_telegate": false,
+        "navi": {
+            "mapper": "boundeddp_neighbor",
             "telegate_cache": true,
-            "telegate_cache_mode": "range_fallback"
+            "telegate_cache_mode": "range"
         }
     },
-
     "network_config": {
-        "fidelity_range": [0.90, 0.95],
-        "flush_each_comm_gate": false,
-        "sequential_initial_layout": false,
-        "skip_comm_payload_local_routing": false,
-        "local_eval_mode": "immediate",
-        "deferred_route_local_gates": true,
-        "deferred_initial_layout": "fixed"
+        "fidelity_range": [0.90, 0.93],
+        "comm_slot_reserve": 2
     }
 }

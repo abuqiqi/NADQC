@@ -2,6 +2,41 @@ import datetime
 
 from src.utils import Backend, Network, get_config
 
+
+class _MockBackend:
+    num_qubits = 10
+    name = "mock"
+    basis_gates = ["x", "cx"]
+    two_qubit_gates = {"cx"}
+    gate_dict = {}
+
+
+def test_mesh_grid_infers_square_size_for_four_qpus():
+    net = Network(
+        {"type": "mesh_grid", "fidelity_range": (0.92, 0.97)},
+        [_MockBackend() for _ in range(4)],
+        build_all_to_all_copy=False,
+    )
+
+    assert net.size == (2, 2)
+    assert set(net.network_coupling) == {(0, 1), (2, 3), (0, 2), (1, 3)}
+
+
+def test_mesh_grid_infers_rectangular_size_for_eight_qpus():
+    net = Network(
+        {"type": "mesh_grid", "fidelity_range": (0.92, 0.97)},
+        [_MockBackend() for _ in range(8)],
+        build_all_to_all_copy=False,
+    )
+
+    assert net.size == (2, 4)
+    assert set(net.network_coupling) == {
+        (0, 1), (1, 2), (2, 3),
+        (4, 5), (5, 6), (6, 7),
+        (0, 4), (1, 5), (2, 6), (3, 7),
+    }
+
+
 def test_network_initialization():
     """测试 Network 类初始化"""
     config = get_config()

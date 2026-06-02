@@ -227,6 +227,7 @@ def replay_json_with_trace(
     path: Path,
     circuit: QuantumCircuit,
     network,
+    config: dict[str, Any],
 ) -> tuple[str, list[dict[str, Any]]]:
     record_list = load_record_list_from_json(path)
     trace = LocalCircuitDumpTrace()
@@ -236,6 +237,7 @@ def replay_json_with_trace(
             record_list,
             network,
             policy_name=None,
+            config=config,
         )
     finally:
         trace.uninstall()
@@ -252,7 +254,7 @@ def main() -> None:
     parser.add_argument("--backend-name", default="ibm_marrakesh")
     parser.add_argument("--date", default="2026-03-01")
     parser.add_argument("--network", default="all_to_all")
-    parser.add_argument("--compilers", default="navihybrid")
+    parser.add_argument("--compilers", default="navi")
     parser.add_argument("--record-json", action="append", default=[])
     parser.add_argument("--record-jsons", default="")
     parser.add_argument("--local-eval-mode", choices=["immediate", "deferred"], default=None)
@@ -284,7 +286,13 @@ def main() -> None:
         else:
             path_text = spec
             label = Path(path_text).stem
-        label, records = replay_json_with_trace(label.strip(), Path(path_text.strip()), circuit, network)
+        label, records = replay_json_with_trace(
+            label.strip(),
+            Path(path_text.strip()),
+            circuit,
+            network,
+            global_config.get("compiler_config", {}).get("common", {}),
+        )
         save_top_circuits(label, records, out_dir, args.top_n, args.first_ops, args.fold)
 
     print(f"Wrote circuit diagrams to {out_dir}")

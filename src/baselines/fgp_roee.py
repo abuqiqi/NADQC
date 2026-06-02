@@ -9,7 +9,8 @@ import datetime
 from .oee import OEE
 from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
-from ..navi import MapperFactory
+# Legacy direct mapper path is disabled; keep import location noted for rollback.
+# from ..navi import MapperFactory
 
 class FGPrOEE(Compiler):
     """
@@ -44,24 +45,27 @@ class FGPrOEE(Compiler):
         iteration_count = config.get("iteration", 10) if config else 10
         circuit_name = config.get("circuit_name", "circ") if config else "circ"
         
-        mapping_record_list = self._k_way_FGP_rOEE(circuit, network, iteration_count)
+        mapping_record_list = self._k_way_FGP_rOEE(circuit, network, iteration_count, config=config)
 
-        # 调用direct mapper
-        mapper = MapperFactory.create_mapper("direct")
-        circuit_layers = self._circuit_to_layers(circuit)
-        mapping_record_list = mapper.map(mapping_record_list, circuit, circuit_layers, network)
+        # Legacy direct mapper path reevaluates records with the old evaluator.
+        # Keep it disabled so raw records are evaluated once by MappingEvaluator below.
+        # mapper = MapperFactory.create_mapper("direct")
+        # circuit_layers = self._circuit_to_layers(circuit)
+        # mapping_record_list = mapper.map(mapping_record_list, circuit, circuit_layers, network, config=config)
 
         circuit_layers = CompilerUtils.build_circuit_layers(circuit)
         mapping_record_list.ensure_record_ops(circuit, circuit_layers)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_path = f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}"
+        base_path = CompilerUtils.build_record_base_path(circuit_name, network, self.name, timestamp)
         mapping_record_list.save_records(f"{base_path}_raw.json", dump_type="raw")
 
         policy_name = config.get("evaluator_policy") if config else None
-        mapping_record_list = CompilerUtils.evaluate_raw_mapping_records(
+        mapping_record_list, _, _ = self._evaluate_raw_mapping_records_with_timing(
             mapping_record_list,
             network,
             policy_name=policy_name,
+            config=config,
+            start_time=start_time,
         )
         end_time = time.time()
         mapping_record_list.update_total_costs(execution_time = end_time - start_time)
@@ -89,7 +93,8 @@ class FGPrOEE(Compiler):
 
     def _k_way_FGP_rOEE(self, circuit: QuantumCircuit, 
                         network: Network, 
-                        iteration_count: int) -> MappingRecordList:
+                        iteration_count: int,
+                        config: Optional[dict[str, Any]] = None) -> MappingRecordList:
         circuit_dag = circuit_to_dag(circuit)
         circuit_layers = list(circuit_dag.layers())
         circuit_depth = circuit.depth()
@@ -101,7 +106,8 @@ class FGPrOEE(Compiler):
         # self.num_swaps = []
         # self.num_gates = []
 
-        logical_phy_map = {}
+        # Raw-only construction: MappingEvaluator owns runtime logical/physical state.
+        # logical_phy_map = {}
         for lev in range(circuit_depth):
 
             # print(f"\n\n=== Processing layer {lev}/{circuit_depth - 1} ===")
@@ -116,14 +122,16 @@ class FGPrOEE(Compiler):
             # print(f"[DEBUG] partition after rOEE: {partition}\n")
 
 
-            # 获取子线路
-            sub_qc = self._extract_subcircuit(circuit, circuit_layers, lev)
-
-            if lev == 0:
-                logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
-            else:
-                # 沿用上一个record的logical_phy_map作为初始状态
-                logical_phy_map = mapping_record_list.records[-1].logical_phy_map
+            # Legacy evaluator path used the layer subcircuit and propagated
+            # logical_phy_map while constructing records. The raw-only path leaves
+            # this state empty and lets MappingEvaluator replay it once at the end.
+            # sub_qc = self._extract_subcircuit(circuit, circuit_layers, lev)
+            #
+            # if lev == 0:
+            #     logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
+            # else:
+            #     # 沿用上一个record的logical_phy_map作为初始状态
+            #     logical_phy_map = mapping_record_list.records[-1].logical_phy_map
 
             # 构建当前划分
             record = MappingRecord(
@@ -131,23 +139,25 @@ class FGPrOEE(Compiler):
                 layer_end = lev,
                 partition = partition,
                 mapping_type = "telegate",
-                logical_phy_map = logical_phy_map
+                # Legacy evaluator path populated logical_phy_map here:
+                # logical_phy_map = logical_phy_map,
             )
 
-            # 先计算teledata并更新logical_phy_map
-            if lev > 0:
-                # TODO: CHECK
-                # self.num_swaps.append(self.calculate_nonlocal_communications(mapping_record_list.records[-2].partition, 
-                #                                                              mapping_record_list.records[-1].partition))
-                _ = CompilerUtils.evaluate_teledata_with_local(
-                    mapping_record_list.records[-1],
-                    record,
-                    network
-                )
-
-            _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                record, sub_qc, network
-            )
+            # Legacy evaluator path, kept for comparison/rollback:
+            # # 先计算teledata并更新logical_phy_map
+            # if lev > 0:
+            #     # TODO: CHECK
+            #     # self.num_swaps.append(self.calculate_nonlocal_communications(mapping_record_list.records[-2].partition,
+            #     #                                                              mapping_record_list.records[-1].partition))
+            #     _ = CompilerUtils.evaluate_teledata_with_local(
+            #         mapping_record_list.records[-1],
+            #         record,
+            #         network
+            #     )
+            #
+            # _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
+            #     record, sub_qc, network, config=config
+            # )
 
             # 更新mapping_record_list
             mapping_record_list.add_record(record)

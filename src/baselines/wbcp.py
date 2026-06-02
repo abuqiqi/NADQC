@@ -42,19 +42,21 @@ class WBCP(Compiler):
 
         ilp_output = config.get("ilp_output", False) if config else False
 
-        mapping_record_list = self._k_way_WBCP(circuit, network, iteration_count, ilp_output)
+        mapping_record_list = self._k_way_WBCP(circuit, network, iteration_count, ilp_output, config=config)
 
         circuit_layers = CompilerUtils.build_circuit_layers(circuit)
         mapping_record_list.ensure_record_ops(circuit, circuit_layers)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_path = f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}"
+        base_path = CompilerUtils.build_record_base_path(circuit_name, network, self.name, timestamp)
         mapping_record_list.save_records(f"{base_path}_raw.json", dump_type="raw")
 
         policy_name = config.get("evaluator_policy") if config else None
-        mapping_record_list = CompilerUtils.evaluate_raw_mapping_records(
+        mapping_record_list, _, _ = self._evaluate_raw_mapping_records_with_timing(
             mapping_record_list,
             network,
             policy_name=policy_name,
+            config=config,
+            start_time=start_time,
         )
         end_time = time.time()
         mapping_record_list.update_total_costs(execution_time = end_time - start_time)
@@ -66,7 +68,8 @@ class WBCP(Compiler):
                     circuit: QuantumCircuit, 
                     network: Network,
                     iteration_count: int,
-                    ilp_output: bool = False) -> MappingRecordList:
+                    ilp_output: bool = False,
+                    config: Optional[dict[str, Any]] = None) -> MappingRecordList:
         """
         The main function for WBCP compilation
         """
@@ -103,7 +106,6 @@ class WBCP(Compiler):
             mapping_type = "telegate",
             logical_phy_map = logical_phy_map
         )
-        _ = CompilerUtils.evaluate_local_and_telegate_with_cat(record, sub_qc, network)
         mapping_record_list.add_record(record)
 
         # 处理后续的子线路
@@ -134,29 +136,14 @@ class WBCP(Compiler):
             # 先确定partition，再确定logical到物理的映射
             current_partition = self._map_logical_to_physical(current_partition, qig, network, ilp_output)
 
-            # 构建当前划分对应的mapping record
-            current_record = MappingRecord(
-                layer_start = i*win_len,
-                layer_end = right,
-                partition = current_partition,
-                mapping_type = "telegate",
-                logical_phy_map = previous_record.logical_phy_map
-            )
+            # WBCP only needs an abstract communication estimate here; final
+            # physical/local costs are replayed by MappingEvaluator after raw records are built.
+            prev_estimate = CompilerUtils.evaluate_remote_hops(qig, previous_partition, network)
+            transition_costs, _ = CompilerUtils.evaluate_teledata(previous_partition, current_partition, network)
+            current_body_estimate = CompilerUtils.evaluate_remote_hops(qig, current_partition, network)
+            current_estimate = transition_costs.num_comms + current_body_estimate
 
-            # 如果采用当前的record，评估当前划分的costs
-            # 先评估teledata并更新logical_phy_map
-            _ = CompilerUtils.evaluate_teledata_with_local(previous_record, current_record, network)
-            # 再评估local和telegate
-            _ = CompilerUtils.evaluate_local_and_telegate_with_cat(current_record, sub_qc, network)
-
-            # 检查沿用上一个partition是否更好
-            # 如果沿用上一个partition，只有remote telegate开销，没有teledata开销
-            num_prev_remote_hops = CompilerUtils.evaluate_remote_hops(qig, previous_partition, network)
-
-            # 比较哪个开销小
-            # 如果先前的partition更好
-            if num_prev_remote_hops < current_record.costs.num_comms:
-                # 更新previous record的costs和layers
+            if prev_estimate < current_estimate:
                 record = MappingRecord(
                     layer_start = i*win_len,
                     layer_end = right,
@@ -165,10 +152,15 @@ class WBCP(Compiler):
                     logical_phy_map = previous_record.logical_phy_map, # 沿用上一个record的logical_phy_map作为初始状态
                     comm_phy_map = previous_record.comm_phy_map
                 )
-                # 完整评估划分，只有local and telegate开销
-                _ = CompilerUtils.evaluate_local_and_telegate_with_cat(record, sub_qc, network)
                 mapping_record_list.add_record(record)
             else:
+                current_record = MappingRecord(
+                    layer_start = i*win_len,
+                    layer_end = right,
+                    partition = current_partition,
+                    mapping_type = "telegate",
+                    logical_phy_map = previous_record.logical_phy_map
+                )
                 mapping_record_list.add_record(current_record)
 
         return mapping_record_list

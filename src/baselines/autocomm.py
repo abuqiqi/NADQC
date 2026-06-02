@@ -114,12 +114,18 @@ class QAutoComm(Compiler):
                 op_list,
                 network,
             )
-        else:
-            costs, _, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                record,
-                op_list,
-                network,
-            )
+        # else:
+            # Default AutoComm evaluation is raw-only: MappingEvaluator replays
+            # op_list below through evaluate_raw_mapping_records. The legacy
+            # local/telegate evaluator eagerly charges costs here, so keep it
+            # disabled except for rollback/comparison.
+            # costs, _, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
+            #     record,
+            #     op_list,
+            #     network,
+            #     config=cfg,
+            # )
+            # pass
 
         # AutoComm latency is a scheduler makespan proxy; keep total execution wall time in execution_time,
         # and expose scheduler latency in extra_info for analysis.
@@ -136,25 +142,32 @@ class QAutoComm(Compiler):
 
         save_records = bool(cfg.get("save_records", True))
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") if save_records else None
+        base_path = (
+            CompilerUtils.build_record_base_path(circuit_name, network, self.name, timestamp)
+            if save_records and timestamp is not None
+            else None
+        )
         if save_records:
-            base_path = f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}"
+            assert base_path is not None
             mapping_record_list.save_records(f"{base_path}_raw.json", dump_type="raw")
 
         if comm_only_costs:
             mapping_record_list.summarize_total_costs()
         else:
             policy_name = cfg.get("evaluator_policy")
-            mapping_record_list = CompilerUtils.evaluate_raw_mapping_records(
+            mapping_record_list, _, _ = self._evaluate_raw_mapping_records_with_timing(
                 mapping_record_list,
                 network,
                 policy_name=policy_name,
+                config=cfg,
+                start_time=start_time,
             )
 
         exec_time = time.time() - start_time
         mapping_record_list.update_total_costs(execution_time=exec_time)
 
         if save_records:
-            base_path = f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{self.name}_{timestamp}"
+            assert base_path is not None
             mapping_record_list.save_records(f"{base_path}_evaluated.json", dump_type="evaluated")
         return mapping_record_list
 

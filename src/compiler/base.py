@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import time
 from typing import Any, Optional
 
-from .compiler_utils import MappingRecordList
+from .compiler_utils import CompilerUtils, MappingRecordList
 
 class Compiler(ABC):
     """
@@ -36,3 +37,35 @@ class Compiler(ABC):
         :return: 编译后的电路对象
         """
         pass
+
+    def _evaluate_raw_mapping_records_with_timing(
+        self,
+        mapping_record_list: MappingRecordList,
+        network: Any,
+        policy_name: Optional[str] = None,
+        config: Optional[dict[str, Any]] = None,
+        start_time: Optional[float] = None,
+        pre_eval_time: Optional[float] = None,
+    ) -> tuple[MappingRecordList, float, float]:
+        if pre_eval_time is None:
+            if start_time is None:
+                raise ValueError("start_time or pre_eval_time is required")
+            pre_eval_time = time.time() - start_time
+
+        print(
+            f"[TIMING] [{self.name}] pre-evaluate raw mapping record time: "
+            f"{pre_eval_time:.6f} sec"
+        )
+        eval_start_time = time.time()
+        evaluated = CompilerUtils.evaluate_raw_mapping_records(
+            mapping_record_list,
+            network,
+            policy_name=policy_name,
+            config=config,
+        )
+        eval_time = time.time() - eval_start_time
+        print(
+            f"[TIMING] [{self.name}] evaluate raw mapping record time: "
+            f"{eval_time:.6f} sec"
+        )
+        return evaluated, pre_eval_time, eval_time

@@ -1,7 +1,7 @@
 from qiskit import QuantumCircuit
 
 from src.compiler import CompilerUtils
-from src.navi.navi_hybrid import CompilationContext, NAVIHybrid
+from src.navi.navi_compiler import CompilationContext, NAVI
 
 
 class _Network:
@@ -19,7 +19,7 @@ def _build_context():
     circuit.z(0)
 
     ctx = CompilationContext(circuit=circuit, network=_Network(), config={})
-    compiler = NAVIHybrid()
+    compiler = NAVI()
     compiler._step_remove_single_qubit_gates(ctx)
     return compiler, ctx
 
@@ -38,7 +38,7 @@ def _gate_count_for_ranges(ctx, ranges):
     return total
 
 
-def test_navi_hybrid_original_layer_ranges_restore_single_qubit_gaps():
+def test_navi_original_layer_ranges_restore_single_qubit_gaps():
     compiler, ctx = _build_context()
 
     ranges = [

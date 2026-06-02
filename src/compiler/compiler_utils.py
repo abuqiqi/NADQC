@@ -386,7 +386,7 @@ class MappingRecordList:
         将记录保存到文件，支持 JSON/CSV 格式
         Args:
             filename: 保存路径
-            dump_type: "raw" 或 "evaluated"，raw 不写 costs/logical_phy_map/comm_phy_map
+            dump_type: "raw" 或 "evaluated"。raw 不写 total_costs，也不写 record 级 costs/logical_phy_map/comm_phy_map
         """
         if not self.records:
             print("⚠️ 无映射记录可保存")
@@ -396,9 +396,7 @@ class MappingRecordList:
             raise ValueError(f"Unsupported dump_type: {dump_type}")
 
         # 统一序列化：将 dataclass 转为字典（兼容可选字段 extra_info）
-        # 将total_costs转为字典
-        total_costs_dict = self.total_costs.to_dict()
-        # 将每条记录转为字典
+        total_costs_dict = self.total_costs.to_dict() if dump_type == "evaluated" else None
         records_dict = []
         for record in self.records:
             record_dict = record.to_dict()
@@ -409,12 +407,13 @@ class MappingRecordList:
                 record_dict.pop("costs", None)
                 record_dict.pop("logical_phy_map", None)
                 record_dict.pop("comm_phy_map", None)
-        data_dict = {
-            "dump_type": dump_type,
-            "total_costs": total_costs_dict,
+        data_dict = {"dump_type": dump_type}
+        if total_costs_dict is not None:
+            data_dict["total_costs"] = total_costs_dict
+        data_dict.update({
             "num_records": self.num_records,
             "records": records_dict
-        }
+        })
         # data_dict = dataclasses.asdict(self)
         data_dict = self._convert_numpy_types(data_dict)
         _, data_dict = self._prune_unserializable(data_dict)
@@ -678,6 +677,16 @@ class MappingRecordList:
 class CompilerUtils:
 
     @staticmethod
+    def build_record_base_path(
+        circuit_name: str,
+        network: Network,
+        compiler_name: str,
+        timestamp: str,
+    ) -> str:
+        net_type = getattr(network, "net_type", "unknown")
+        return f"./outputs/{circuit_name}/{circuit_name}_{network.name}_{net_type}_{compiler_name}_{timestamp}"
+
+    @staticmethod
     def build_circuit_layers(circuit: QuantumCircuit) -> list[list[Any]]:
         """
         Build circuit layers as lists of DAG op nodes.
@@ -705,19 +714,27 @@ class CompilerUtils:
         mapping_record_list: MappingRecordList,
         network: Network,
         policy_name: Optional[str] = None,
+        config: Optional[dict[str, Any]] = None,
     ) -> MappingRecordList:
         from .evaluator import MappingEvaluator
 
         evaluator = MappingEvaluator()
         policy = CompilerUtils.resolve_evaluation_policy(policy_name)
-        local_eval_mode = str(getattr(network, "local_eval_mode", "immediate") or "immediate").lower()
+        cfg = config or {}
+        local_eval_mode = str(cfg.get("local_eval_mode", "immediate") or "immediate").lower()
         if local_eval_mode not in {"immediate", "deferred"}:
             raise ValueError(f"unknown local_eval_mode: {local_eval_mode}")
+        deferred_initial_layout = str(cfg.get("deferred_initial_layout", "fixed") or "fixed").lower()
+        if deferred_initial_layout in {"false", "0", "no", "off"}:
+            deferred_initial_layout = "fixed"
+        elif deferred_initial_layout in {"true", "1", "yes", "on"}:
+            deferred_initial_layout = "free"
         policy = dataclasses.replace(
             policy,
             local_eval_mode=local_eval_mode,
-            deferred_route_local_gates=bool(getattr(network, "deferred_route_local_gates", True)),
-            deferred_initial_layout=str(getattr(network, "deferred_initial_layout", "fixed") or "fixed").lower(),
+            deferred_route_local_gates=bool(cfg.get("deferred_route_local_gates", True)),
+            deferred_initial_layout=deferred_initial_layout,
+            flush_each_comm_gate=bool(cfg.get("flush_each_comm_gate", False)),
         )
         return evaluator.evaluate(mapping_record_list, network, policy)
 
@@ -1003,10 +1020,12 @@ class CompilerUtils:
         optimization_level: int = 3,
         strict_flush_on_remote: bool = True,
         flush_each_comm_gate: Optional[bool] = None,
+        config: Optional[dict[str, Any]] = None,
     ) -> tuple[ExecCosts, dict[int, tuple[int, int | None]], dict[int, list[int | None]]]:
         """
         按CommOp + 门序列统一评估通信与本地门成本
         """
+        cfg = config or {}
         partition = None
 
         if isinstance(arg, MappingRecord):
@@ -1020,14 +1039,15 @@ class CompilerUtils:
         if len(logical_phy_map) == 0:
             logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
 
-        if bool(getattr(network, "sequential_initial_layout", False)):
+        sequential_initial_layout = bool(cfg.get("sequential_initial_layout", False))
+        if sequential_initial_layout:
             logical_phy_map = CompilerUtils.apply_sequential_initial_layout_if_unset(
                 partition,
                 logical_phy_map,
             )
 
         if flush_each_comm_gate is None:
-            flush_each_comm_gate = bool(getattr(network, "flush_each_comm_gate", False))
+            flush_each_comm_gate = bool(cfg.get("flush_each_comm_gate", False))
         else:
             flush_each_comm_gate = bool(flush_each_comm_gate)
 
@@ -1047,8 +1067,8 @@ class CompilerUtils:
 
         # 子线路容量使用“当前分组大小 + comm_slot_reserve”，避免直接按后端总量建超大子线路。
         reserve = int(getattr(network, "comm_slot_reserve", 1) or 1)
-        debug_layout_tracking = bool(getattr(network, "debug_layout_tracking", False))
-        skip_comm_payload_local_routing = bool(getattr(network, "skip_comm_payload_local_routing", False))
+        debug_layout_tracking = bool(cfg.get("debug_layout_tracking", False))
+        skip_comm_payload_local_routing = bool(cfg.get("skip_comm_payload_local_routing", False))
         backend_caps_full = network.get_backend_qubit_counts(include_comm_slot=True)
         capacity_by_qpu: list[int] = [] # |partition[j]| + reserve
         comm_slot_start: dict[int, int] = {}
@@ -1328,7 +1348,7 @@ class CompilerUtils:
                     logical_phy_map,
                     fixed_local_layout=comm_initial_layout,
                     physical_qubit_count=backend.num_qubits,
-                    fill_unassigned=bool(getattr(network, "sequential_initial_layout", False)),
+                    fill_unassigned=sequential_initial_layout,
                 )
                 transpile_initial_layout = initial_layout if len(initial_layout) > 0 else None
                 initial_layout_local_to_phy = (

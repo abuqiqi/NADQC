@@ -43,12 +43,13 @@ def build_context(args: argparse.Namespace) -> tuple[dict[str, Any], Network]:
         **global_config.get("network_config", {}),
         "type": args.network,
     }
+    common_config = global_config.setdefault("compiler_config", {}).setdefault("common", {})
     if args.local_eval_mode is not None:
-        network_config["local_eval_mode"] = args.local_eval_mode
+        common_config["local_eval_mode"] = args.local_eval_mode
     if args.deferred_initial_layout is not None:
-        network_config["deferred_initial_layout"] = args.deferred_initial_layout
+        common_config["deferred_initial_layout"] = args.deferred_initial_layout
     if args.deferred_route_local_gates is not None:
-        network_config["deferred_route_local_gates"] = args.deferred_route_local_gates
+        common_config["deferred_route_local_gates"] = args.deferred_route_local_gates
 
     core_capacity = normalize_repeated(parse_int_list(args.core_capacity), args.core_count)
     backend_names = normalize_repeated(parse_str_list(args.backend_name), args.core_count)
@@ -105,6 +106,7 @@ def main() -> None:
     args = parser.parse_args()
 
     _config, network = build_context(args)
+    common_config = _config.get("compiler_config", {}).get("common", {})
 
     record_path = Path(args.record_json)
     record_list = load_record_list_from_json(record_path)
@@ -113,6 +115,7 @@ def main() -> None:
         record_list,
         network,
         policy_name=args.policy,
+        config=common_config,
     )
 
     costs = result.total_costs.to_dict()

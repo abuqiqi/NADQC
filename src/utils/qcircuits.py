@@ -4,7 +4,9 @@ from qiskit.circuit.library import (
     QFT, 
     PauliEvolutionGate, 
     CDKMRippleCarryAdder, 
-    DraperQFTAdder, 
+    DraperQFTAdder,
+    IntegerComparator,
+    RGQFTMultiplier,
     Permutation,
     IQP,
     TwoLocal,
@@ -36,7 +38,7 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
     circ = None
     optimization_level = 3
     if name == "QV":
-        circ = QuantumVolume(num_qubits, 20, seed=42).decompose()
+        circ = QuantumVolume(num_qubits, 10, seed=26).decompose()
     elif name == "BV":
         circ = BV(num_qubits).decompose()
     elif name == "QFT":
@@ -45,16 +47,20 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         circ = CuccaroAdder(num_qubits).decompose()
     elif name == "DraperQFTAdder":
         circ = MyDraperQFTAdder(num_qubits).decompose()
+    elif name == "Comparator":
+        circ = ComparatorCircuit(num_qubits)
     elif name == "Permutation":
         optimization_level = 0
         circ = Permutation(num_qubits, seed=21)
+    elif name == "Multiplier":
+        circ = MultiplierCircuit(num_qubits)
     elif name == "Random":
-        circ = random_circuit(num_qubits, 20, max_operands=4, seed=42)
-    # elif name == "QPE":
+        circ = random_circuit(num_qubits, 10, max_operands=4, seed=42)
     elif name == "QAOA":
         circ = QAOA(num_qubits)
         # circ = QiskitQAOA(num_qubits)
-
+    elif name == "Simon":
+        circ = SimonCircuit(num_qubits)
     elif "Fraction" in name: # CP_p_d
         parts = name.split("_")
         assert len(parts) >= 2, "[ERROR] Too few arguments for Fraction_p_depth."
@@ -99,10 +105,6 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         print(circ)
     else:
         circ = load_circ_from_qasm("./data/benchmarks", name)
-        # trans_bm = QASMbm(do_transpile=True,
-        #                   basis_gates=basis_gates,
-        #                   category="large")
-        # circ = trans_bm.bm.get(name).decompose()
 
     assert circ != None, "[ERROR] Unknown circuit name."
 
@@ -272,38 +274,6 @@ def MyDraperQFTAdder(num_qubits):
     assert actual_qubits == adder.num_qubits
     return adder
 
-# class QASMbm:
-#     def __init__(self, 
-#                  do_transpile=True, 
-#                  basis_gates=basis_gates, 
-#                  path="./QASMBench", 
-#                  category="small"):
-#         transpile_args = {
-#             "basis_gates": basis_gates
-#         }
-#         self.bm = QASMBenchmark(path, category, 
-#                                 num_qubits_list=None, 
-#                                 remove_final_measurements=True, 
-#                                 do_transpile=do_transpile, 
-#                                 **transpile_args)
-#         return
-
-#     def set_category(self, category):
-#         self.category = category
-#         return
-
-#     def get_circuit(self, circ_name, num_qpus=2):
-#         circ = self.bm.get(circ_name)
-#         qpu_capacity = circ.num_qubits // num_qpus + 1
-#         if qpu_capacity % 2 == 1:
-#             qpu_capacity += 1
-#         qpus = [qpu_capacity] * num_qpus
-#         return circ, qpus
-
-#     def get_circuit_list(self, circ_list):
-#         circ_list = self.bm.get(circ_list)
-#         return circ_list
-
 # def PauliGadget(num_qubits, reps=2, max_pauli_weight=10):
 #     if num_qubits < 1:
 #         raise ValueError("num_qubits must be >= 1")
@@ -343,6 +313,38 @@ def MyDraperQFTAdder(num_qubits):
 #             evolution_gate = PauliEvolutionGate(pauli_op, time=alpha_t)
 #             circuit.append(evolution_gate, range(num_qubits))
 #     return circuit
+
+def ComparatorCircuit(num_qubits: int):
+    """
+    Generate an IntegerComparator circuit whose number of qubits is <= num_qubits.
+
+    The comparator checks whether an n-bit quantum integer x satisfies:
+        x >= value
+
+    The function chooses the largest possible n such that the generated
+    IntegerComparator fits within num_qubits.
+    """
+    if num_qubits < 2:
+        raise ValueError("num_qubits must be at least 2 for IntegerComparator.")
+
+    # Try the largest possible num_state_qubits first.
+    # IntegerComparator needs state qubits + compare qubit + ancilla qubits.
+    for n in range(num_qubits, 0, -1):
+        value = 2 ** (n - 1)   # threshold, roughly half of the n-bit range
+
+        comparator = IntegerComparator(
+            num_state_qubits=n,
+            value=value,
+            geq=True,
+        )
+
+        if comparator.num_qubits <= num_qubits:
+            qc = QuantumCircuit(comparator.num_qubits, name=f"Comparator{comparator.num_qubits}")
+            qc.compose(comparator, qubits=list(range(comparator.num_qubits)), inplace=True)
+            qc = qc.decompose(reps=10)
+            return qc
+
+    raise RuntimeError("Failed to construct a comparator circuit.")
 
 def PauliGadget(num_qubits, reps = 20):
     np.random.seed(26)
@@ -456,9 +458,10 @@ def QAOA(num_qubits):
     # Cost Hamiltonian
     for j in range(num_qubits):
         for i in range(j+1, num_qubits):
-            qc.cx(j, i)
-            qc.rz(random.uniform(0, 2 * pi), i)
-            qc.cx(j, i)
+            # qc.cx(j, i)
+            # qc.rz(random.uniform(0, 2 * pi), i)
+            # qc.cx(j, i)
+            qc.rzz(random.uniform(0, 2 * pi), j, i)
 
     # Mixer Hamiltonian
     for i in range(num_qubits):
@@ -572,20 +575,96 @@ def QFTAdder(num_qubits):
     qc.append(iqft, range(num_qubits // 2, num_qubits))
     return qc.decompose()
 
-def MCMTcircuit(num_qubits, t=10):
+def MultiplierCircuit(num_qubits: int, max_state_qubits: int = 2, decompose: bool = True):
+    """
+    Generate a multiplier benchmark circuit with exactly num_qubits qubits,
+    but limit the actual multiplier size to control gate count.
+
+    RGQFTMultiplier with n state qubits uses 4*n qubits:
+        n qubits: first input register
+        n qubits: second input register
+        2n qubits: output register
+
+    Args:
+        num_qubits: total number of qubits in the returned circuit.
+        max_state_qubits: maximum n for RGQFTMultiplier(n).
+        decompose: whether to decompose the high-level multiplier.
+        to_basis: whether to transpile to ["u", "cx"] basis gates.
+
+    Returns:
+        QuantumCircuit with exactly num_qubits qubits.
+    """
+    if num_qubits < 4:
+        raise ValueError("num_qubits must be at least 4 for RGQFTMultiplier.")
+
+    # 最大不能超过 num_qubits // 4
+    n = min(num_qubits // 4, max_state_qubits)
+
+    multiplier = RGQFTMultiplier(num_state_qubits=n)
+
+    qc = QuantumCircuit(num_qubits, name=f"Multiplier{num_qubits}")
+
+    used_qubits = multiplier.num_qubits
+    qc.compose(multiplier, qubits=list(range(used_qubits)), inplace=True)
+
+    if decompose:
+        qc = qc.decompose(reps=3)
+
+    return qc
+
+# def MCMTcircuit(num_qubits, t=10):
+#     qc = QuantumCircuit(num_qubits)
+
+#     for _ in range(2):
+#         for i in range(0, num_qubits, t):
+#             if i + t <= num_qubits:
+#                 # 随机选择基础门
+#                 base_gate = random.choice([HGate(), RZGate(np.random.uniform(0, 2 * np.pi))])
+#                 num_ctrl = t // 2
+#                 num_target = t - num_ctrl
+#                 mcmt_gate = MCMT(base_gate, num_ctrl, num_target)
+#                 qargs = list(range(i, i + t))
+#                 random.shuffle(qargs)
+#                 qc.append(mcmt_gate, qargs)
+
+#     return qc
+
+def MCMTcircuit(num_qubits, t=15, k=10):
+    """
+    Generate a random MCMT benchmark circuit.
+
+    Each MCMT gate acts on t randomly selected qubits from the full circuit.
+    Among them, the first t//2 qubits are controls, and the remaining qubits
+    are targets according to Qiskit's MCMT qubit ordering.
+
+    Args:
+        num_qubits: total number of qubits in the circuit.
+        t: number of qubits involved in each MCMT gate.
+        k: number of MCMT gates to generate.
+
+    Returns:
+        QuantumCircuit: generated random MCMT circuit.
+    """
+    if t > num_qubits:
+        raise ValueError("t must be no larger than num_qubits.")
+
     qc = QuantumCircuit(num_qubits)
 
-    for _ in range(2):
-        for i in range(0, num_qubits, t):
-            if i + t <= num_qubits:
-                # 随机选择基础门
-                base_gate = random.choice([HGate(), RZGate(np.random.uniform(0, 2 * np.pi))])
-                num_ctrl = t // 2
-                num_target = t - num_ctrl
-                mcmt_gate = MCMT(base_gate, num_ctrl, num_target)
-                qargs = list(range(i, i + t))
-                random.shuffle(qargs)
-                qc.append(mcmt_gate, qargs)
+    num_ctrl = t // 2
+    num_target = t - num_ctrl
+
+    for _ in range(k):
+        base_gate = random.choice([
+            HGate(),
+            RZGate(np.random.uniform(0, 2 * np.pi))
+        ])
+
+        mcmt_gate = MCMT(base_gate, num_ctrl, num_target)
+
+        # Randomly select t distinct qubits from the whole circuit
+        qargs = random.sample(range(num_qubits), t)
+
+        qc.append(mcmt_gate, qargs)
 
     return qc
 
@@ -673,12 +752,13 @@ def VQC_AA(num_qubits):
                 qc.crz(angle_crz, i, j)  # 应用 CRZ 门
     return qc
 
-def VQC(num_qubits):
+def VQC(num_qubits, k=5):
     qc = QuantumCircuit(num_qubits)
     for i in range(num_qubits):
-        for j in range(num_qubits):
-            if i == j:
-                continue
+        candidates = [j for j in range(num_qubits) if j != i]
+        selected_js = np.random.choice(candidates, size=min(k, len(candidates)), replace=False)
+
+        for j in selected_js:
             # qc.barrier()  # 加入 barrier 隔离量子门
             angle = np.random.rand() * 2 * pi  # 随机生成 0 到 2π 的角度
             # qc.rzz(angle, i, j)
@@ -962,3 +1042,96 @@ def BV(num_qubits, secret_bitstring=None):
 #         iqft: QuantumCircuit | None = None,  # 自定义逆QFT，默认内置标准IQFT
 #         name: str = "QPE"
 #     )
+
+
+def SimonCircuit(
+    num_qubits: int,
+    hidden_string: str | None = None,
+    seed: int | None = 42,
+):
+    """
+    Generate a Simon algorithm circuit with exactly num_qubits qubits.
+
+    Register layout:
+        input register:  q[0] ... q[n-1]
+        output register: q[n] ... q[2n-1]
+
+    If num_qubits is odd, the last qubit is left idle.
+
+    The oracle is constructed from a nonzero hidden string s and satisfies:
+        f(x) = f(x xor s)
+
+    Args:
+        num_qubits:
+            Total number of qubits in the returned circuit.
+        hidden_string:
+            Optional binary string s of length n.
+            If None, a random nonzero hidden string is generated.
+        seed:
+            Random seed.
+
+    Returns:
+        QuantumCircuit: Simon circuit with exactly num_qubits qubits.
+    """
+    if num_qubits < 4:
+        raise ValueError("num_qubits must be at least 4 for a Simon circuit.")
+
+    rng = random.Random(seed)
+
+    n = num_qubits // 2
+
+    # Generate or check hidden string.
+    if hidden_string is None:
+        while True:
+            hidden_string = "".join(rng.choice(["0", "1"]) for _ in range(n))
+            if "1" in hidden_string:
+                break
+    else:
+        if len(hidden_string) != n:
+            raise ValueError(f"hidden_string must have length {n}.")
+        if any(c not in "01" for c in hidden_string):
+            raise ValueError("hidden_string must contain only '0' and '1'.")
+        if "1" not in hidden_string:
+            raise ValueError("hidden_string must be nonzero for Simon's problem.")
+
+    s = [int(c) for c in hidden_string]
+
+    qc = QuantumCircuit(num_qubits, name=f"Simon{num_qubits}")
+
+    x = list(range(n))
+    y = list(range(n, 2 * n))
+
+    # Step 1: Hadamard on input register.
+    qc.h(x)
+
+    # Step 2: Simon oracle.
+    #
+    # Pick a pivot p where s[p] = 1.
+    # Construct n-1 output bits:
+    #     y_j = x_j xor s_j * x_p, for j != p
+    #
+    # Then f(x) = f(x xor s), because:
+    #     x_j xor s_j * x_p
+    # is invariant under x -> x xor s.
+    p = s.index(1)
+
+    out_idx = 0
+    for j in range(n):
+        if j == p:
+            continue
+
+        # y[out_idx] ^= x[j]
+        qc.cx(x[j], y[out_idx])
+
+        # If s[j] = 1, also y[out_idx] ^= x[p]
+        if s[j] == 1:
+            qc.cx(x[p], y[out_idx])
+
+        out_idx += 1
+
+    # The last output qubit is unused because the function has rank n-1.
+
+    # Step 3: Hadamard on input register.
+    qc.h(x)
+
+    return qc

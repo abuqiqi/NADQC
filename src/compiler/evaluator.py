@@ -1113,26 +1113,16 @@ class MappingEvaluator:
             src_qpu = old_locations[q].qpu_id
             if src_qpu == dst_qpu:
                 continue
-            if graph.has_edge(dst_qpu, src_qpu):
-                reverse_qubits = graph[dst_qpu][src_qpu]["qubits"]
-                if reverse_qubits:
-                    partner_q = int(reverse_qubits.pop(0))
-                    self._decrement_or_remove_edge(graph, dst_qpu, src_qpu)
-                    self._process_teledata_batch(
-                        [
-                            TeledataMove(q, src_qpu, dst_qpu),
-                            TeledataMove(partner_q, dst_qpu, src_qpu),
-                        ],
-                        "teledata-pair",
-                        state,
-                        transition_partition,
-                        target_partition,
-                        network,
-                        policy,
-                    )
-                    continue
             self._append_move_to_graph(graph, src_qpu, dst_qpu, q)
 
+        self._process_bidirectional_teledata_pairs(
+            graph,
+            state,
+            transition_partition,
+            target_partition,
+            network,
+            policy,
+        )
         self._process_cycle_teledata(
             graph,
             state,
@@ -1220,9 +1210,11 @@ class MappingEvaluator:
             )
 
         for move in moves:
-            dst_wire = move.dst_wire
-            if dst_wire is None:
-                dst_wire = self._select_free_target_comp_wire(state, target_partition, move.dst_qpu)
+            dst_wire = (
+                int(move.dst_wire)
+                if move.dst_wire is not None
+                else self._select_free_target_comp_wire(state, target_partition, move.dst_qpu)
+            )
             self.require_comp_wire_available_for_landing(state, target_partition, move.dst_qpu, dst_wire)
             self.add_local_ops(
                 state,
@@ -1268,6 +1260,58 @@ class MappingEvaluator:
                     f"qpu={qpu_id}, required={required}, available={reserve}, "
                     f"outgoing={outgoing[qpu_id]}, incoming={incoming[qpu_id]}"
                 )
+
+    def _process_bidirectional_teledata_pairs(
+        self,
+        graph: nx.DiGraph,
+        state: EvaluationState,
+        partition: list[list[int]],
+        target_partition: list[list[int]],
+        network: Network,
+        policy: EvaluationPolicy,
+    ) -> None:
+        while True:
+            pair_edge: tuple[int, int] | None = None
+            for src_qpu, dst_qpu in list(graph.edges()):
+                src_qpu = int(src_qpu)
+                dst_qpu = int(dst_qpu)
+                if graph.has_edge(dst_qpu, src_qpu):
+                    pair_edge = (src_qpu, dst_qpu)
+                    break
+            if pair_edge is None:
+                return
+
+            src_qpu, dst_qpu = pair_edge
+            q = self._select_outgoing_qubit_that_releases_target_slot(
+                graph,
+                state,
+                target_partition,
+                src_qpu,
+                dst_qpu,
+            )
+            partner_q = self._select_outgoing_qubit_that_releases_target_slot(
+                graph,
+                state,
+                target_partition,
+                dst_qpu,
+                src_qpu,
+            )
+            graph[src_qpu][dst_qpu]["qubits"].remove(q)
+            graph[dst_qpu][src_qpu]["qubits"].remove(partner_q)
+            self._decrement_or_remove_edge(graph, src_qpu, dst_qpu)
+            self._decrement_or_remove_edge(graph, dst_qpu, src_qpu)
+            self._process_teledata_batch(
+                [
+                    TeledataMove(q, src_qpu, dst_qpu),
+                    TeledataMove(partner_q, dst_qpu, src_qpu),
+                ],
+                "teledata-pair",
+                state,
+                partition,
+                target_partition,
+                network,
+                policy,
+            )
 
     def _move_resident_with_local_swap(
         self,
@@ -1387,7 +1431,14 @@ class MappingEvaluator:
                     for idx in range(length):
                         src_qpu = cycle[idx]
                         dst_qpu = cycle[(idx + 1) % length]
-                        q = int(graph[src_qpu][dst_qpu]["qubits"].pop(0))
+                        q = self._select_outgoing_qubit_that_releases_target_slot(
+                            graph,
+                            state,
+                            target_partition,
+                            src_qpu,
+                            dst_qpu,
+                        )
+                        graph[src_qpu][dst_qpu]["qubits"].remove(q)
                         moves.append(TeledataMove(q, src_qpu, dst_qpu))
                     self._process_teledata_batch(
                         moves,
@@ -1455,12 +1506,52 @@ class MappingEvaluator:
                     raise RuntimeError(
                         f"remaining teledata destination has no free target comp wire and no outgoing move: qpu={curr_dst}"
                     )
-                _next_src, next_dst = next_edges[0]
-                blocking_q = int(graph[curr_dst][next_dst]["qubits"][0])
+                next_dst: int | None = None
+                blocking_q: int | None = None
+                for _next_src, candidate_dst in next_edges:
+                    try:
+                        blocking_q = self._select_outgoing_qubit_that_releases_target_slot(
+                            graph,
+                            state,
+                            target_partition,
+                            curr_dst,
+                            int(candidate_dst),
+                        )
+                        next_dst = int(candidate_dst)
+                        break
+                    except RuntimeError:
+                        continue
+                if next_dst is None or blocking_q is None:
+                    raise RuntimeError(
+                        f"remaining teledata destination has no free target comp wire "
+                        f"and no outgoing move that releases one: qpu={curr_dst}"
+                    )
                 curr_src = curr_dst
-                curr_dst = int(next_dst)
-                curr_q = blocking_q
+                curr_dst = next_dst
+                curr_q = int(blocking_q)
         return None
+
+    def _select_outgoing_qubit_that_releases_target_slot(
+        self,
+        graph: nx.DiGraph,
+        state: EvaluationState,
+        target_partition: list[list[int]],
+        src_qpu: int,
+        dst_qpu: int,
+    ) -> int:
+        qubits = [int(q) for q in graph[int(src_qpu)][int(dst_qpu)]["qubits"]]
+        if self._has_free_target_comp_wire(state, target_partition, int(src_qpu)):
+            return qubits[0]
+
+        target_comp_count = len(target_partition[int(src_qpu)])
+        for q in qubits:
+            loc = state.logical_pos[int(q)]
+            if loc.qpu_id == int(src_qpu) and loc.local_wire < target_comp_count:
+                return q
+        raise RuntimeError(
+            f"[EVALUATOR] no outgoing move releases a target comp wire: "
+            f"src_qpu={src_qpu}, dst_qpu={dst_qpu}, qubits={qubits}"
+        )
 
     def require_comp_wire_available_for_landing(
         self,

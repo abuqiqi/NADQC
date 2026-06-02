@@ -3,7 +3,7 @@ import datetime
 from pathlib import Path
 
 from src.utils import get_config, Backend, Network, select_circuit
-from src.navi.navi_hybrid import CompilationContext, NAVIHybrid
+from src.navi.navi_compiler import CompilationContext, NAVI
 from src.compiler.compiler_utils import CompilerUtils
 from src.baselines.autocomm import QAutoComm
 
@@ -67,7 +67,7 @@ def main():
     )
     print("task_info:", task_info)
 
-    nh = NAVIHybrid()
+    nh = NAVI()
     ctx = CompilationContext(circuit=trans_circ, network=network, config={})
     nh._step_remove_single_qubit_gates(ctx)
 

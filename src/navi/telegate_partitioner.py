@@ -507,7 +507,7 @@ class PytketDQCPartitioner(TelegatePartitioner):
             mapping_type="telegate",
             logical_phy_map=CompilerUtils.init_logical_phy_map(partition),
         )
-        costs, _, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(record, circuit, network)
+        costs, _, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(record, circuit, network, config=config)
         
         return record
 

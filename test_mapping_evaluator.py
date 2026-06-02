@@ -1,5 +1,6 @@
 import math
 
+import networkx as nx
 import pytest
 from qiskit import QuantumCircuit
 from qiskit.circuit import Gate
@@ -431,6 +432,153 @@ def test_bidirectional_partition_transition_with_two_comm_wires_per_qpu():
 
     assert state.logical_pos[0].qpu_id == 1
     assert state.logical_pos[1].qpu_id == 0
+    assert state.costs.epairs == 2
+
+
+def test_full_cycle_partition_transition_lands_in_target_qpus_without_free_comp_space():
+    evaluator = MappingEvaluator()
+    network = _Network(num_backends=3, comm_slot_reserve=2)
+    prev_partition = [[0], [1], [2]]
+    target_partition = [[2], [0], [1]]
+    state = evaluator._initialize_state_from_partition(prev_partition, network)
+
+    evaluator._evaluate_partition_transition(
+        prev_partition=prev_partition,
+        target_partition=target_partition,
+        network=network,
+        policy=EvaluationPolicy.local_all_to_all(),
+        state=state,
+    )
+
+    assert state.logical_pos == {
+        0: RuntimeLocation(qpu_id=1, local_wire=0),
+        1: RuntimeLocation(qpu_id=2, local_wire=0),
+        2: RuntimeLocation(qpu_id=0, local_wire=0),
+    }
+    assert state.costs.epairs == 3
+    for qpu_id, expected_q in enumerate([2, 0, 1]):
+        owner = state.wire_owners[qpu_id][0]
+        assert owner.kind == "resident"
+        assert owner.logical_qid == expected_q
+
+
+def test_partition_transition_pair_swap_does_not_require_target_wire_order():
+    evaluator = MappingEvaluator()
+    network = _Network(num_backends=2, comm_slot_reserve=2)
+    prev_partition = [[0, 1], [2, 3]]
+    target_partition = [[3, 1], [2, 0]]
+    state = evaluator._initialize_state_from_partition(prev_partition, network)
+
+    evaluator._evaluate_partition_transition(
+        prev_partition=prev_partition,
+        target_partition=target_partition,
+        network=network,
+        policy=EvaluationPolicy.local_all_to_all(),
+        state=state,
+    )
+
+    assert state.logical_pos[3] == RuntimeLocation(qpu_id=0, local_wire=0)
+    assert state.logical_pos[1] == RuntimeLocation(qpu_id=0, local_wire=1)
+    assert state.logical_pos[2] == RuntimeLocation(qpu_id=1, local_wire=0)
+    assert state.logical_pos[0] == RuntimeLocation(qpu_id=1, local_wire=1)
+    assert state.wire_owners[0][0].kind == "resident"
+    assert state.wire_owners[0][0].logical_qid == 3
+    assert state.wire_owners[1][1].kind == "resident"
+    assert state.wire_owners[1][1].logical_qid == 0
+    assert state.costs.epairs == 2
+
+
+def test_multi_weight_full_cycle_partition_transition_runs_unit_cycles():
+    evaluator = MappingEvaluator()
+    network = _Network(num_backends=3, comm_slot_reserve=2)
+    prev_partition = [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
+    target_partition = [[6, 7, 8], [0, 1, 2], [3, 4, 5]]
+    state = evaluator._initialize_state_from_partition(prev_partition, network)
+
+    evaluator._evaluate_partition_transition(
+        prev_partition=prev_partition,
+        target_partition=target_partition,
+        network=network,
+        policy=EvaluationPolicy.local_all_to_all(),
+        state=state,
+    )
+
+    expected_qpus = {
+        0: 1,
+        1: 1,
+        2: 1,
+        3: 2,
+        4: 2,
+        5: 2,
+        6: 0,
+        7: 0,
+        8: 0,
+    }
+    assert {q: loc.qpu_id for q, loc in state.logical_pos.items()} == expected_qpus
+    assert all(loc.local_wire < 3 for loc in state.logical_pos.values())
+    assert state.costs.epairs == 9
+
+
+def test_one_way_partition_transition_to_free_destination_slot_succeeds():
+    evaluator = MappingEvaluator()
+    network = _Network(num_backends=2, comm_slot_reserve=1)
+    prev_partition = [[0, 1], [2]]
+    target_partition = [[1], [2, 0]]
+    state = evaluator._initialize_state_from_partition(prev_partition, network)
+
+    evaluator._evaluate_partition_transition(
+        prev_partition=prev_partition,
+        target_partition=target_partition,
+        network=network,
+        policy=EvaluationPolicy.local_all_to_all(),
+        state=state,
+    )
+
+    assert state.logical_pos[0].qpu_id == 1
+    assert state.logical_pos[0].local_wire < 2
+    assert state.costs.epairs == 1
+
+
+def test_one_way_partition_transition_to_full_destination_without_path_fails():
+    evaluator = MappingEvaluator()
+    network = _Network(num_backends=2, comm_slot_reserve=1)
+    prev_partition = [[0], [1]]
+    target_partition = [[0], [1]]
+    state = evaluator._initialize_state_from_partition(prev_partition, network)
+    graph = nx.DiGraph()
+    graph.add_nodes_from(range(network.num_backends))
+    evaluator._append_move_to_graph(graph, 0, 1, 0)
+
+    with pytest.raises(RuntimeError, match="no free target comp wire"):
+        evaluator._process_remaining_teledata(
+            graph=graph,
+            state=state,
+            partition=prev_partition,
+            target_partition=target_partition,
+            network=network,
+            policy=EvaluationPolicy.local_all_to_all(),
+        )
+
+
+def test_one_way_partition_transition_uses_path_to_release_intermediate_slot():
+    evaluator = MappingEvaluator()
+    network = _Network(num_backends=3, comm_slot_reserve=2)
+    prev_partition = [[0], [1], []]
+    target_partition = [[], [0], [1]]
+    state = evaluator._initialize_state_from_partition(prev_partition, network)
+
+    evaluator._evaluate_partition_transition(
+        prev_partition=prev_partition,
+        target_partition=target_partition,
+        network=network,
+        policy=EvaluationPolicy.local_all_to_all(),
+        state=state,
+    )
+
+    assert state.logical_pos[0].qpu_id == 1
+    assert state.logical_pos[0].local_wire < 1
+    assert state.logical_pos[1].qpu_id == 2
+    assert state.logical_pos[1].local_wire < 1
     assert state.costs.epairs == 2
 
 

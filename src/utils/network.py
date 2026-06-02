@@ -8,18 +8,6 @@ import os
 
 from .backend import Backend
 
-
-def _normalize_deferred_initial_layout(value) -> str:
-    raw = str(value or "fixed").strip().lower()
-    if raw in {"fixed", "free"}:
-        return raw
-    # Backward-compatible aliases from old boolean-like configs.
-    if raw in {"false", "0", "no", "off"}:
-        return "fixed"
-    if raw in {"true", "1", "yes", "on"}:
-        return "free"
-    return "fixed"
-
 class Network:
     def __init__(self, network_config: dict, backend_list: list[Backend], build_all_to_all_copy: bool = True):
         self.num_backends = len(backend_list)
@@ -31,15 +19,6 @@ class Network:
         self.swap_fidelity, self.swap_fidelity_loss = self._compute_swap_fidelity()
         self.backends = backend_list
         self.comm_slot_reserve = int(network_config.get('comm_slot_reserve', 0) or 0)
-        self.flush_each_comm_gate = bool(network_config.get('flush_each_comm_gate', False))
-        self.sequential_initial_layout = bool(network_config.get('sequential_initial_layout', False))
-        self.debug_layout_tracking = bool(network_config.get('debug_layout_tracking', False))
-        self.skip_comm_payload_local_routing = bool(network_config.get('skip_comm_payload_local_routing', False))
-        self.local_eval_mode = str(network_config.get('local_eval_mode', 'immediate') or 'immediate')
-        self.deferred_route_local_gates = bool(network_config.get('deferred_route_local_gates', True))
-        self.deferred_initial_layout = _normalize_deferred_initial_layout(
-            network_config.get('deferred_initial_layout', 'fixed')
-        )
         self.layout_trace_records = None
         # 后端实际容量（用于transpile/通信临时槽）
         self.backend_sizes_full = [backend.num_qubits for backend in self.backends]
@@ -74,9 +53,23 @@ class Network:
             "fidelity": self.fidelity_range
         }
 
+    def _infer_mesh_grid_size(self) -> tuple[int, int]:
+        """
+        Infer a compact row-major mesh size when the config does not specify one.
+        Examples: 4 -> 2x2, 8 -> 2x4, 16 -> 4x4.
+        """
+        n = int(self.num_backends)
+        n_rows = int(math.sqrt(n))
+        while n_rows > 1 and n % n_rows != 0:
+            n_rows -= 1
+        n_cols = n // n_rows
+        return n_rows, n_cols
+
     def _build_network_coupling(self, network_config: dict) -> dict:
         self.net_type = network_config.get('type', 'all_to_all')
-        self.size = network_config.get('size', (self.num_backends, 1))
+        self.size = network_config.get('size')
+        if self.size is None:
+            self.size = self._infer_mesh_grid_size() if self.net_type == 'mesh_grid' else (self.num_backends, 1)
         self.fidelity_range = network_config.get('fidelity_range', [0.95, 0.98])
 
         # 验证保真度范围

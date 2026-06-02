@@ -118,6 +118,7 @@ class Mapper(ABC):
                 record,
                 subcircuit,
                 network,
+                config=config,
             )
 
         return mapping_record_list
@@ -195,6 +196,10 @@ class Mapper(ABC):
         ) -> list[list[float]]:
         """
         估计单record场景下，各partition之间的通信强度矩阵。
+
+        该估计必须与 MappingEvaluator 的远程通信语义保持一致：
+        - 普通跨QPU gate 会被 evaluator 合成为一次 CAT telegate，source 为第一个操作数；
+        - CommOp 直接使用其 src_qpu/dst_qpu 元数据作为远程端点。
         """
         n = len(partition)
         comm = [[0.0 for _ in range(n)] for __ in range(n)]
@@ -208,41 +213,44 @@ class Mapper(ABC):
             op = instruction.operation
 
             if isinstance(op, CommOp):
-                src = int(op.source_qubit)
-                src_b = qubit_to_block.get(src)
-                if src_b is None:
+                src_b = int(op.src_qpu)
+                dst_b = int(op.dst_qpu)
+                if src_b == dst_b:
                     continue
+                if not (0 <= src_b < n and 0 <= dst_b < n):
+                    raise RuntimeError(
+                        "[COMM_MATRIX] CommOp endpoint out of partition range: "
+                        f"src_qpu={src_b}, dst_qpu={dst_b}, partition_size={n}"
+                    )
+                w = 2.0 if op.comm_type == "rtp" else 1.0
+                comm[src_b][dst_b] += w
+                comm[dst_b][src_b] += w
+                continue
 
-                if op.comm_type == "rtp":
-                    w = 2.0
-                else:
-                    w = 1.0
-
-                # 单source的收尾TP不形成块间关系，跳过即可
-                for q in op.involved_qubits:
-                    q = int(q)
-                    if q == src:
-                        continue
-                    dst_b = qubit_to_block.get(q)
-                    if dst_b is None or dst_b == src_b:
-                        continue
-                    comm[src_b][dst_b] += w
-                    comm[dst_b][src_b] += w
+            gate_name = str(getattr(op, "name", "")).lower()
+            if gate_name in {"barrier", "measure"}:
                 continue
 
             qids = [subcircuit.qubits.index(qubit) for qubit in instruction.qubits]
-            if len(qids) <= 1:
+            if len(qids) < 2:
                 continue
 
-            # 与evaluate_local_and_telegate_with_cat一致，按相邻qids计跨分区通信关系
-            for i in range(len(qids) - 1):
-                q1, q2 = int(qids[i]), int(qids[i + 1])
-                b1 = qubit_to_block.get(q1)
-                b2 = qubit_to_block.get(q2)
-                if b1 is None or b2 is None or b1 == b2:
-                    continue
-                comm[b1][b2] += 1.0
-                comm[b2][b1] += 1.0
+            src_q = int(qids[0])
+            src_b = qubit_to_block.get(src_q)
+            if src_b is None:
+                continue
+
+            dst_b = None
+            for q in qids[1:]:
+                candidate = qubit_to_block.get(int(q))
+                if candidate is not None and candidate != src_b:
+                    dst_b = candidate
+                    break
+            if dst_b is None:
+                continue
+
+            comm[src_b][dst_b] += 1.0
+            comm[dst_b][src_b] += 1.0
 
         return comm
 
@@ -455,6 +463,7 @@ class SingleRecordExhaustiveMapper(Mapper):
                 trial_record, # logical_phy_map会在record中更新
                 trial_subcircuit,
                 network,
+                config=config,
             )
 
             print(
@@ -557,13 +566,20 @@ class SingleRecordGreedyMapper(Mapper):
         trial_record.extra_info["ops"] = trial_subcircuit
         trial_record.extra_info["perm"] = list(greedy_perm)
         
-        costs, _, _ = CompilerUtils.evaluate_local_and_telegate_with_cat(
-            trial_record,
-            trial_subcircuit,
+        evaluated_records = MappingRecordList()
+        evaluated_records.add_record(trial_record)
+        policy_name = (config or {}).get("evaluator_policy")
+        evaluated_records = CompilerUtils.evaluate_raw_mapping_records(
+            evaluated_records,
             network,
+            policy_name=policy_name,
+            config=config,
         )
+        evaluated_record = evaluated_records.records[0]
+        costs = evaluated_record.costs
 
-        mapping_record_list.records[0] = trial_record
+        mapping_record_list.records[0] = evaluated_record
+        mapping_record_list.summarize_total_costs()
 
         print(
             f"[INFO] [{self.name}] greedy_perm={greedy_perm}, epairs={costs.epairs}, "
@@ -673,6 +689,7 @@ class GreedyMapper(Mapper):
                     subcircuit,
                     network,
                     optimization_level=0,
+                    config=config,
                 )
                 costs += telegate_costs
 
@@ -771,7 +788,7 @@ class DPMapper(Mapper):
                 comm_phy_map={},
             )
             costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
-                trial_record, subcircuit, network, optimization_level=0)
+                trial_record, subcircuit, network, optimization_level=0, config=config)
 
             prev_bests.append(MappingRecord(
                 partition = partition,
@@ -833,7 +850,8 @@ class DPMapper(Mapper):
                         trial_record,
                         subcircuit,
                         network,
-                        optimization_level = 0
+                        optimization_level=0,
+                        config=config,
                     )
 
                     curr_costs += telegate_costs
@@ -1112,6 +1130,7 @@ class NeighborhoodBoundedDPMapper(Mapper):
                     subcircuit,
                     network,
                     optimization_level=0,
+                    config=config,
                 )
                 group_costs += tg_costs
                 curr_prev_partition = partition
@@ -1406,7 +1425,8 @@ class BoundedDPMapper(Mapper):
             )
             costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                 trial_record, subcircuit, network,
-                optimization_level=0
+                optimization_level=0,
+                config=config,
             )
             t0_full.append(MappingRecord(
                 partition=partition,
@@ -1478,7 +1498,8 @@ class BoundedDPMapper(Mapper):
                     )
                     telegate_costs, logical_phy_map, comm_phy_map = CompilerUtils.evaluate_local_and_telegate_with_cat(
                         trial_record, subcircuit, network,
-                        optimization_level=0
+                        optimization_level=0,
+                        config=config,
                     )
 
                     curr_total_costs += teledata_costs

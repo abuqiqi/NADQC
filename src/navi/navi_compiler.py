@@ -4,9 +4,11 @@ import time
 import sys
 import copy
 import itertools
+import json
 import numpy as np
 import networkx as nx
 import datetime
+from pathlib import Path
 
 from qiskit import QuantumCircuit, transpile
 from qiskit.converters import circuit_to_dag
@@ -83,11 +85,11 @@ class HybridSearchState:
     records: list[MappingRecord] = field(default_factory=list)
     logical_phy_map: dict[int, tuple[int, int | None]] = field(default_factory=dict)
 
-class NAVIHybrid(Compiler):
+class NAVI(Compiler):
     """
     Noise-Aware Distributed Quantum Compiler
     """
-    compiler_id = "navihybrid"
+    compiler_id = "navi"
     SHARED_PREFIX_CONFIG_KEYS = (
         "partitioner",
         "max_option",
@@ -99,7 +101,7 @@ class NAVIHybrid(Compiler):
     
     @property
     def name(self) -> str:
-        return "NAVI Hybrid+boundeddp neigh mapper"
+        return "NAVI"
 
     def compile(self, circuit: QuantumCircuit, 
                 network: Network, 
@@ -214,6 +216,66 @@ class NAVIHybrid(Compiler):
             records_time=records_time,
         )
 
+    def _checkpoint_enabled(self, ctx: CompilationContext) -> bool:
+        return bool(ctx.config.get("navi_checkpoint_enabled", False))
+
+    def _checkpoint_dir(self, ctx: CompilationContext) -> Path:
+        configured = ctx.config.get("navi_checkpoint_dir")
+        if configured:
+            return Path(str(configured))
+        circuit_name = str(ctx.config.get("circuit_name", f"circuit_{ctx.circuit.num_qubits}"))
+        return Path("outputs") / circuit_name / "navi_checkpoints"
+
+    def _write_checkpoint_manifest_entry(
+        self,
+        checkpoint_dir: Path,
+        key: str,
+        filename: str,
+        execution_time: Optional[float] = None,
+    ) -> None:
+        manifest_path = checkpoint_dir / "manifest.json"
+        manifest: dict[str, Any] = {}
+        if manifest_path.exists():
+            loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                manifest = {str(k): v for k, v in loaded.items()}
+        if execution_time is None:
+            manifest[key] = filename
+        else:
+            manifest[key] = {
+                "file": filename,
+                "execution_time": float(execution_time),
+            }
+        manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=4, sort_keys=True),
+            encoding="utf-8",
+        )
+
+    def _save_checkpoint_records(
+        self,
+        ctx: CompilationContext,
+        key: str,
+        filename: str,
+        records: MappingRecordList,
+        execution_time: Optional[float] = None,
+    ) -> None:
+        if not self._checkpoint_enabled(ctx):
+            return
+
+        checkpoint_dir = self._checkpoint_dir(ctx)
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        checkpoint_records = copy.deepcopy(records)
+        checkpoint_records.ensure_record_ops(ctx.circuit, ctx.circuit_layers)
+        checkpoint_records.num_records = len(checkpoint_records.records)
+        checkpoint_records.save_records(str(checkpoint_dir / filename), dump_type="raw")
+
+        self._write_checkpoint_manifest_entry(
+            checkpoint_dir,
+            key,
+            filename,
+            execution_time=execution_time,
+        )
+
     def _compile_impl(self,
                 circuit: QuantumCircuit,
                 network: Network,
@@ -244,18 +306,40 @@ class NAVIHybrid(Compiler):
     def _construct_records_from_ctx(
         self,
         ctx: CompilationContext,
+        shared_prefix_time: float = 0.0,
         use_direct_noise_aware: bool = False,
     ) -> tuple[MappingRecordList, float]:
         use_noise_aware_hybrid_records = bool(use_direct_noise_aware)
         records_start_time = time.time()
 
         teledata_only_records = self._step_construct_teledata_only_records(ctx)
+        self._save_checkpoint_records(
+            ctx,
+            "NAVI-Td",
+            "NAVI-Td_raw.json",
+            teledata_only_records,
+            execution_time=shared_prefix_time + (time.time() - records_start_time),
+        )
         teledata_eval_epairs = float(teledata_only_records.total_costs.epairs)
 
         if use_noise_aware_hybrid_records:
             hybrid_records = self._step_construct_direct_noise_aware_hybrid_records(ctx)
+            self._save_checkpoint_records(
+                ctx,
+                "NAVI-Direct",
+                "NAVI-Direct_raw.json",
+                hybrid_records,
+                execution_time=shared_prefix_time + (time.time() - records_start_time),
+            )
         else:
             hybrid_records = self._step_construct_hybrid_records_beam(ctx)
+            self._save_checkpoint_records(
+                ctx,
+                "NAVI-Hy",
+                "NAVI-Hy_raw.json",
+                hybrid_records,
+                execution_time=shared_prefix_time + (time.time() - records_start_time),
+            )
         hybrid_eval_epairs = hybrid_records.total_costs.epairs
 
         if not use_noise_aware_hybrid_records:
@@ -320,16 +404,20 @@ class NAVIHybrid(Compiler):
         )
 
         final_result.ensure_record_ops(ctx.circuit, ctx.circuit_layers)
+        self._save_checkpoint_records(ctx, "NAVI", "NAVI_raw.json", final_result)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         circuit_name = str(ctx.config.get("circuit_name", f"circuit_{ctx.circuit.num_qubits}"))
-        base_path = f"./outputs/{circuit_name}/{circuit_name}_{ctx.network.name}_{self.name}_{timestamp}"
+        base_path = CompilerUtils.build_record_base_path(circuit_name, ctx.network, self.name, timestamp)
         final_result.save_records(f"{base_path}_raw.json", dump_type="raw")
 
         policy_name = ctx.config.get("evaluator_policy")
-        final_result = CompilerUtils.evaluate_raw_mapping_records(
+        pre_eval_time = shared_prefix_time + records_time + (time.time() - mapper_start_time)
+        final_result, _, _ = self._evaluate_raw_mapping_records_with_timing(
             final_result,
             ctx.network,
             policy_name=policy_name,
+            config=ctx.config,
+            pre_eval_time=pre_eval_time,
         )
 
         exec_time = shared_prefix_time + records_time + (time.time() - mapper_start_time)
@@ -344,6 +432,13 @@ class NAVIHybrid(Compiler):
             f"cat_ents={post_mapper_costs.cat_ents}, epairs={post_mapper_costs.epairs}"
         )
         final_result.update_total_costs(execution_time=exec_time)
+        if self._checkpoint_enabled(ctx):
+            self._write_checkpoint_manifest_entry(
+                self._checkpoint_dir(ctx),
+                "NAVI",
+                "NAVI_raw.json",
+                execution_time=exec_time,
+            )
         final_result.save_records(f"{base_path}_evaluated.json", dump_type="evaluated")
         return final_result
 
@@ -356,6 +451,7 @@ class NAVIHybrid(Compiler):
     ) -> MappingRecordList:
         selected_records, records_time = self._construct_records_from_ctx(
             ctx,
+            shared_prefix_time=shared_prefix_time,
             use_direct_noise_aware=use_direct_noise_aware,
         )
         if override_mapper_id is not None:
@@ -887,6 +983,7 @@ class NAVIHybrid(Compiler):
                     record,
                     subcircuit,
                     ctx.network,
+                    config=ctx.config,
                 )
 
             reevaluated.summarize_total_costs()
@@ -1363,3 +1460,162 @@ class NAVIHybrid(Compiler):
             ori_right = ctx.map_to_circuit_layer[right]
 
         return (ori_left, ori_right)
+
+
+@dataclass(frozen=True)
+class NAVICheckpointEvaluationSpec:
+    id: str
+    name: str
+    source: str
+    policy: Optional[str] = None
+
+
+@dataclass
+class NAVICheckpointEvaluationResult:
+    result_info: dict[str, dict[str, Any]]
+    checkpoint_dir: Optional[Path] = None
+
+
+def navi_checkpoint_enabled(global_config: dict[str, Any]) -> bool:
+    cfg = global_config.get("navi_checkpoint")
+    return isinstance(cfg, dict) and bool(cfg.get("enabled", False))
+
+
+def parse_navi_checkpoint_evaluations(global_config: dict[str, Any]) -> list[NAVICheckpointEvaluationSpec]:
+    cfg = global_config.get("navi_checkpoint")
+    if not isinstance(cfg, dict) or not bool(cfg.get("enabled", False)):
+        return []
+
+    raw_items = cfg.get("evaluations", [])
+    if raw_items is None:
+        raw_items = []
+    if not isinstance(raw_items, list):
+        raise ValueError("navi_checkpoint.evaluations must be a list")
+
+    specs: list[NAVICheckpointEvaluationSpec] = []
+    seen_ids: set[str] = set()
+    seen_names: set[str] = set()
+    for idx, raw in enumerate(raw_items):
+        if not isinstance(raw, dict):
+            raise ValueError(f"navi_checkpoint.evaluations[{idx}] must be an object")
+        eval_id = str(raw.get("id", "")).strip()
+        if not eval_id:
+            raise ValueError(f"navi_checkpoint.evaluations[{idx}].id is required")
+        if eval_id in seen_ids:
+            raise ValueError(f"duplicate NAVI checkpoint evaluation id: {eval_id}")
+        name = str(raw.get("name", eval_id)).strip()
+        if not name:
+            raise ValueError(f"navi_checkpoint.evaluations[{idx}].name must not be empty")
+        if name in seen_names:
+            raise ValueError(f"duplicate NAVI checkpoint evaluation name: {name}")
+        source = str(raw.get("source", "")).strip()
+        if not source:
+            raise ValueError(f"navi_checkpoint.evaluations[{idx}].source is required")
+        policy = raw.get("policy")
+        if policy is not None:
+            policy = str(policy).strip() or None
+
+        specs.append(NAVICheckpointEvaluationSpec(id=eval_id, name=name, source=source, policy=policy))
+        seen_ids.add(eval_id)
+        seen_names.add(name)
+    return specs
+
+
+def load_mapping_record_list_from_raw_json(path: Path) -> MappingRecordList:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    record_list = MappingRecordList()
+    for item in data.get("records", []):
+        extra_info = item.get("extra_info")
+        extra_info = MappingRecordList._deserialize_extra_info(extra_info)
+        record = MappingRecord(
+            layer_start=int(item.get("layer_start", -1)),
+            layer_end=int(item.get("layer_end", -1)),
+            partition=[[int(q) for q in group] for group in item.get("partition", [])],
+            mapping_type=str(item.get("mapping_type", "")),
+            extra_info=copy.deepcopy(extra_info) if extra_info is not None else None,
+        )
+        record_list.add_record(record)
+    record_list.num_records = len(record_list.records)
+    return record_list
+
+
+def _parse_checkpoint_manifest_entry(entry: Any, source: str) -> tuple[str, Optional[float]]:
+    if isinstance(entry, str):
+        return entry, None
+    if isinstance(entry, dict):
+        rel_path = entry.get("file")
+        if not rel_path:
+            rel_path = entry.get("path")
+        if not rel_path:
+            raise ValueError(f"NAVI checkpoint manifest entry '{source}' must include a file")
+
+        execution_time = entry.get("execution_time")
+        if execution_time is None:
+            return str(rel_path), None
+        return str(rel_path), float(execution_time)
+
+    raise ValueError(
+        f"NAVI checkpoint manifest entry '{source}' must be a filename string or object, "
+        f"got {type(entry)}"
+    )
+
+
+def evaluate_navi_checkpoints_from_config(
+    global_config: dict[str, Any],
+    checkpoint_dir: str | Path | None,
+    network: Network,
+    task_info: dict[str, Any],
+    default_policy_name: Optional[str] = None,
+    config: Optional[dict[str, Any]] = None,
+) -> NAVICheckpointEvaluationResult:
+    specs = parse_navi_checkpoint_evaluations(global_config)
+    if not specs or checkpoint_dir is None:
+        return NAVICheckpointEvaluationResult(result_info={}, checkpoint_dir=None)
+
+    checkpoint_path = Path(checkpoint_dir)
+    manifest_path = checkpoint_path / "manifest.json"
+    if not manifest_path.exists():
+        print(f"[INFO] NAVI checkpoint manifest not found; skipping evaluations: {manifest_path}")
+        return NAVICheckpointEvaluationResult(result_info={}, checkpoint_dir=checkpoint_path)
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError(f"NAVI checkpoint manifest must be a JSON object: {manifest_path}")
+
+    result_info: dict[str, dict[str, Any]] = {}
+    for spec in specs:
+        manifest_entry = manifest.get(spec.source)
+        if manifest_entry is None:
+            available = ", ".join(sorted(str(key) for key in manifest.keys()))
+            raise ValueError(f"NAVI checkpoint source '{spec.source}' not found in manifest. Available: [{available}]")
+        rel_path, execution_time = _parse_checkpoint_manifest_entry(manifest_entry, spec.source)
+        raw_path = checkpoint_path / str(rel_path)
+        if not raw_path.exists():
+            raise FileNotFoundError(f"NAVI checkpoint raw file not found: {raw_path}")
+
+        record_list = load_mapping_record_list_from_raw_json(raw_path)
+        pre_eval_time = float(execution_time) if execution_time is not None else 0.0
+        print(
+            f"[TIMING] [{spec.name}] pre-evaluate raw mapping record time: "
+            f"{pre_eval_time:.6f} sec"
+        )
+        eval_start_time = time.time()
+        evaluated = CompilerUtils.evaluate_raw_mapping_records(
+            record_list,
+            network,
+            policy_name=spec.policy or default_policy_name,
+            config=config,
+        )
+        eval_time = time.time() - eval_start_time
+        print(
+            f"[TIMING] [{spec.name}] evaluate raw mapping record time: "
+            f"{eval_time:.6f} sec"
+        )
+        if execution_time is not None:
+            evaluated.update_total_costs(execution_time=execution_time)
+        result_info[spec.name] = {
+            "F_eff": np.exp(evaluated.total_costs.total_fidelity_log_sum / task_info["#Depth"]),
+            **evaluated.total_costs.to_dict(),
+        }
+
+    return NAVICheckpointEvaluationResult(result_info=result_info, checkpoint_dir=checkpoint_path)

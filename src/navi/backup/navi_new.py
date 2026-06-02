@@ -9,13 +9,13 @@ import networkx as nx
 from qiskit import QuantumCircuit
 from qiskit.converters import circuit_to_dag
 
-from ..compiler import Compiler, CompilerUtils, ExecCosts, MappingRecord, MappingRecordList
-from ..utils import Network
-from .partitioner import Partitioner, PartitionerFactory
-from .partition_assigner import PartitionAssigner, PartitionAssignerFactory
-from .telegate_partitioner import TelegatePartitioner, TelegatePartitionerFactory
-from .mapper import Mapper, MapperFactory
-from .navi_hybrid import CompilationContext
+from ...compiler import Compiler, CompilerUtils, ExecCosts, MappingRecord, MappingRecordList
+from ...utils import Network
+from ..partitioner import Partitioner, PartitionerFactory
+from ..partition_assigner import PartitionAssigner, PartitionAssignerFactory
+from ..telegate_partitioner import TelegatePartitioner, TelegatePartitionerFactory
+from ..mapper import Mapper, MapperFactory
+from ..navi_compiler import CompilationContext
 
 
 @dataclass

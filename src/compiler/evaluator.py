@@ -27,9 +27,10 @@ class EvaluationPolicy:
     # initial layout to Qiskit so replay is deterministic.
     fill_initial_layout: bool = False
     optimization_level: int = 3
-    local_eval_mode: Literal["immediate", "deferred"] = "immediate"
+    local_eval_mode: Literal["immediate", "deferred"] = "deferred"
     deferred_route_local_gates: bool = True
     deferred_initial_layout: Literal["fixed", "free"] = "fixed"
+    evaluate_telegate_execution_choice: bool = False
 
     @staticmethod
     def local_all_to_all() -> "EvaluationPolicy":
@@ -150,7 +151,21 @@ class MappingEvaluator:
                 )
             subcircuit = self._get_record_subcircuit(record)
 
-            self._evaluate_record_body(record, subcircuit, network, policy, state)
+            if self._should_choose_single_record_telegate_execution(
+                mapping_record_list,
+                record,
+                subcircuit,
+                policy,
+            ):
+                state = self._evaluate_single_record_telegate_execution_choice(
+                    record,
+                    subcircuit,
+                    network,
+                    policy,
+                    state,
+                )
+            else:
+                self._evaluate_record_body(record, subcircuit, network, policy, state)
             self.flush_local_ops(state, record.partition, network, policy)
             self._require_all_residents_in_comp_space(state, record.partition, "record-end")
             self._commit_state_to_record(record, state, record.partition)
@@ -240,6 +255,99 @@ class MappingEvaluator:
             raise ValueError(f"unknown local_eval_mode: {policy.local_eval_mode}")
         if policy.deferred_initial_layout not in {"fixed", "free"}:
             raise ValueError(f"unknown deferred_initial_layout: {policy.deferred_initial_layout}")
+
+    def _should_choose_single_record_telegate_execution(
+        self,
+        mapping_record_list: MappingRecordList,
+        record: MappingRecord,
+        subcircuit: QuantumCircuit,
+        policy: EvaluationPolicy,
+    ) -> bool:
+        if not policy.evaluate_telegate_execution_choice:
+            return False
+        if len(mapping_record_list.records) != 1:
+            return False
+        if str(record.mapping_type) not in {"cat", "telegate"}:
+            return False
+        if record.extra_info is None or "ops" not in record.extra_info:
+            return False
+        if not isinstance(record.extra_info.get("simple_telegate_ops"), QuantumCircuit):
+            return False
+        return any(isinstance(instruction.operation, CommOp) for instruction in subcircuit)
+
+    def _evaluate_single_record_telegate_execution_choice(
+        self,
+        record: MappingRecord,
+        commop_subcircuit: QuantumCircuit,
+        network: Network,
+        policy: EvaluationPolicy,
+        base_state: EvaluationState,
+    ) -> EvaluationState:
+        simple_subcircuit, simple_source = self._resolve_simple_telegate_subcircuit(record, commop_subcircuit)
+        if simple_subcircuit is None:
+            self._evaluate_record_body(record, commop_subcircuit, network, policy, base_state)
+            self.flush_local_ops(base_state, record.partition, network, policy, final=True)
+            self._require_all_residents_in_comp_space(base_state, record.partition, "record-end:commop-fallback")
+            self._record_telegate_execution_choice(
+                record,
+                choice="commop",
+                commop_loss=base_state.costs.total_fidelity_loss,
+                simple_loss=None,
+                simple_source=simple_source,
+                reason="missing_saved_original",
+            )
+            return base_state
+
+        commop_state = copy.deepcopy(base_state)
+        simple_state = copy.deepcopy(base_state)
+
+        self._evaluate_record_body(record, commop_subcircuit, network, policy, commop_state)
+        self.flush_local_ops(commop_state, record.partition, network, policy, final=True)
+        self._require_all_residents_in_comp_space(commop_state, record.partition, "record-end:commop-choice")
+
+        self._evaluate_record_body(record, simple_subcircuit, network, policy, simple_state)
+        self.flush_local_ops(simple_state, record.partition, network, policy, final=True)
+        self._require_all_residents_in_comp_space(simple_state, record.partition, "record-end:simple-choice")
+
+        commop_loss = float(commop_state.costs.total_fidelity_loss)
+        simple_loss = float(simple_state.costs.total_fidelity_loss)
+        if simple_loss < commop_loss:
+            self._record_telegate_execution_choice(record, "simple", commop_loss, simple_loss, simple_source)
+            return simple_state
+
+        self._record_telegate_execution_choice(record, "commop", commop_loss, simple_loss, simple_source)
+        return commop_state
+
+    def _resolve_simple_telegate_subcircuit(
+        self,
+        record: MappingRecord,
+        commop_subcircuit: QuantumCircuit,
+    ) -> tuple[QuantumCircuit | None, str]:
+        saved_simple = (record.extra_info or {}).get("simple_telegate_ops")
+        if isinstance(saved_simple, QuantumCircuit):
+            return copy.deepcopy(saved_simple), "saved_original"
+        return None, "missing_saved_original"
+
+    def _record_telegate_execution_choice(
+        self,
+        record: MappingRecord,
+        choice: str,
+        commop_loss: float,
+        simple_loss: float | None,
+        simple_source: str,
+        reason: str | None = None,
+    ) -> None:
+        if record.extra_info is None:
+            record.extra_info = {}
+        record.extra_info["telegate_execution_choice"] = choice
+        losses: dict[str, float | None] = {
+            "commop": float(commop_loss),
+            "simple": None if simple_loss is None else float(simple_loss),
+        }
+        record.extra_info["telegate_execution_choice_losses"] = losses
+        record.extra_info["telegate_execution_simple_source"] = simple_source
+        if reason is not None:
+            record.extra_info["telegate_execution_choice_reason"] = reason
 
     def _new_routed_buffers(
         self,

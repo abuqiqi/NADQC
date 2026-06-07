@@ -120,6 +120,7 @@ def main(args, timestamp: str | None = None, initial_stdout_buffer: io.StringIO 
     # 调用不同的compiler
     result_info = {}
     output_path = _build_output_csv_path(global_config, args, timestamp)
+    output_path = "./outputs/260607-Scalability-Qubits.csv"
 
     registered_compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     default_compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi"]
@@ -181,7 +182,11 @@ def main(args, timestamp: str | None = None, initial_stdout_buffer: io.StringIO 
         )
         for compiler_name, metrics in checkpoint_result.result_info.items():
             if compiler_name in result_info:
-                print(f"[WARN] NAVI checkpoint result [{compiler_name}] overwrites an existing compiler result.")
+                print(
+                    f"[WARN] NAVI checkpoint result [{compiler_name}] duplicates an existing "
+                    "compiler result; keeping the primary compiler result."
+                )
+                continue
             result_info[compiler_name] = metrics
     except Exception as exc:
         print(f"[ERROR] NAVI checkpoint evaluation failed: {exc}")

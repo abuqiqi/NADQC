@@ -13,7 +13,8 @@ from qiskit.circuit.library import (
     ZZFeatureMap,
     QAOAAnsatz,
     MCMT,
-    XGate, HGate, ZGate, RZGate
+    XGate, HGate, ZGate, RZGate,
+    EfficientSU2
 )
 from qiskit.circuit.random import random_circuit
 import random
@@ -42,7 +43,8 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
     elif name == "BV":
         circ = BV(num_qubits).decompose()
     elif name == "QFT":
-        circ = QFT(num_qubits).decompose()
+        # circ = QFT(num_qubits).decompose()
+        circ = qft_body(num_qubits)
     elif name == "CuccaroAdder":
         circ = CuccaroAdder(num_qubits).decompose()
     elif name == "DraperQFTAdder":
@@ -57,8 +59,9 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
     elif name == "Random":
         circ = random_circuit(num_qubits, 10, max_operands=4, seed=42)
     elif name == "QAOA":
-        circ = QAOA(num_qubits)
+        # circ = QAOA(num_qubits)
         # circ = QiskitQAOA(num_qubits)
+        circ = QiskitMaxCutQAOA(num_qubits)
     elif name == "Simon":
         circ = SimonCircuit(num_qubits)
     elif "Fraction" in name: # CP_p_d
@@ -83,10 +86,11 @@ def select_circuit(name, num_qubits, num_qpus, qpus, basis_gates, two_qubit_gate
         circ = myIQP(num_qubits).decompose()
     elif name == "VQC_AA":
         circ = VQC_AA(num_qubits).decompose()
-    elif name == "VQC":
+    elif name == "PQC" or name == "VQC":
         circ = VQC(num_qubits).decompose()
     elif name == "VQE" or name.startswith("VQE_"):
-        circ = build_vqe_benchmark(name, num_qubits).decompose()
+        # circ = build_vqe_benchmark(name, num_qubits).decompose()
+        circ = QiskitVQE(num_qubits)
     elif name == "QKNN" or name.startswith("QKNN_"):
         circ = build_qknn_benchmark(name, num_qubits).decompose()
     elif name == "SwapTest" or name.startswith("SwapTest_"):
@@ -314,7 +318,7 @@ def MyDraperQFTAdder(num_qubits):
 #             circuit.append(evolution_gate, range(num_qubits))
 #     return circuit
 
-def ComparatorCircuit(num_qubits: int):
+def ComparatorCircuit(num_qubits: int, seed: int = 26):
     """
     Generate an IntegerComparator circuit whose number of qubits is <= num_qubits.
 
@@ -330,6 +334,12 @@ def ComparatorCircuit(num_qubits: int):
     # Try the largest possible num_state_qubits first.
     # IntegerComparator needs state qubits + compare qubit + ancilla qubits.
     for n in range(num_qubits, 0, -1):
+        # # 随机一个value
+        # rng = np.random.default_rng(seed)
+
+        # max_bits = min(n, 31)
+        # high = 2 ** max_bits
+        # value = int(rng.integers(0, high))
         value = 2 ** (n - 1)   # threshold, roughly half of the n-bit range
 
         comparator = IntegerComparator(
@@ -508,6 +518,68 @@ def QiskitQAOA(num_qubits: int, reps: int = 1, seed: int = 26):
         for parameter in ansatz.parameters
     }
     return ansatz.assign_parameters(parameter_values)
+
+def QiskitMaxCutQAOA(
+    num_qubits: int,
+    reps: int = 1,
+    seed: int = 26,
+    edge_prob: float = 0.5,
+):
+    """
+    Construct a deterministic random-graph MaxCut QAOA benchmark circuit.
+
+    A random graph is generated with edge probability edge_prob.
+    The MaxCut cost Hamiltonian is:
+
+        C = sum_{(i,j) in E} (1 - Z_i Z_j) / 2
+
+    Since the constant term does not affect the circuit structure,
+    only the -0.5 * Z_i Z_j terms are encoded.
+    """
+    if num_qubits < 1:
+        raise ValueError("num_qubits must be >= 1")
+    if reps < 1:
+        raise ValueError("reps must be >= 1")
+    if not 0.0 <= edge_prob <= 1.0:
+        raise ValueError("edge_prob must be in [0, 1]")
+
+    rng = random.Random(seed)
+    terms = []
+
+    if num_qubits == 1:
+        # A one-node MaxCut instance has no edge.
+        # Use a single Z term to keep the ansatz non-empty.
+        terms.append(("Z", 0.0))
+    else:
+        for i in range(num_qubits):
+            for j in range(i + 1, num_qubits):
+                if rng.random() < edge_prob:
+                    label = ["I"] * num_qubits
+                    label[num_qubits - 1 - i] = "Z"
+                    label[num_qubits - 1 - j] = "Z"
+                    terms.append(("".join(label), -0.5))
+
+        # Avoid an empty graph, otherwise the cost Hamiltonian may be empty.
+        if not terms:
+            i, j = rng.sample(range(num_qubits), 2)
+            if i > j:
+                i, j = j, i
+
+            label = ["I"] * num_qubits
+            label[num_qubits - 1 - i] = "Z"
+            label[num_qubits - 1 - j] = "Z"
+            terms.append(("".join(label), -0.5))
+
+    cost_operator = SparsePauliOp.from_list(terms)
+
+    ansatz = QAOAAnsatz(
+        cost_operator=cost_operator,
+        reps=reps,
+        flatten=True,
+        name="MaxCutQAOA",
+    )
+
+    return ansatz
 
 def GraphState(num_qubits):
     """
@@ -842,22 +914,6 @@ def VQE(num_qubits: int, reps: int = 2, entanglement: str = "linear", seed: int 
     }
     return ansatz.assign_parameters(parameter_values)
 
-def build_qknn_benchmark(name: str, num_qubits: int):
-    """
-    构造一个 fidelity-based QKNN benchmark 电路。
-
-    支持以下名称格式：
-    - QKNN: 使用默认配置 reps=2
-    - QKNN_<reps>: 例如 QKNN_4
-    """
-    parts = name.split("_")
-    reps = 2
-
-    if len(parts) >= 2 and parts[1] != "":
-        reps = int(parts[1])
-
-    return QKNN(num_qubits=num_qubits, reps=reps)
-
 def build_swap_test_benchmark(name: str, num_qubits: int):
     """
     构造一个 swap-test benchmark 电路。
@@ -926,7 +982,23 @@ def SwapTest(num_qubits: int, prep_depth: int = 1, seed: int = 26) -> QuantumCir
 
     return qc
 
-def QKNN(num_qubits: int, reps: int = 2, seed: int = 26) -> QuantumCircuit:
+def build_qknn_benchmark(name: str, num_qubits: int):
+    """
+    构造一个 fidelity-based QKNN benchmark 电路。
+
+    支持以下名称格式：
+    - QKNN: 使用默认配置 reps=2
+    - QKNN_<reps>: 例如 QKNN_4
+    """
+    parts = name.split("_")
+    reps = 2
+
+    if len(parts) >= 2 and parts[1] != "":
+        reps = int(parts[1])
+
+    return QKNN(num_qubits=num_qubits, reps=reps)
+
+def QKNN(num_qubits: int, reps: int = 5, seed: int = 26) -> QuantumCircuit:
     """
     Generate a fidelity-based Quantum KNN (QKNN) benchmark circuit.
 
@@ -975,7 +1047,7 @@ def QKNN(num_qubits: int, reps: int = 2, seed: int = 26) -> QuantumCircuit:
 
     return qc
 
-def BV(num_qubits, secret_bitstring=None):
+def BV(num_qubits, secret_bitstring=None, seed=26):
     """
     为给定的秘密比特串构建Bernstein-Vazirani算法电路。
     
@@ -993,9 +1065,11 @@ def BV(num_qubits, secret_bitstring=None):
     
     # 如果secret_bitstring是None，生成101010...模式
     if secret_bitstring is None:
-        secret_bitstring = ''.join(np.random.choice(['0', '1'], size=n))
+        # secret_bitstring = ''.join(np.random.choice(['0', '1'], size=n))
         # secret_bitstring = ("10" * ((n + 1) // 2))[:n]
         # secret_bitstring = "1" * n
+        rng = np.random.default_rng(seed)
+        secret_bitstring = ''.join(rng.choice(['0', '1'], size=n))
     
     # 如果secret_bitstring太长，截取前n位
     if len(secret_bitstring) > n:
@@ -1133,5 +1207,38 @@ def SimonCircuit(
 
     # Step 3: Hadamard on input register.
     qc.h(x)
+
+    return qc
+
+def QiskitVQE(num_qubits: int, reps: int = 5):
+    if num_qubits < 1:
+        raise ValueError("num_qubits must be >= 1")
+    if reps < 1:
+        raise ValueError("reps must be >= 1")
+
+    return EfficientSU2(
+        num_qubits=num_qubits,
+        reps=reps,
+        entanglement="linear",
+        flatten=True,
+        name="VQE",
+    )
+
+def qft_body(num_qubits: int, do_swaps: bool = True) -> QuantumCircuit:
+    qc = QuantumCircuit(num_qubits, name="QFT")
+
+    for i in range(num_qubits - 1, -1, -1):
+        target = num_qubits - 1 - i
+        qc.h(target)
+
+        for j in range(i - 1, -1, -1):
+            control = num_qubits - 1 - j
+            k = i - j + 1
+            theta = 2 * pi / (2 ** k)
+            qc.cp(theta, control, target)
+
+    if do_swaps:
+        for i in range(num_qubits // 2):
+            qc.swap(i, num_qubits - 1 - i)
 
     return qc

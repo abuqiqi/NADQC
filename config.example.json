@@ -12,13 +12,15 @@
             "sequential_initial_layout": true,
             "skip_comm_payload_local_routing": false,
             "local_eval_mode": "deferred",
+            "optimization_level": 3,
             "deferred_route_local_gates": true,
             "deferred_initial_layout": "fixed"
         },
         "navi": {
             "mapper": "boundeddp_neighbor",
             "telegate_cache": true,
-            "telegate_cache_mode": "range"
+            "telegate_cache_mode": "range",
+            "evaluate_telegate_execution_choice": false
         }
     },
     "network_config": {

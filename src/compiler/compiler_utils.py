@@ -14,7 +14,7 @@ import sys
 
 from qiskit import QuantumCircuit, transpile
 from qiskit.converters import circuit_to_dag
-from qiskit.circuit import Gate
+from qiskit.circuit import Gate, Parameter, ParameterExpression
 
 from ..utils import Network, log
 
@@ -489,8 +489,9 @@ class MappingRecordList:
         if not isinstance(extra_info, dict):
             return extra_info
         copied = copy.deepcopy(extra_info)
-        if "ops" in copied:
-            copied["ops"] = MappingRecordList._encode_quantum_circuit(copied["ops"])
+        for circuit_key in ("ops", "simple_telegate_ops"):
+            if circuit_key in copied:
+                copied[circuit_key] = MappingRecordList._encode_quantum_circuit(copied[circuit_key])
         return copied
 
     @staticmethod
@@ -500,8 +501,9 @@ class MappingRecordList:
         if not isinstance(extra_info, dict):
             return extra_info
         copied = copy.deepcopy(extra_info)
-        if "ops" in copied:
-            copied["ops"] = MappingRecordList._decode_quantum_circuit(copied["ops"])
+        for circuit_key in ("ops", "simple_telegate_ops"):
+            if circuit_key in copied:
+                copied[circuit_key] = MappingRecordList._decode_quantum_circuit(copied[circuit_key])
         return copied
 
     @staticmethod
@@ -545,9 +547,10 @@ class MappingRecordList:
         num_qubits = int(payload.get("num_qubits", 0))
         num_clbits = int(payload.get("num_clbits", 0))
         circuit = QuantumCircuit(num_qubits, num_clbits)
-        circuit.global_phase = MappingRecordList._deserialize_param(payload.get("global_phase", 0.0))
+        param_cache: dict[str, Parameter] = {}
+        circuit.global_phase = MappingRecordList._deserialize_param(payload.get("global_phase", 0.0), param_cache)
         for item in payload.get("data", []):
-            op = MappingRecordList._decode_op(item.get("op"))
+            op = MappingRecordList._decode_op(item.get("op"), param_cache)
             qargs = [int(q) for q in item.get("qargs", [])]
             cargs = [int(c) for c in item.get("cargs", [])]
             if op is None:
@@ -577,7 +580,7 @@ class MappingRecordList:
         }
 
     @staticmethod
-    def _decode_op(data: Any) -> Any:
+    def _decode_op(data: Any, param_cache: Optional[dict[str, Parameter]] = None) -> Any:
         if data is None:
             return None
         if isinstance(data, Gate):
@@ -587,7 +590,7 @@ class MappingRecordList:
 
         if data.get("__type__") == "commop":
             gate_list = [
-                MappingRecordList._decode_gate(g)
+                MappingRecordList._decode_gate(g, param_cache)
                 for g in data.get("gate_list", [])
                 if g is not None
             ]
@@ -601,7 +604,7 @@ class MappingRecordList:
             )
 
         if data.get("__type__") == "gate":
-            return MappingRecordList._decode_gate(data)
+            return MappingRecordList._decode_gate(data, param_cache)
 
         return None
 
@@ -624,7 +627,7 @@ class MappingRecordList:
         return payload
 
     @staticmethod
-    def _decode_gate(data: Any) -> Optional[Gate]:
+    def _decode_gate(data: Any, param_cache: Optional[dict[str, Parameter]] = None) -> Optional[Gate]:
         if data is None:
             return None
         if isinstance(data, Gate):
@@ -633,7 +636,7 @@ class MappingRecordList:
             return None
         name = str(data.get("name", ""))
         num_qubits = int(data.get("num_qubits", 0))
-        params = [MappingRecordList._deserialize_param(p) for p in data.get("params", [])]
+        params = [MappingRecordList._deserialize_param(p, param_cache) for p in data.get("params", [])]
         if num_qubits <= 0:
             return None
         gate = Gate(name, num_qubits, params)
@@ -653,6 +656,12 @@ class MappingRecordList:
             return float(value)
         if isinstance(value, complex):
             return {"__type__": "complex", "re": float(value.real), "im": float(value.imag)}
+        if isinstance(value, ParameterExpression):
+            return {
+                "__type__": "parameter_expression",
+                "expr": str(value),
+                "params": sorted(str(param) for param in value.parameters),
+            }
         if isinstance(value, (list, tuple)):
             return [MappingRecordList._serialize_param(v) for v in value]
         if isinstance(value, dict):
@@ -662,16 +671,67 @@ class MappingRecordList:
         return {"__type__": "repr", "value": str(value)}
 
     @staticmethod
-    def _deserialize_param(value: Any) -> Any:
+    def _deserialize_param(value: Any, param_cache: Optional[dict[str, Parameter]] = None) -> Any:
         if isinstance(value, dict) and value.get("__type__") == "complex":
             return complex(value.get("re", 0.0), value.get("im", 0.0))
+        if isinstance(value, dict) and value.get("__type__") == "parameter_expression":
+            expr = str(value.get("expr", ""))
+            param_names = [str(param) for param in value.get("params", [])]
+            return MappingRecordList._decode_parameter_expression(expr, param_names, param_cache)
         if isinstance(value, dict) and value.get("__type__") == "repr":
-            return value.get("value")
+            expr = str(value.get("value", ""))
+            return MappingRecordList._decode_parameter_expression(expr, param_cache=param_cache)
         if isinstance(value, list):
-            return [MappingRecordList._deserialize_param(v) for v in value]
+            return [MappingRecordList._deserialize_param(v, param_cache) for v in value]
         if isinstance(value, dict):
-            return {k: MappingRecordList._deserialize_param(v) for k, v in value.items()}
+            return {k: MappingRecordList._deserialize_param(v, param_cache) for k, v in value.items()}
         return value
+
+    @staticmethod
+    def _decode_parameter_expression(
+        expr: str,
+        param_names: Optional[list[str]] = None,
+        param_cache: Optional[dict[str, Parameter]] = None,
+    ) -> Any:
+        if not expr:
+            return expr
+        try:
+            return float(expr)
+        except ValueError:
+            pass
+
+        try:
+            import re
+            import symengine
+
+            names = list(param_names or [])
+            if not names:
+                names = sorted(
+                    set(re.findall(r"(?u)\b[^\W\d]\w*(?:\[\d+\])?", expr)),
+                    key=len,
+                    reverse=True,
+                )
+            if not names:
+                return expr
+
+            rewritten = expr
+            params: dict[Parameter, Any] = {}
+            replacements: dict[Any, Any] = {}
+            for idx, name in enumerate(names):
+                placeholder = f"p{idx}"
+                rewritten = re.sub(rf"(?<!\w){re.escape(name)}(?!\w)", placeholder, rewritten)
+                if param_cache is None:
+                    parameter = Parameter(name)
+                else:
+                    parameter = param_cache.setdefault(name, Parameter(name))
+                placeholder_symbol = symengine.Symbol(placeholder)
+                params[parameter] = parameter._symbol_expr
+                replacements[placeholder_symbol] = parameter._symbol_expr
+
+            symbol_expr = symengine.sympify(rewritten).subs(replacements)
+            return ParameterExpression(params, symbol_expr)
+        except Exception:
+            return expr
 
 
 class CompilerUtils:
@@ -721,7 +781,7 @@ class CompilerUtils:
         evaluator = MappingEvaluator()
         policy = CompilerUtils.resolve_evaluation_policy(policy_name)
         cfg = config or {}
-        local_eval_mode = str(cfg.get("local_eval_mode", "immediate") or "immediate").lower()
+        local_eval_mode = str(cfg.get("local_eval_mode", "deferred") or "deferred").lower()
         if local_eval_mode not in {"immediate", "deferred"}:
             raise ValueError(f"unknown local_eval_mode: {local_eval_mode}")
         deferred_initial_layout = str(cfg.get("deferred_initial_layout", "fixed") or "fixed").lower()
@@ -729,12 +789,20 @@ class CompilerUtils:
             deferred_initial_layout = "fixed"
         elif deferred_initial_layout in {"true", "1", "yes", "on"}:
             deferred_initial_layout = "free"
+        optimization_level = int(cfg.get("optimization_level", policy.optimization_level))
+        if optimization_level not in {0, 1, 2, 3}:
+            raise ValueError(f"unknown optimization_level: {optimization_level}")
         policy = dataclasses.replace(
             policy,
+            optimization_level=optimization_level,
             local_eval_mode=local_eval_mode,
             deferred_route_local_gates=bool(cfg.get("deferred_route_local_gates", True)),
             deferred_initial_layout=deferred_initial_layout,
             flush_each_comm_gate=bool(cfg.get("flush_each_comm_gate", False)),
+            evaluate_telegate_execution_choice=(
+                str(cfg.get("_compiler_id", "")).lower() == "navi"
+                and bool(cfg.get("evaluate_telegate_execution_choice", False))
+            ),
         )
         return evaluator.evaluate(mapping_record_list, network, policy)
 
@@ -1039,7 +1107,7 @@ class CompilerUtils:
         if len(logical_phy_map) == 0:
             logical_phy_map = CompilerUtils.init_logical_phy_map(partition)
 
-        sequential_initial_layout = bool(cfg.get("sequential_initial_layout", False))
+        sequential_initial_layout = bool(cfg.get("sequential_initial_layout", True))
         if sequential_initial_layout:
             logical_phy_map = CompilerUtils.apply_sequential_initial_layout_if_unset(
                 partition,

@@ -1342,6 +1342,8 @@ class NAVI(Compiler):
             record_list.add_record(telegate_record)
             record_list.summarize_total_costs()
 
+        self._set_simple_telegate_ops_for_full_circuit_record(ctx, record_list, ori_left, ori_right)
+
         if use_cache:
             # strict模式只写strict key；range模式只写range key；fallback模式双写提高复用。
             if cache_mode == "range":
@@ -1359,6 +1361,32 @@ class NAVI(Compiler):
         
         # print(f"[DEBUG] Time: {time.time() - start_time}")
         return record_list
+
+    def _set_simple_telegate_ops_for_full_circuit_record(
+        self,
+        ctx: CompilationContext,
+        record_list: MappingRecordList,
+        ori_left: int,
+        ori_right: int,
+    ) -> None:
+        is_full_circuit_range = (
+            int(ori_left) == 0
+            and int(ori_right) == len(ctx.circuit_layers) - 1
+        )
+        for record in record_list.records:
+            if record.extra_info is None:
+                record.extra_info = {}
+            if is_full_circuit_range:
+                static_oee_view_layers = CompilerUtils.build_circuit_layers(ctx.circuit)
+                record.extra_info["simple_telegate_ops"] = CompilerUtils.get_subcircuit_by_level(
+                    num_qubits=ctx.circuit.num_qubits,
+                    circuit=ctx.circuit,
+                    circuit_layers=static_oee_view_layers,
+                    layer_start=0,
+                    layer_end=len(static_oee_view_layers) - 1,
+                )
+            else:
+                record.extra_info.pop("simple_telegate_ops", None)
 
     # def _extract_cat_controls(self, circuit: QuantumCircuit) -> list[int]:
     #     """
@@ -1600,11 +1628,13 @@ def evaluate_navi_checkpoints_from_config(
             f"{pre_eval_time:.6f} sec"
         )
         eval_start_time = time.time()
+        eval_config = dict(config or {})
+        eval_config["_compiler_id"] = "navi"
         evaluated = CompilerUtils.evaluate_raw_mapping_records(
             record_list,
             network,
             policy_name=spec.policy or default_policy_name,
-            config=config,
+            config=eval_config,
         )
         eval_time = time.time() - eval_start_time
         print(

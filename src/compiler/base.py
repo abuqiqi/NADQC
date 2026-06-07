@@ -57,11 +57,13 @@ class Compiler(ABC):
             f"{pre_eval_time:.6f} sec"
         )
         eval_start_time = time.time()
+        eval_config = dict(config or {})
+        eval_config["_compiler_id"] = self.compiler_id
         evaluated = CompilerUtils.evaluate_raw_mapping_records(
             mapping_record_list,
             network,
             policy_name=policy_name,
-            config=config,
+            config=eval_config,
         )
         eval_time = time.time() - eval_start_time
         print(

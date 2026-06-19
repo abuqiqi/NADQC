@@ -76,7 +76,7 @@ def main(args, timestamp: str | None = None, initial_stdout_buffer: io.StringIO 
         **global_config.get('network_config', {}),
         'type': args.network,
     }
-    comm_slot_reserve = int(network_config.get('comm_slot_reserve', global_config.get('comm_slot_reserve', 0)) or 0)
+    comm_slot_reserve = Network.resolve_comm_slot_reserve(network_config, global_config)
 
     backend_list = []
     for i in range(args.core_count):
@@ -120,7 +120,7 @@ def main(args, timestamp: str | None = None, initial_stdout_buffer: io.StringIO 
     # 调用不同的compiler
     result_info = {}
     output_path = _build_output_csv_path(global_config, args, timestamp)
-    output_path = "./outputs/260607-Scalability-Qubits.csv"
+    output_path = "./outputs/260615.csv"
 
     registered_compiler_ids = CompilerFactory.register_compilers(global_config.get("compiler_modules"))
     default_compiler_ids = ["staticoee", "fgproee", "wbcp", "autocomm", "navi"]
@@ -152,7 +152,7 @@ def main(args, timestamp: str | None = None, initial_stdout_buffer: io.StringIO 
         )
 
     for compiler in compilers:
-        print(f"Compiler: [{compiler.name}]")
+        log(f"Compiler: [{compiler.name}]")
         compile_config = _build_compile_config(global_config, compiler, circuit_name)
         if checkpoint_enabled and compiler.compiler_id == "navi" and checkpoint_dir is not None:
             compile_config["navi_checkpoint_enabled"] = True

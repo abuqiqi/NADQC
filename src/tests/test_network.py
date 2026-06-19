@@ -22,6 +22,60 @@ def test_mesh_grid_infers_square_size_for_four_qpus():
     assert set(net.network_coupling) == {(0, 1), (2, 3), (0, 2), (1, 3)}
 
 
+def test_network_comm_slot_reserve_defaults_to_two_and_allows_zero_override():
+    default_net = Network(
+        {"type": "all_to_all", "fidelity_range": (0.92, 0.97)},
+        [_MockBackend(), _MockBackend()],
+        build_all_to_all_copy=False,
+    )
+    zero_reserve_net = Network(
+        {
+            "type": "all_to_all",
+            "fidelity_range": (0.92, 0.97),
+            "comm_slot_reserve": 0,
+        },
+        [_MockBackend(), _MockBackend()],
+        build_all_to_all_copy=False,
+    )
+
+    assert Network.DEFAULT_COMM_SLOT_RESERVE == 2
+    assert default_net.comm_slot_reserve == 2
+    assert zero_reserve_net.comm_slot_reserve == 0
+
+
+def test_network_comm_slot_reserve_resolver_preserves_legacy_priority():
+    assert Network.resolve_comm_slot_reserve({}, {}) == 2
+    assert Network.resolve_comm_slot_reserve(
+        {},
+        {"comm_slot_reserve": 1},
+    ) == 1
+    assert Network.resolve_comm_slot_reserve(
+        {"comm_slot_reserve": 3},
+        {"comm_slot_reserve": 1},
+    ) == 3
+    assert Network.resolve_comm_slot_reserve(
+        {"comm_slot_reserve": 0},
+        {"comm_slot_reserve": 1},
+    ) == 0
+
+
+def test_network_fidelity_range_defaults_to_config_value_and_allows_override():
+    default_net = Network(
+        {"type": "all_to_all"},
+        [_MockBackend(), _MockBackend()],
+        build_all_to_all_copy=False,
+    )
+    override_net = Network(
+        {"type": "all_to_all", "fidelity_range": (0.92, 0.97)},
+        [_MockBackend(), _MockBackend()],
+        build_all_to_all_copy=False,
+    )
+
+    assert Network.DEFAULT_FIDELITY_RANGE == (0.90, 0.93)
+    assert tuple(default_net.fidelity_range) == (0.90, 0.93)
+    assert override_net.fidelity_range == (0.92, 0.97)
+
+
 def test_mesh_grid_infers_rectangular_size_for_eight_qpus():
     net = Network(
         {"type": "mesh_grid", "fidelity_range": (0.92, 0.97)},

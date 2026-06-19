@@ -106,13 +106,7 @@ class NAVI(Compiler):
     def compile(self, circuit: QuantumCircuit, 
                 network: Network, 
                 config: Optional[dict[str, Any]] = None) -> MappingRecordList:
-        return self._compile_impl(
-            circuit,
-            network,
-            config,
-            use_direct_noise_aware=False,
-            override_mapper_id=None,
-        )
+        return self._compile_impl(circuit, network, config)
 
     def get_shared_prefix_signature(self, config: Optional[dict[str, Any]] = None) -> tuple[Any, ...]:
         cfg = config or {}
@@ -154,8 +148,6 @@ class NAVI(Compiler):
         assign_result = ctx.partition_assigner.assign(ctx.partition_candidates)
         ctx.partition_plan = assign_result["partition_plan"]
         assign_elapsed = time.time() - assign_time
-        print(f"[partition assignment] Time: {assign_elapsed}s, candidates={len(ctx.partition_candidates)}")
-        print(f"[partition assignment] Time: {assign_elapsed}s, candidates={len(ctx.partition_candidates)}", file=sys.stderr)
 
         return ctx, time.time() - start_time
 
@@ -164,7 +156,6 @@ class NAVI(Compiler):
         shared_ctx: CompilationContext,
         config: Optional[dict[str, Any]] = None,
         shared_prefix_time: float = 0.0,
-        use_direct_noise_aware: bool = False,
         override_mapper_id: Optional[str] = None,
     ) -> MappingRecordList:
         ctx = copy.deepcopy(shared_ctx)
@@ -179,7 +170,6 @@ class NAVI(Compiler):
         return self._finish_compile_from_ctx(
             ctx,
             shared_prefix_time=shared_prefix_time,
-            use_direct_noise_aware=use_direct_noise_aware,
             override_mapper_id=override_mapper_id,
         )
 
@@ -280,7 +270,6 @@ class NAVI(Compiler):
                 circuit: QuantumCircuit,
                 network: Network,
                 config: Optional[dict[str, Any]] = None,
-                use_direct_noise_aware: bool = False,
                 override_mapper_id: Optional[str] = None) -> MappingRecordList:
         """
         Compile the circuit using the NADQC algorithm.
@@ -299,7 +288,6 @@ class NAVI(Compiler):
         return self._finish_compile_from_ctx(
             ctx,
             shared_prefix_time=shared_prefix_time,
-            use_direct_noise_aware=use_direct_noise_aware,
             override_mapper_id=override_mapper_id,
         )
 
@@ -307,9 +295,7 @@ class NAVI(Compiler):
         self,
         ctx: CompilationContext,
         shared_prefix_time: float = 0.0,
-        use_direct_noise_aware: bool = False,
     ) -> tuple[MappingRecordList, float]:
-        use_noise_aware_hybrid_records = bool(use_direct_noise_aware)
         records_start_time = time.time()
 
         teledata_only_records = self._step_construct_teledata_only_records(ctx)
@@ -322,43 +308,26 @@ class NAVI(Compiler):
         )
         teledata_eval_epairs = float(teledata_only_records.total_costs.epairs)
 
-        if use_noise_aware_hybrid_records:
-            hybrid_records = self._step_construct_direct_noise_aware_hybrid_records(ctx)
-            self._save_checkpoint_records(
-                ctx,
-                "NAVI-Direct",
-                "NAVI-Direct_raw.json",
-                hybrid_records,
-                execution_time=shared_prefix_time + (time.time() - records_start_time),
-            )
-        else:
-            hybrid_records = self._step_construct_hybrid_records_beam(ctx)
-            self._save_checkpoint_records(
-                ctx,
-                "NAVI-Hy",
-                "NAVI-Hy_raw.json",
-                hybrid_records,
-                execution_time=shared_prefix_time + (time.time() - records_start_time),
-            )
+        hybrid_records = self._step_construct_hybrid_records_beam(ctx)
+        self._save_checkpoint_records(
+            ctx,
+            "NAVI-Hy",
+            "NAVI-Hy_raw.json",
+            hybrid_records,
+            execution_time=shared_prefix_time + (time.time() - records_start_time),
+        )
         hybrid_eval_epairs = hybrid_records.total_costs.epairs
 
-        if not use_noise_aware_hybrid_records:
-            chosen_records_tag = "hybrid"
-            selected_records = hybrid_records
-            if teledata_eval_epairs < hybrid_eval_epairs:
-                selected_records = teledata_only_records
-                chosen_records_tag = "teledata_only"
+        chosen_records_tag = "hybrid"
+        selected_records = hybrid_records
+        if teledata_eval_epairs < hybrid_eval_epairs:
+            selected_records = teledata_only_records
+            chosen_records_tag = "teledata_only"
 
-            log(
-                f"[records_compare] hybrid_epairs={hybrid_eval_epairs}, "
-                f"teledata_only_epairs={teledata_eval_epairs}, chosen={chosen_records_tag}"
-            )
-        else:
-            selected_records = hybrid_records
-            log(
-                f"[records_compare] hybrid_epairs={hybrid_eval_epairs}, "
-                f"teledata_only_epairs={teledata_eval_epairs}, chosen=<skipped_by_noise_aware_hybrid>"
-            )
+        # log(
+        #     f"[records_compare] hybrid_epairs={hybrid_eval_epairs}, "
+        #     f"teledata_only_epairs={teledata_eval_epairs}, chosen={chosen_records_tag}"
+        # )
 
         total_cache_hits = ctx.telegate_cache_hits + ctx.telegate_cache_relaxed_hits
         total_telegate_calls = total_cache_hits + ctx.telegate_cache_misses
@@ -390,10 +359,10 @@ class NAVI(Compiler):
         mapper_start_time = time.time()
         ctx.hybrid_records = copy.deepcopy(records)
         ctx.mapper = MapperFactory.create_mapper(str(mapper_id).lower())
-        log(
-            f"[hybrid_mapper_select] records={len(ctx.hybrid_records.records)}, "
-            f"selected_mapper={mapper_id}"
-        )
+        # log(
+        #     f"[hybrid_mapper_select] records={len(ctx.hybrid_records.records)}, "
+        #     f"selected_mapper={mapper_id}"
+        # )
 
         final_result = ctx.mapper.map(
             ctx.hybrid_records,
@@ -423,14 +392,14 @@ class NAVI(Compiler):
         exec_time = shared_prefix_time + records_time + (time.time() - mapper_start_time)
         log(f"[INFO] {self.name} execution time: {exec_time} sec")
 
-        post_mapper_costs = final_result.total_costs
-        post_mapper_telegate = sum(1 for rec in final_result.records if rec.mapping_type in {"telegate", "cat"})
-        post_mapper_cat_records = sum(1 for rec in final_result.records if rec.costs.cat_ents > 0)
-        log(
-            f"[cat_debug][hybrid_post_mapper] records={len(final_result.records)}, "
-            f"telegate_records={post_mapper_telegate}, cat_records={post_mapper_cat_records}, "
-            f"cat_ents={post_mapper_costs.cat_ents}, epairs={post_mapper_costs.epairs}"
-        )
+        # post_mapper_costs = final_result.total_costs
+        # post_mapper_telegate = sum(1 for rec in final_result.records if rec.mapping_type in {"telegate", "cat"})
+        # post_mapper_cat_records = sum(1 for rec in final_result.records if rec.costs.cat_ents > 0)
+        # log(
+        #     f"[cat_debug][hybrid_post_mapper] records={len(final_result.records)}, "
+        #     f"telegate_records={post_mapper_telegate}, cat_records={post_mapper_cat_records}, "
+        #     f"cat_ents={post_mapper_costs.cat_ents}, epairs={post_mapper_costs.epairs}"
+        # )
         final_result.update_total_costs(execution_time=exec_time)
         if self._checkpoint_enabled(ctx):
             self._write_checkpoint_manifest_entry(
@@ -446,21 +415,14 @@ class NAVI(Compiler):
         self,
         ctx: CompilationContext,
         shared_prefix_time: float = 0.0,
-        use_direct_noise_aware: bool = False,
         override_mapper_id: Optional[str] = None,
     ) -> MappingRecordList:
         selected_records, records_time = self._construct_records_from_ctx(
             ctx,
             shared_prefix_time=shared_prefix_time,
-            use_direct_noise_aware=use_direct_noise_aware,
         )
         if override_mapper_id is not None:
             selected_mapper_id = str(override_mapper_id).lower()
-        elif use_direct_noise_aware:
-            if len(selected_records.records) == 1:
-                selected_mapper_id = "single_record_greedy"
-            else:
-                selected_mapper_id = "direct"
         else:
             selected_mapper_id = str(ctx.config.get("multi_record_mapper", "boundeddp_neighbor")).lower()
             if (
@@ -474,12 +436,6 @@ class NAVI(Compiler):
             mapper_id=selected_mapper_id,
             shared_prefix_time=shared_prefix_time,
             records_time=records_time,
-        )
-
-    def _step_construct_direct_noise_aware_hybrid_records(self, ctx: CompilationContext) -> MappingRecordList:
-        raise NotImplementedError(
-            "_step_construct_direct_noise_aware_hybrid_records is only implemented "
-            "by direct-noise-aware subclasses."
         )
 
     # =========================================================================
@@ -551,7 +507,7 @@ class NAVI(Compiler):
         Remove single qubit gates and calculate densities.
         Updates: ctx.multiq_layers, ctx.map_*, ctx.gate_density, ctx.twoq_gate_density
         """
-        start_time = time.time()
+        # start_time = time.time()
 
         # if bool(ctx.config.get("enable_cat_gate_reorder", False)):
         #     reordered_circuit, reorder_stats = self._reorder_cat_candidate_gates(ctx.circuit)
@@ -629,8 +585,8 @@ class NAVI(Compiler):
         ctx.multiq_layers = multiq_layers
         ctx.map_to_circuit_layer = map_to_circuit_layer
 
-        end_time = time.time()
-        log(f"[INFO] remove_single_qubit_gates: {end_time - start_time} seconds")
+        # end_time = time.time()
+        # log(f"[INFO] remove_single_qubit_gates: {end_time - start_time} seconds")
         return
 
     # def _reorder_cat_candidate_gates(self, circuit: QuantumCircuit) -> tuple[QuantumCircuit, dict[str, int]]:
@@ -713,7 +669,6 @@ class NAVI(Compiler):
         """
         Build the P table.
         """
-        print(f"[build_partition_table]")
         start_time = time.time()
         multiq_layers = ctx.multiq_layers
         num_depths = len(multiq_layers)
@@ -776,7 +731,6 @@ class NAVI(Compiler):
         # 相关逻辑按需求临时停用，仅保留代码以便后续恢复。
         # self._build_telegate_hints_for_empty_partitions(ctx, P)
 
-        log(f"[build_partition_table] Time: {time.time() - start_time} seconds")
         return P
 
     # def _build_telegate_hints_for_empty_partitions(self, ctx: CompilationContext, P: list[list[list[Any]]]) -> None:
@@ -876,8 +830,6 @@ class NAVI(Compiler):
         subc_ranges = []
         self._get_sliced_subc_recursive(S, 0, num_depths - 1, subc_ranges)
         
-        print(f"[build_slicing_table] Time: {time.time() - start_time} seconds")
-        print(f"[build_slicing_table] Time: {time.time() - start_time} seconds", file=sys.stderr)
         return subc_ranges
 
     def _step_construct_hybrid_records_beam(self, ctx: CompilationContext) -> MappingRecordList:
@@ -908,12 +860,11 @@ class NAVI(Compiler):
         pos_probe_budget = max(1, pos_probe_budget)
         prune_trigger_ratio = max(2, prune_trigger_ratio)
 
-        log(
-            f"[construct_hybrid_records_beam] blocks={K}, beam_width={beam_width}, "
-            f"max_merge_span={max_merge_span}, merge_probe_budget={merge_probe_budget}, "
-            f"pos_probe_budget={pos_probe_budget}, "
-            f"objective=(min epairs, max cat_ents)"
-        )
+        # log(
+        #     f"[construct_hybrid_records_beam] blocks={K}, beam_width={beam_width}, "
+        #     f"max_merge_span={max_merge_span}, merge_probe_budget={merge_probe_budget}, "
+        #     f"pos_probe_budget={pos_probe_budget}"
+        # )
         setattr(ctx, "runtime_hybrid_beam_width", beam_width)
 
         if K == 0:
@@ -1011,10 +962,6 @@ class NAVI(Compiler):
             return pruned[:beam_width]
 
         telegate_probe_positions = set(self._sample_budgeted_indices(0, K - 1, pos_probe_budget))
-        log(
-            f"[construct_hybrid_records_beam] telegate_probe_positions: {telegate_probe_positions}\n"
-            f"[construct_hybrid_records_beam] telegate_probe_positions={len(telegate_probe_positions)}/{K}"
-        )
 
         for pos in range(K):
             print(f"\n================= {pos} / {K} ==================")
@@ -1062,9 +1009,9 @@ class NAVI(Compiler):
                         sampled_ends.append(K - 1)
                         sampled_ends = sorted(set(sampled_ends))
 
-                    log(
-                        f"[construct_hybrid_records_beam] Sampling telegate for position {pos}, sampled ends: {sampled_ends}"
-                    )
+                    # log(
+                    #     f"[construct_hybrid_records_beam] Sampling telegate for position {pos}, sampled ends: {sampled_ends}"
+                    # )
 
                     for end in sampled_ends:
                         if end == pos:
@@ -1142,12 +1089,7 @@ class NAVI(Compiler):
 
         ctx.telegate_optimized = True
         end_time = time.time()
-        log(
-            f"[construct_hybrid_records_beam] best_projected_key=(epairs={best_projected_epairs}, cat_ents={best_projected_cat_ents}, hint_hits={best_hint_hits}), "
-            f"best_eval_key=(loss={best_eval_key[0]}, epairs={best_eval_key[1]}), "
-            f"best_epairs={result.total_costs.epairs}, best_cat_ents={result.total_costs.cat_ents}, "
-            f"Time: {end_time - start_time} seconds"
-        )
+
         return result
 
     # =========================================================================
@@ -1274,7 +1216,7 @@ class NAVI(Compiler):
         ctx.telegate_total_calls += 1
 
         if use_cache:
-            cache_mode = str(ctx.config.get("telegate_cache_mode", "strict"))
+            cache_mode = str(ctx.config.get("telegate_cache_mode", "range"))
             range_key = (ori_left, ori_right, "ANY_PREV")
             use_strict_key = (cache_mode != "range")
             if use_strict_key:

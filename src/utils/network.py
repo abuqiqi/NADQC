@@ -9,6 +9,20 @@ import os
 from .backend import Backend
 
 class Network:
+    DEFAULT_COMM_SLOT_RESERVE = 2
+    DEFAULT_FIDELITY_RANGE = (0.90, 0.93)
+
+    @classmethod
+    def resolve_comm_slot_reserve(
+        cls,
+        network_config: dict,
+        global_config: dict | None = None,
+    ) -> int:
+        fallback = cls.DEFAULT_COMM_SLOT_RESERVE
+        if global_config is not None:
+            fallback = global_config.get("comm_slot_reserve", fallback)
+        return int(network_config.get("comm_slot_reserve", fallback) or 0)
+
     def __init__(self, network_config: dict, backend_list: list[Backend], build_all_to_all_copy: bool = True):
         self.num_backends = len(backend_list)
         self.network_coupling = self._build_network_coupling(network_config)
@@ -18,7 +32,7 @@ class Network:
         # 计算量子比特交换的保真度和损失
         self.swap_fidelity, self.swap_fidelity_loss = self._compute_swap_fidelity()
         self.backends = backend_list
-        self.comm_slot_reserve = int(network_config.get('comm_slot_reserve', 0) or 0)
+        self.comm_slot_reserve = self.resolve_comm_slot_reserve(network_config)
         self.layout_trace_records = None
         # 后端实际容量（用于transpile/通信临时槽）
         self.backend_sizes_full = [backend.num_qubits for backend in self.backends]
@@ -70,7 +84,7 @@ class Network:
         self.size = network_config.get('size')
         if self.size is None:
             self.size = self._infer_mesh_grid_size() if self.net_type == 'mesh_grid' else (self.num_backends, 1)
-        self.fidelity_range = network_config.get('fidelity_range', [0.95, 0.98])
+        self.fidelity_range = network_config.get('fidelity_range', self.DEFAULT_FIDELITY_RANGE)
 
         # 验证保真度范围
         if not (0 < self.fidelity_range[0] <= self.fidelity_range[1] < 1):

@@ -801,7 +801,12 @@ class CompilerUtils:
             flush_each_comm_gate=bool(cfg.get("flush_each_comm_gate", False)),
             evaluate_telegate_execution_choice=(
                 str(cfg.get("_compiler_id", "")).lower() == "navi"
-                and bool(cfg.get("evaluate_telegate_execution_choice", False))
+                and bool(
+                    cfg.get(
+                        "evaluate_telegate_execution_choice",
+                        policy.evaluate_telegate_execution_choice,
+                    )
+                )
             ),
         )
         return evaluator.evaluate(mapping_record_list, network, policy)

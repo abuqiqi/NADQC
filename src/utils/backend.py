@@ -375,10 +375,18 @@ class Backend:
         return []
 
     def _download_backend_data(self, config: dict, backend_name: str, date: datetime.datetime):
-        backend_importer = QiskitBackendImporter(token=config["ibm_quantum_token"],
-                                                instance=config["ibm_quantum_instance"],
-                                                proxies=config.get("proxies", None)
-                                                )
+        token = os.environ.get("IBM_QUANTUM_TOKEN")
+        if not token:
+            raise RuntimeError(
+                "IBM Quantum credentials are required to download backend data. "
+                "Set the IBM_QUANTUM_TOKEN environment variable."
+            )
+
+        backend_importer = QiskitBackendImporter(
+            token=token,
+            instance=os.environ.get("IBM_QUANTUM_INSTANCE"),
+            proxies=config.get("proxies", None),
+        )
         backend_importer.download_backend_info(backend_name=backend_name,
                                               start_date=date,
                                               end_date=date,

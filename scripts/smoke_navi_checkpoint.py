@@ -98,7 +98,11 @@ def main() -> None:
     parser.add_argument("--qubit-count", type=int, default=4)
     parser.add_argument("--core-count", type=int, default=2)
     parser.add_argument("--core-capacity", type=int, default=3)
-    parser.add_argument("--comm-slot-reserve", type=int, default=1)
+    parser.add_argument(
+        "--comm-slot-reserve",
+        type=int,
+        default=Network.DEFAULT_COMM_SLOT_RESERVE,
+    )
     parser.add_argument("--backend-name", default="ibm_marrakesh")
     parser.add_argument("--date", default="2026-03-01")
     parser.add_argument("--network", default="all_to_all")

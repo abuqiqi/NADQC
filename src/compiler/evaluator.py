@@ -30,7 +30,7 @@ class EvaluationPolicy:
     local_eval_mode: Literal["immediate", "deferred"] = "deferred"
     deferred_route_local_gates: bool = True
     deferred_initial_layout: Literal["fixed", "free"] = "fixed"
-    evaluate_telegate_execution_choice: bool = False
+    evaluate_telegate_execution_choice: bool = True
 
     @staticmethod
     def local_all_to_all() -> "EvaluationPolicy":

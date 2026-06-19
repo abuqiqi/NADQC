@@ -113,7 +113,7 @@ def build_network(args: argparse.Namespace, global_config: dict[str, Any]) -> Ne
         **global_config.get("network_config", {}),
         "type": args.network,
     }
-    comm_slot_reserve = int(network_config.get("comm_slot_reserve", global_config.get("comm_slot_reserve", 0)) or 0)
+    comm_slot_reserve = Network.resolve_comm_slot_reserve(network_config, global_config)
 
     backends = []
     for idx in range(args.core_count):

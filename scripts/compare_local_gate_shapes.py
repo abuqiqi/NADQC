@@ -404,9 +404,7 @@ def build_context(args: argparse.Namespace) -> tuple[dict[str, Any], QuantumCirc
     core_capacity = normalize_repeated(parse_int_list(args.core_capacity), args.core_count)
     backend_names = normalize_repeated(parse_str_list(args.backend_name), args.core_count)
     dates = normalize_repeated(parse_str_list(args.date), args.core_count)
-    comm_slot_reserve = int(
-        network_config.get("comm_slot_reserve", global_config.get("comm_slot_reserve", 0)) or 0
-    )
+    comm_slot_reserve = Network.resolve_comm_slot_reserve(network_config, global_config)
 
     backends = []
     for idx in range(args.core_count):

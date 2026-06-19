@@ -88,9 +88,7 @@ def build_bv100_context() -> tuple[QuantumCircuit, Network, dict[str, Any]]:
         **global_config.get("network_config", {}),
         "type": "mesh_grid",
     }
-    comm_slot_reserve = int(
-        network_config.get("comm_slot_reserve", global_config.get("comm_slot_reserve", 0)) or 0
-    )
+    comm_slot_reserve = Network.resolve_comm_slot_reserve(network_config, global_config)
 
     backend_list = []
     for _ in range(2):
@@ -166,7 +164,7 @@ def analyze_autocomm_op_list(circuit: QuantumCircuit, network: Network) -> dict[
     qmap = compiler._generate_qubit_node_mapping(circuit.num_qubits, network.backend_sizes)
     partition = compiler._partition_from_mapping(circuit.num_qubits, qmap, network.num_backends)
 
-    from src.baselines.AutoComm.autocomm import autocomm_full
+    from src.third_party.AutoComm import autocomm_full
 
     num_q = len(qmap)
     qb_per_node = max(network.backend_sizes) if network.backend_sizes else 1

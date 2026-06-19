@@ -38,9 +38,7 @@ def main():
         **cfg.get("network_config", {}),
         "type": "mesh_grid",
     }
-    comm_slot_reserve = int(
-        network_config.get("comm_slot_reserve", cfg.get("comm_slot_reserve", 0)) or 0
-    )
+    comm_slot_reserve = Network.resolve_comm_slot_reserve(network_config, cfg)
 
     backend_list = []
     for _ in range(4):
@@ -88,39 +86,35 @@ def main():
 
     compiler = QAutoComm()
 
-    for comm_only in (False, True):
-        result = compiler.compile(
-            subcircuit,
-            network,
-            {
-                "circuit_name": "debug_subc",
-                "partition": partition,
-                "save_records": False,
-                "comm_only_costs": comm_only,
-            },
-        )
+    result = compiler.compile(
+        subcircuit,
+        network,
+        {
+            "circuit_name": "debug_subc",
+            "partition": partition,
+            "save_records": False,
+        },
+    )
 
-        c = result.total_costs
-        print(f"\nQAutoComm result comm_only_costs={comm_only}")
-        print({
-            "epairs": c.epairs,
-            "num_comms": c.num_comms,
-            "remote_hops": c.remote_hops,
-            "remote_swaps": c.remote_swaps,
-            "cat_ents": c.cat_ents,
-            "local_gate_num": c.local_gate_num,
-            "total_fidelity_loss": c.total_fidelity_loss,
-            "remote_fidelity_loss": c.remote_fidelity_loss,
-            "local_fidelity_loss": c.local_fidelity_loss,
-        })
+    c = result.total_costs
+    print("\nQAutoComm full evaluator result")
+    print({
+        "epairs": c.epairs,
+        "num_comms": c.num_comms,
+        "remote_hops": c.remote_hops,
+        "remote_swaps": c.remote_swaps,
+        "cat_ents": c.cat_ents,
+        "local_gate_num": c.local_gate_num,
+        "total_fidelity_loss": c.total_fidelity_loss,
+        "remote_fidelity_loss": c.remote_fidelity_loss,
+        "local_fidelity_loss": c.local_fidelity_loss,
+    })
 
-        rec = result.records[0]
-        ei = rec.extra_info or {}
-        print("extra_info:", {
-            "autocomm_latency": ei.get("autocomm_latency"),
-            "autocomm_assigned_block_count": ei.get("autocomm_assigned_block_count"),
-            "comm_only_costs": ei.get("comm_only_costs"),
-        })
+    ei = result.records[0].extra_info or {}
+    print("extra_info:", {
+        "autocomm_latency": ei.get("autocomm_latency"),
+        "autocomm_assigned_block_count": ei.get("autocomm_assigned_block_count"),
+    })
 
 
 if __name__ == "__main__":

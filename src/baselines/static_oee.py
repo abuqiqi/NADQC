@@ -3,7 +3,7 @@ from typing import Any, Optional
 import datetime
 import time
 
-from .oee import OEE
+from ..partitioning import OEE
 from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
 

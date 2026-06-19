@@ -138,7 +138,7 @@ def test_evaluate_raw_mapping_records_allows_immediate_local_eval_override(monke
     assert captured["local_eval_mode"] == "immediate"
 
 
-def test_evaluate_raw_mapping_records_enables_telegate_choice_only_for_navi(monkeypatch):
+def test_evaluate_raw_mapping_records_defaults_telegate_choice_only_for_navi(monkeypatch):
     captured = []
 
     def fake_evaluate(self, mapping_record_list, network, policy):
@@ -151,15 +151,41 @@ def test_evaluate_raw_mapping_records_enables_telegate_choice_only_for_navi(monk
     CompilerUtils.evaluate_raw_mapping_records(
         MappingRecordList(records=[]),
         _Network(),
-        config={"evaluate_telegate_execution_choice": True, "_compiler_id": "staticoee"},
+        config={"_compiler_id": "staticoee"},
     )
     CompilerUtils.evaluate_raw_mapping_records(
         MappingRecordList(records=[]),
         _Network(),
-        config={"evaluate_telegate_execution_choice": True, "_compiler_id": "navi"},
+        config={"_compiler_id": "navi"},
     )
 
     assert captured == [False, True]
+
+
+def test_evaluation_policy_defaults_to_telegate_execution_choice():
+    assert EvaluationPolicy(name="test").evaluate_telegate_execution_choice is True
+
+
+def test_evaluate_raw_mapping_records_allows_disabling_navi_telegate_choice(monkeypatch):
+    captured = {}
+
+    def fake_evaluate(self, mapping_record_list, network, policy):
+        del self, network
+        captured["enabled"] = policy.evaluate_telegate_execution_choice
+        return mapping_record_list
+
+    monkeypatch.setattr(MappingEvaluator, "evaluate", fake_evaluate)
+
+    CompilerUtils.evaluate_raw_mapping_records(
+        MappingRecordList(records=[]),
+        _Network(),
+        config={
+            "_compiler_id": "navi",
+            "evaluate_telegate_execution_choice": False,
+        },
+    )
+
+    assert captured["enabled"] is False
 
 
 def test_evaluate_raw_mapping_records_rejects_unknown_optimization_level():
@@ -213,7 +239,7 @@ def test_oee_partitioner_does_not_save_simple_telegate_ops(monkeypatch):
         del record_or_partition, subcircuit, network
         return ExecCosts()
 
-    monkeypatch.setattr("src.navi.telegate_partitioner.OEE.partition", fake_partition)
+    monkeypatch.setattr("src.partitioning.OEE.partition", fake_partition)
     monkeypatch.setattr(OEEPartitioner, "_build_cat_comm_ops", fake_build_cat_comm_ops)
     monkeypatch.setattr(
         CompilerUtils,
@@ -241,8 +267,9 @@ def test_cat_ent_partitioner_does_not_save_simple_telegate_ops(monkeypatch):
     ops = QuantumCircuit(2)
     ops.append(CommOp("cat", 0, 0, 1, [0, 1], []), [0, 1])
 
-    def fake_compile(self, circuit, network, config):
-        del self, circuit, network, config
+    def fake_build(circuit, network, partition=None):
+        del circuit, network
+        assert partition == [[0], [1]]
         return MappingRecordList(
             records=[
                 MappingRecord(
@@ -253,7 +280,26 @@ def test_cat_ent_partitioner_does_not_save_simple_telegate_ops(monkeypatch):
             ]
         )
 
-    monkeypatch.setattr("src.baselines.autocomm.QAutoComm.compile", fake_compile)
+    def fake_comm_only_evaluate(record, record_ops, network):
+        del record_ops, network
+        record.costs.epairs += 1
+        record.costs.cat_ents += 1
+        return record.costs
+
+    monkeypatch.setattr(
+        "src.navi.telegate_partitioner.build_autocomm_records",
+        fake_build,
+    )
+    monkeypatch.setattr(
+        CompilerUtils,
+        "evaluate_telegate_with_cat",
+        fake_comm_only_evaluate,
+    )
+    monkeypatch.setattr(
+        CompilerUtils,
+        "evaluate_raw_mapping_records",
+        lambda *args, **kwargs: pytest.fail("CatEntPartitioner used the full evaluator"),
+    )
 
     records = CatEntPartitioner().partition(
         circuit,
@@ -267,6 +313,9 @@ def test_cat_ent_partitioner_does_not_save_simple_telegate_ops(monkeypatch):
         for instruction in record.extra_info["ops"]
     )
     assert "simple_telegate_ops" not in record.extra_info
+    assert record.extra_info["comm_only_costs"] is True
+    assert record.costs.epairs == 1
+    assert records.total_costs.epairs == 1
 
 
 def test_navi_full_circuit_range_sets_simple_telegate_ops_from_static_oee_view():

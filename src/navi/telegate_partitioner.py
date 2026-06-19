@@ -9,7 +9,8 @@ from qiskit import transpile
 from ..utils import Network, log
 from ..compiler import MappingRecord, CompilerUtils, MappingRecordList
 from ..compiler.compiler_utils import CommOp
-from ..baselines import OEE
+from ..partitioning import OEE
+from ..third_party.AutoComm import build_autocomm_records
 
 class TelegatePartitioner(ABC):
     """
@@ -432,24 +433,21 @@ class CatEntPartitioner(TelegatePartitioner):
         else:
             init_partition = base_partition
 
-        # 在初始划分基础上调用QAutoComm，拿到cat-ent优化记录。
-        from ..baselines.autocomm import QAutoComm
-
-        autocomm_cfg = dict(cfg)
-        autocomm_cfg["partition"] = init_partition
-        autocomm_cfg["save_records"] = False
-        autocomm_cfg["comm_only_costs"] = True
-
-        cat_result = QAutoComm().compile(
-            circuit=circuit,
-            network=network,
-            config=autocomm_cfg,
-        )
+        cat_result = build_autocomm_records(circuit, network, partition=init_partition)
 
         for record in cat_result.records:
+            ops = (record.extra_info or {}).get("ops")
+            if not isinstance(ops, QuantumCircuit):
+                raise ValueError("AutoComm record is missing its operations circuit")
+            CompilerUtils.evaluate_telegate_with_cat(record, ops, network)
+            record.extra_info = {
+                **(record.extra_info or {}),
+                "comm_only_costs": True,
+            }
             record.layer_start = layer_start
             record.layer_end = layer_end
 
+        cat_result.summarize_total_costs()
         return cat_result
 
 

@@ -1,28 +1,7 @@
 {
-    "ibm_quantum_token": "your_token",
-    "ibm_quantum_instance": "your_instance",
-
     "device_properties_folder": "your_device_properties_folder",
     "output_folder": "your_output_folder",
     "compiler_modules": ["src.baselines", "src.navi"],
-    "compiler_config": {
-        "common": {
-            "debug_layout_tracking": false,
-            "flush_each_comm_gate": false,
-            "sequential_initial_layout": true,
-            "skip_comm_payload_local_routing": false,
-            "local_eval_mode": "deferred",
-            "optimization_level": 3,
-            "deferred_route_local_gates": true,
-            "deferred_initial_layout": "fixed"
-        },
-        "navi": {
-            "mapper": "boundeddp_neighbor",
-            "telegate_cache": true,
-            "telegate_cache_mode": "range",
-            "evaluate_telegate_execution_choice": false
-        }
-    },
     "network_config": {
         "fidelity_range": [0.90, 0.93],
         "comm_slot_reserve": 2

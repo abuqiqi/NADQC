@@ -1210,7 +1210,7 @@ def SimonCircuit(
 
     return qc
 
-def QiskitVQE(num_qubits: int, reps: int = 5):
+def QiskitVQE(num_qubits: int, reps: int = 1):
     if num_qubits < 1:
         raise ValueError("num_qubits must be >= 1")
     if reps < 1:
@@ -1219,7 +1219,7 @@ def QiskitVQE(num_qubits: int, reps: int = 5):
     return EfficientSU2(
         num_qubits=num_qubits,
         reps=reps,
-        entanglement="linear",
+        entanglement="full",
         flatten=True,
         name="VQE",
     )

@@ -11,7 +11,7 @@ import datetime
 
 from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
-from .oee import OEE
+from ..partitioning import OEE
 
 class WBCP(Compiler):
     """

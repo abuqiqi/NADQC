@@ -6,7 +6,7 @@ import numpy as np
 import time
 import datetime
 
-from .oee import OEE
+from ..partitioning import OEE
 from ..compiler import Compiler, CompilerUtils, MappingRecord, MappingRecordList
 from ..utils import Network
 # Legacy direct mapper path is disabled; keep import location noted for rollback.
